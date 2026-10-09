@@ -9,6 +9,7 @@ dev-dist
 # Rahasia & data lokal
 .env
 .env.local
+.env.turso
 .env.*.local
 data/
 backup/
