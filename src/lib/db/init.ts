@@ -12,10 +12,8 @@ import { seedDatabase } from "./seed";
 
 let initPromise: Promise<void> | null = null;
 
-async function initDatabaseInner(): Promise<void> {
-  const db = await Database.load("sqlite:kasukretan.db");
-  setDbInstance(db);
-
+/** Skema terbaru + migrasi idempoten — juga dipakai setelah restore agar backup lama ikut diperbarui. */
+export async function applySchemaMigrations(db: Database): Promise<void> {
   const parts = schemaSql
     .replace(/--[^\n]*/g, "")
     .split(";")
@@ -27,6 +25,12 @@ async function initDatabaseInner(): Promise<void> {
   }
   await runMasterDataMigrations(db);
   await ensureDudukanKeringananTable(db);
+}
+
+async function initDatabaseInner(): Promise<void> {
+  const db = await Database.load("sqlite:kasukretan.db");
+  setDbInstance(db);
+  await applySchemaMigrations(db);
   markMigrationsApplied();
   await seedDatabase();
 }

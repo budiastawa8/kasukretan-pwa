@@ -14,6 +14,7 @@ import { Button } from "../components/ui/Button";
 import { Input, Label } from "../components/ui/Input";
 import { useAuth } from "../context/AuthContext";
 import { CloudBackupPanel } from "../components/settings/CloudBackupPanel";
+import { CloudRestorePanel } from "../components/settings/CloudRestorePanel";
 import { UsersPanel } from "../components/settings/UsersPanel";
 import { WhatsAppTemplatePanel } from "../components/settings/WhatsAppTemplatePanel";
 import { AppAboutPanel } from "../components/settings/AppAboutPanel";
@@ -300,7 +301,12 @@ export function SettingsPage() {
         </div>
       )}
 
-      {activeTab === "database" && admin && <CloudBackupPanel />}
+      {activeTab === "database" && admin && (
+        <>
+          <CloudBackupPanel />
+          <CloudRestorePanel />
+        </>
+      )}
 
       {activeTab === "pengguna" && admin && <UsersPanel />}
     </div>

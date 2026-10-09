@@ -114,6 +114,27 @@ diperlukan karena data ada di cloud.
 
 Lakukan backup rutin (mis. mingguan) dan simpan di tempat aman — file berisi data pribadi krama.
 
+## 6. Restore
+
+**Restore menimpa seluruh data cloud** (krama, keuangan, dan akun pengguna) dengan isi berkas `.db`.
+
+- **Dari aplikasi** (admin): *Pengaturan → Database → Restore database*.
+  1. Pilih berkas `.db` (backup aplikasi ini atau `kasukretan.db` dari desktop). Aplikasi memeriksa
+     berkas dan menampilkan ringkasannya: nama desa, jumlah krama, dan akun admin di dalamnya.
+  2. Isi password admin Anda dan ketik `RESTORE`.
+  3. Aplikasi otomatis mengunduh backup data saat ini (`…-sebelum-restore.db`), lalu me-restore.
+     Selama proses, staf lain tidak bisa mengubah data. Jangan tutup halaman.
+  4. Setelah selesai, masuk ulang dengan akun admin dari berkas backup.
+
+  Bila restore berhenti di tengah (mis. internet putus), database tetap terkunci. Tekan
+  **Ulangi restore**, atau restore berkas `…-sebelum-restore.db` untuk kembali ke data semula.
+  Kunci yang tertinggal otomatis kedaluwarsa setelah 30 menit.
+- **Dari komputer** (lebih cepat untuk database besar):
+
+  ```powershell
+  npm run db:import -- "D:\backup\kasukretan-backup.db" --env=.env.turso --force
+  ```
+
 ## Batas paket gratis (perkiraan untuk satu desa)
 
 - **Vercel Hobby**: 100 GB bandwidth/bulan, untuk penggunaan non-komersial. Cukup untuk puluhan staf.
@@ -130,7 +151,8 @@ Lakukan backup rutin (mis. mingguan) dan simpan di tempat aman — file berisi d
 | `npm run db:import`  | Salin file `.db` desktop ke database tujuan                  |
 | `npm run db:export`  | Salin database ke file `.db`                                 |
 | `npm run jwt:secret` | Buat `JWT_SECRET` acak                                       |
-| `npx tsx scripts/smoke-api.ts` | Uji API & RBAC terhadap server lokal (jangan ke produksi — membuat/menghapus pengguna uji) |
+| `npx tsx scripts/smoke-api.ts [url] [password-admin]` | Uji API & RBAC terhadap server lokal (jangan ke produksi — membuat/menghapus pengguna uji) |
+| `npx tsx scripts/smoke-restore.ts [url] [password-admin]` | Uji alur restore terhadap server lokal (hanya database `file:`) |
 
 ## Perbedaan dengan versi desktop
 

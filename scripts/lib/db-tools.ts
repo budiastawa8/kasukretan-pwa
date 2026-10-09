@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import type { Client, InStatement } from "@libsql/client";
 import { createDbClient, databaseConfig, rowsToObjects } from "../../server/db.js";
+import { SCHEMA_OBJECTS_SQL } from "../../server/restore.js";
 import { convertSql, isMultiStatement } from "../../server/sql-convert.js";
 import type Database from "../../src/lib/desktop/sql.js";
 import { runMasterDataMigrations } from "../../src/lib/db/migrations.js";
@@ -69,14 +70,7 @@ export async function initSchema(client: Client, log = console.log): Promise<voi
 type SchemaObject = { type: string; name: string; tbl_name: string; sql: string };
 
 export async function listObjects(client: Client): Promise<SchemaObject[]> {
-  const rs = await client.execute(
-    `SELECT type, name, tbl_name, sql FROM sqlite_master
-     WHERE sql IS NOT NULL
-       AND name NOT LIKE 'sqlite_%'
-       AND name NOT LIKE '_litestream%'
-       AND name NOT LIKE 'libsql_%'`
-  );
-  return rowsToObjects(rs) as SchemaObject[];
+  return rowsToObjects(await client.execute(SCHEMA_OBJECTS_SQL)) as SchemaObject[];
 }
 
 export async function countUserRows(client: Client): Promise<number> {
@@ -104,7 +98,7 @@ function q(name: string): string {
 }
 
 /** Urutkan tabel induk sebelum anak (foreign key) agar insert tidak melanggar relasi. */
-async function insertOrder(client: Client, tables: string[]): Promise<string[]> {
+export async function insertOrder(client: Client, tables: string[]): Promise<string[]> {
   const deps = new Map<string, Set<string>>();
   for (const t of tables) {
     const rs = await client.execute(`PRAGMA foreign_key_list(${q(t)})`);

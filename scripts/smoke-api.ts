@@ -1,7 +1,7 @@
 /**
  * Uji cepat API + RBAC terhadap server yang sedang jalan.
  *   npm run dev:api   (terminal lain)
- *   npx tsx scripts/smoke-api.ts [http://localhost:3001]
+ *   npx tsx scripts/smoke-api.ts [http://localhost:3001] [password-admin]
  * Membuat user uji smoke_* di database target — jangan jalankan ke database produksi.
  */
 import bcrypt from "bcryptjs";
@@ -45,7 +45,7 @@ check(
   (await call("/auth/login", { body: { username: "admin", password: "salah123" } })).status === 401
 );
 
-const admin = await login("admin", "admin123");
+const admin = await login("admin", process.argv[3] ?? process.env.SMOKE_ADMIN_PASSWORD ?? "admin123");
 const pw = "Rahasia123";
 const hash = await bcrypt.hash(pw, 10);
 await sql(admin, "execute", `DELETE FROM user WHERE username LIKE 'smoke_%'`);

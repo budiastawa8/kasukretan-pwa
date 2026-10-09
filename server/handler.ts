@@ -9,6 +9,16 @@ import {
 } from "./auth.js";
 import { dbExecute, dbSelect, getClient } from "./db.js";
 import { authorizeSql } from "./policy.js";
+import {
+  SCHEMA_OBJECTS_SQL,
+  assertNotLocked,
+  beginRestore,
+  endRestore,
+  finishRestore,
+  holdsRestoreLock,
+  restoreRows,
+  restoreStatus,
+} from "./restore.js";
 import { toJsonValue } from "./sql-convert.js";
 
 type ApiRequest = IncomingMessage & { body?: unknown };
@@ -150,18 +160,57 @@ async function handleRoute(path: string, req: ApiRequest, res: ServerResponse): 
       send(res, 200, { rowsAffected: 0 });
       return;
     }
+    await assertNotLocked(user);
     send(res, 200, await dbExecute(sql, bind));
+    return;
+  }
+
+  if (path === "admin/restore/status" && method === "GET") {
+    requireAdmin(user);
+    send(res, 200, { ok: true, ...(await restoreStatus()) });
+    return;
+  }
+
+  if (path === "admin/restore/begin" && method === "POST") {
+    requireAdmin(user);
+    const body = await readBody(req);
+    const verified =
+      (await holdsRestoreLock(user)) ||
+      (await loginWithPassword(user.username, String(body.password ?? "")).catch(() => null));
+    if (!verified) {
+      throw new HttpError(400, "Password admin salah.");
+    }
+    const restoreId = await beginRestore(user, body.tables);
+    // Tabel user ikut diganti — token baru menunda cek ulang sesi ke database sampai restore selesai.
+    res.setHeader("X-Refresh-Token", signToken(user));
+    send(res, 200, { ok: true, restoreId });
+    return;
+  }
+
+  if (path === "admin/restore/rows" && method === "POST") {
+    requireAdmin(user);
+    send(res, 200, { ok: true, inserted: await restoreRows(user, await readBody(req)) });
+    return;
+  }
+
+  if (path === "admin/restore/finish" && method === "POST") {
+    requireAdmin(user);
+    await finishRestore(user, await readBody(req));
+    send(res, 200, { ok: true });
+    return;
+  }
+
+  if (path === "admin/restore/end" && method === "POST") {
+    requireAdmin(user);
+    await endRestore(user);
+    send(res, 200, { ok: true });
     return;
   }
 
   if (path === "admin/schema" && method === "GET") {
     requireAdmin(user);
     const objects = await dbSelect(
-      `SELECT type, name, tbl_name, sql FROM sqlite_master
-       WHERE sql IS NOT NULL
-         AND name NOT LIKE 'sqlite_%'
-         AND name NOT LIKE '_litestream%'
-         AND name NOT LIKE 'libsql_%'
+      `${SCHEMA_OBJECTS_SQL}
        ORDER BY CASE type WHEN 'table' THEN 0 WHEN 'index' THEN 1 ELSE 2 END, name`
     );
     const version = await dbSelect(`PRAGMA user_version`);

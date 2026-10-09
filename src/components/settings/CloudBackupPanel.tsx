@@ -77,7 +77,8 @@ export function CloudBackupPanel() {
 
       <p className="text-[11px] text-muted leading-relaxed">
         Berkas <strong>.db</strong> dapat dibuka di aplikasi desktop Kasukretan lewat Pengaturan →
-        Database → Restore database. Data cloud tidak berubah saat backup diunduh.
+        Database → Restore database, atau dikembalikan ke cloud lewat panel Restore di bawah. Data
+        cloud tidak berubah saat backup diunduh.
       </p>
     </CollapsibleSettingsSection>
   );
