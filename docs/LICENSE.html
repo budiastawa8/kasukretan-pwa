@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>LICENSE.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="lisensi-kasukretan-offline--tanda-tangan-digital">Lisensi Kasukretan (offline + tanda tangan digital)</h1>
+<h2 id="ringkasan">Ringkasan</h2>
+<table>
+<thead>
+<tr>
+<th>Komponen</th>
+<th>Model</th>
+<th>Cakupan</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Desktop</strong></td>
+<td>Sekali bayar, permanen</td>
+<td>Semua modul offline, 2 mesin per desa</td>
+</tr>
+<tr>
+<td><strong>Modul cloud</strong></td>
+<td>Langganan bulanan (token <code>KSKC2</code>)</td>
+<td>Sync API, petugas HP, portal krama</td>
+</tr>
+</tbody>
+</table>
+<p>Validasi di <strong>Rust</strong>; build <strong>release</strong> wajib aktivasi desktop, <strong>debug</strong> (<code>tauri dev</code>) dilewati.</p>
+<p>Grace period cloud: <strong>7 hari</strong> setelah <code>expires_at</code> sebelum fitur online terkunci.</p>
+<h2 id="alur-vendor--lisensi-desktop">Alur vendor — lisensi desktop</h2>
+<ol>
+<li>
+<p><strong>Buat keypair produksi</strong> (sekali):</p>
+<pre class="hljs"><code><div>npm run license:gen -- keygen
+</div></code></pre>
+<p>Salin <code>LICENSE_PUBLIC_KEY</code> ke <code>src-tauri/src/license/mod.rs</code>. Private key di <code>src-tauri/.license-keys/private.hex</code> (jangan di-commit).</p>
+</li>
+<li>
+<p><strong>Terima fingerprint</strong> dari pembeli (layar Aktivasi di aplikasi release).</p>
+</li>
+<li>
+<p><strong>Terbitkan kode desktop</strong>:</p>
+<pre class="hljs"><code><div>npm run license:issue
+</div></code></pre>
+<p>Skrip interaktif meminta kode desa (4 digit) dan fingerprint.</p>
+<p>Non-interaktif (PowerShell):</p>
+<pre class="hljs"><code><div>.\scripts\issue<span class="hljs-literal">-license</span>.ps1 <span class="hljs-literal">-DesaKode</span> <span class="hljs-number">0567</span> <span class="hljs-literal">-Fingerprint</span> &lt;<span class="hljs-number">32</span><span class="hljs-literal">-hex</span>&gt;
+</div></code></pre>
+<p>Mesin kedua desa yang sama: <strong>kode desa sama</strong>, fingerprint berbeda, kode aktivasi baru.</p>
+</li>
+<li>
+<p>Kirim string <code>KSK2.&lt;payload&gt;.&lt;signature&gt;</code> ke pembeli.</p>
+</li>
+</ol>
+<h2 id="alur-vendor--langganan-cloud">Alur vendor — langganan cloud</h2>
+<p>Setelah desktop aktif, pembeli mengisi kode cloud di <strong>Pengaturan → Modul Online</strong>.</p>
+<ol>
+<li>
+<p>Catat <strong>kode desa</strong> (4 digit) dari lisensi desktop pembeli.</p>
+</li>
+<li>
+<p>Terbitkan kode langganan:</p>
+<pre class="hljs"><code><div>npm run license:cloud
+</div></code></pre>
+<p>Interaktif, atau:</p>
+<pre class="hljs"><code><div>.\scripts\issue<span class="hljs-literal">-cloud-license</span>.ps1 <span class="hljs-literal">-DesaKode</span> <span class="hljs-number">0567</span> <span class="hljs-literal">-Months</span> <span class="hljs-number">1</span>
+</div></code></pre>
+<p>CLI langsung:</p>
+<pre class="hljs"><code><div>npm run license:gen -- issue-cloud --desa-kode 0567 --months 1
+npm run license:gen -- issue-cloud --desa-kode 0567 --expires-at 1735689600
+</div></code></pre>
+</li>
+<li>
+<p>Kirim string <code>KSKC2.&lt;payload&gt;.&lt;signature&gt;</code> ke pembeli.</p>
+</li>
+</ol>
+<p>Perpanjangan: terbitkan kode baru — aplikasi memakai tanggal kedaluwarsa yang lebih akhir.</p>
+<h3 id="baca-ulang-isi-kode">Baca ulang isi kode</h3>
+<pre class="hljs"><code><div>npm run license:decode -- --code <span class="hljs-string">&quot;KSK2....&quot;</span>
+</div></code></pre>
+<p>Menampilkan isi payload setelah verifikasi tanda tangan.</p>
+<h2 id="uji-lokal-developer">Uji lokal (developer)</h2>
+<pre class="hljs"><code><div>npm run license:gen -- issue-local --desa-kode 0567
+</div></code></pre>
+<p>Pastikan <code>LICENSE_PUBLIC_KEY</code> di <code>mod.rs</code> cocok dengan private key di <code>.license-keys/</code>.</p>
+<h2 id="format-token">Format token</h2>
+<p><strong>Desktop:</strong> <code>KSK2.&lt;payload_base64url&gt;.&lt;signature_base64url&gt;</code></p>
+<p>Payload biner (20 byte):</p>
+<table>
+<thead>
+<tr>
+<th>Offset</th>
+<th>Isi</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0–3</td>
+<td>Kode desa adat (4 digit ASCII)</td>
+</tr>
+<tr>
+<td>4–19</td>
+<td>Fingerprint mesin (16 byte)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Cloud:</strong> <code>KSKC2.&lt;payload_base64url&gt;.&lt;signature_base64url&gt;</code></p>
+<p>Payload biner (12 byte):</p>
+<table>
+<thead>
+<tr>
+<th>Offset</th>
+<th>Isi</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0–3</td>
+<td>Kode desa adat (4 digit ASCII)</td>
+</tr>
+<tr>
+<td>4–11</td>
+<td><code>expires_at</code> unix detik (u64 big-endian)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="penyimpanan">Penyimpanan</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Isi</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>license.json</code></td>
+<td>Lisensi desktop (AppConfig Tauri)</td>
+</tr>
+<tr>
+<td><code>cloud-subscription.json</code></td>
+<td>Langganan cloud aktif</td>
+</tr>
+</tbody>
+</table>
+<p>Maks. 2 fingerprint per kode desa.</p>
+<h2 id="modul-cloud-di-aplikasi">Modul cloud di aplikasi</h2>
+<p>Fitur online aktif jika langganan <code>KSKC2</code> masih berlaku (+ grace 7 hari).</p>
+<p>UI: <strong>Pengaturan → tab Modul Online</strong>. Di dev build selalu tersedia (kecuali <code>VITE_ENABLE_ONLINE=false</code>).</p>
+
+</body>
+</html>

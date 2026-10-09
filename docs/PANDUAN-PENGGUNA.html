@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>PANDUAN-PENGGUNA.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="panduan-pengguna--kasukretan-krama">Panduan Pengguna — Kasukretan Krama</h1>
+<p>Panduan ini menjelaskan cara menggunakan aplikasi <strong>Kasukretan Krama</strong> untuk operasional harian di kantor desa adat, petugas lapangan, dan (opsional) portal krama.</p>
+<blockquote>
+<p><strong>Tutorial langkah demi langkah</strong> ada di <a href="./TUTORIAL-PENGGUNA.html">TUTORIAL-PENGGUNA.html</a>.<br>
+<strong>Instalasi &amp; setup teknis</strong> ada di <a href="./LEMBAR-KERJA-INSTALASI.html">LEMBAR-KERJA-INSTALASI.html</a>.<br>
+<strong>Go-live modul online (dari nol):</strong> <a href="./GO-LIVE-ONLINE.html">GO-LIVE-ONLINE.html</a> — Supabase → Hugging Face → Cloudflare Pages.</p>
+</blockquote>
+<hr>
+<h2 id="1-tentang-aplikasi">1. Tentang Aplikasi</h2>
+<p>Kasukretan Krama membantu pengelolaan:</p>
+<ul>
+<li><strong>Krama</strong> (Mipil, Krama Tamiu, Tamiu)</li>
+<li><strong>Paturunan</strong> — iuran krama mipil</li>
+<li><strong>Dudukan</strong> — iuran krama tamiu &amp; tamiu</li>
+<li><strong>Keuangan</strong> — buku kas, pemasukan, pengeluaran</li>
+<li><strong>Laporan</strong> — rekap, tunggakan, audit</li>
+</ul>
+<p>Aplikasi terdiri dari tiga bagian:</p>
+<table>
+<thead>
+<tr>
+<th>Bagian</th>
+<th>Dipakai di</th>
+<th>Keterangan</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Desktop kantor</strong></td>
+<td>PC kantor desa</td>
+<td>Operasional utama, data disimpan lokal (SQLite)</td>
+</tr>
+<tr>
+<td><strong>Modul Petugas</strong></td>
+<td>Browser HP petugas</td>
+<td>Input pembayaran di lapangan (opsional, butuh internet)</td>
+</tr>
+<tr>
+<td><strong>Portal Krama</strong></td>
+<td>Browser krama</td>
+<td>Cek tunggakan sendiri (opsional)</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="2-memulai">2. Memulai</h2>
+<h3 id="21-aktivasi-pertama-kali">2.1 Aktivasi (pertama kali)</h3>
+<ol>
+<li>Buka aplikasi desktop setelah instalasi.</li>
+<li>Di layar <strong>Aktivasi</strong>, salin <strong>fingerprint mesin</strong> jika diminta vendor.</li>
+<li>Tempel <strong>kode lisensi</strong> <code>KSK1...</code> yang diberikan vendor.</li>
+<li>Setelah berhasil, aplikasi siap dipakai.</li>
+</ol>
+<h3 id="22-login">2.2 Login</h3>
+<ol>
+<li>Masukkan <strong>username</strong> dan <strong>password</strong>.</li>
+<li>Jika diminta ganti password, ikuti layar <strong>Ganti password</strong> terlebih dahulu.</li>
+<li>Setelah login, menu sisi kiri menampilkan modul yang bisa diakses.</li>
+</ol>
+<h3 id="23-peran-pengguna">2.3 Peran pengguna</h3>
+<table>
+<thead>
+<tr>
+<th>Peran</th>
+<th>Hak akses</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Administrator</strong></td>
+<td>Semua fitur, termasuk pengaturan, pengguna, database, modul online</td>
+</tr>
+<tr>
+<td><strong>Operator</strong></td>
+<td>Input &amp; ubah data operasional (krama, pembayaran, keuangan)</td>
+</tr>
+<tr>
+<td><strong>Viewer</strong></td>
+<td>Hanya melihat; tidak bisa ubah master data atau tambah krama baru</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="3-navigasi-menu">3. Navigasi Menu</h2>
+<p>Menu utama di aplikasi desktop:</p>
+<table>
+<thead>
+<tr>
+<th>Menu</th>
+<th>Fungsi</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Dashboard</strong></td>
+<td>Ringkasan krama, keuangan, dan peringatan</td>
+</tr>
+<tr>
+<td><strong>Krama Mipil</strong></td>
+<td>Daftar &amp; kelola krama mipil (pipil)</td>
+</tr>
+<tr>
+<td><strong>Paturunan</strong></td>
+<td>Iuran &amp; pembayaran krama mipil</td>
+</tr>
+<tr>
+<td><strong>Krama Tamiu &amp; Tamiu</strong></td>
+<td>Daftar pemasih</td>
+</tr>
+<tr>
+<td><strong>Dudukan</strong></td>
+<td>Iuran &amp; pembayaran pemasih</td>
+</tr>
+<tr>
+<td><strong>Keuangan</strong></td>
+<td>Buku kas, transfer, pemasukan, pengeluaran</td>
+</tr>
+<tr>
+<td><strong>Laporan</strong></td>
+<td>Berbagai laporan cetak/PDF</td>
+</tr>
+<tr>
+<td><strong>Master Data</strong></td>
+<td>Struktur desa, jenis krama, tim, akun</td>
+</tr>
+<tr>
+<td><strong>Pengaturan</strong></td>
+<td>Tab Umum, Database, Pengguna, Modul Online (jika lisensi cloud)</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="4-alur-setup-pertama-kali">4. Alur Setup Pertama Kali</h2>
+<p>Urutan yang disarankan sebelum operasional:</p>
+<pre class="hljs"><code><div>1. Pengaturan → Setup Wilayah &amp; Desa
+2. Master Data → Profil Desa, Wilayah, Jenis, Tim, Keuangan
+3. Krama Mipil / Krama Tamiu &amp; Tamiu → input atau impor data
+4. Paturunan → atur iuran
+5. Dudukan → pastikan jadwal &amp; tarif sesuai
+6. (Opsional) Pengaturan → tab **Modul Online** → sinkronisasi cloud
+</div></code></pre>
+<h3 id="41-setup-wilayah--desa">4.1 Setup Wilayah &amp; Desa</h3>
+<p><strong>Menu:</strong> Pengaturan → tab <strong>Umum</strong> → <strong>Setup Wilayah &amp; Desa</strong></p>
+<ol>
+<li>Isi kode kabupaten (2 digit), kecamatan (2 digit), dan desa adat (4 digit).</li>
+<li>Isi nama wilayah.</li>
+<li>Klik <strong>Simpan</strong>.</li>
+<li>Pastikan status <strong>&quot;Siap terbit nomor kartu&quot;</strong>.</li>
+</ol>
+<blockquote>
+<p><strong>Penting:</strong> Kode wilayah <strong>tidak bisa diubah</strong> setelah ada krama terdaftar. Isi dengan benar sejak awal.</p>
+</blockquote>
+<p>Logo desa, prajuru, dan ketentuan nyada/luput diatur di <strong>Master Data → Profil Desa</strong>.</p>
+<h3 id="42-master-data">4.2 Master Data</h3>
+<p><strong>Menu:</strong> Master Data</p>
+<table>
+<thead>
+<tr>
+<th>Tab</th>
+<th>Isi</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Wilayah</strong></td>
+<td>Banjar → Tempek → Arahan</td>
+</tr>
+<tr>
+<td><strong>Jenis</strong></td>
+<td>Jenis Krama Mipil, Krama Tamiu, Tamiu</td>
+</tr>
+<tr>
+<td><strong>Masa berlaku</strong></td>
+<td>Ketentuan masa berlaku pemasih</td>
+</tr>
+<tr>
+<td><strong>Profil Desa</strong></td>
+<td>Logo, prajuru, ketentuan desa</td>
+</tr>
+<tr>
+<td><strong>Tim Kasukretan</strong></td>
+<td>Nama petugas lapangan per banjar</td>
+</tr>
+<tr>
+<td><strong>Keuangan</strong></td>
+<td>Akun kas, pos pemasukan &amp; biaya</td>
+</tr>
+<tr>
+<td><strong>Impor/Ekspor</strong></td>
+<td>Unduh template Excel, impor massal</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Urutan wilayah:</strong> Banjar dulu, lalu Tempek di dalam banjar, lalu Arahan di dalam tempek.</p>
+<hr>
+<h2 id="5-krama-mipil">5. Krama Mipil</h2>
+<p><strong>Menu:</strong> Krama Mipil</p>
+<h3 id="daftar-krama">Daftar krama</h3>
+<ul>
+<li>Tab <strong>Aktif</strong> / <strong>Nonaktif</strong> — filter status krama.</li>
+<li>Gunakan kolom <strong>cari</strong> dan filter banjar/tempek/jenis untuk menemukan krama.</li>
+<li>Klik baris untuk <strong>detail</strong>, ikon <strong>mata</strong> untuk lihat, <strong>pensil</strong> untuk edit.</li>
+</ul>
+<h3 id="menambah-krama-baru">Menambah krama baru</h3>
+<ol>
+<li>Klik <strong>Tambah Krama Mipil</strong>.</li>
+<li>Isi data kepala krama, lokasi (banjar/tempek/arahan), dan anggota keluarga.</li>
+<li>Simpan — nomor kartu diterbitkan otomatis sesuai kode wilayah.</li>
+</ol>
+<h3 id="fitur-lain">Fitur lain</h3>
+<ul>
+<li><strong>Cetak kartu</strong> — dari detail krama</li>
+<li><strong>Impor/Ekspor</strong> — tab Impor di halaman daftar</li>
+<li><strong>WhatsApp</strong> — kirim pesan ke krama (template di Pengaturan)</li>
+<li><strong>Nonaktifkan / reaktivasi</strong> — untuk krama yang tidak aktif lagi</li>
+</ul>
+<hr>
+<h2 id="6-paturunan">6. Paturunan</h2>
+<p><strong>Menu:</strong> Paturunan</p>
+<p>Modul ini mengelola iuran krama mipil.</p>
+<h3 id="tab-daftar">Tab Daftar</h3>
+<ul>
+<li>Menampilkan krama mipil beserta status iuran per periode.</li>
+<li>Filter: banjar, tempek, jenis mipil, iuran.</li>
+<li>Klik <strong>Bayar</strong> pada baris krama untuk mencatat pembayaran.</li>
+</ul>
+<h3 id="mengelola-iuran">Mengelola iuran</h3>
+<ol>
+<li>Di bagian <strong>Iuran paturunan</strong>, tambah atau edit nama iuran.</li>
+<li>Set <strong>tanggal target</strong> jika perlu peringatan jatuh tempo.</li>
+<li>Simpan perubahan.</li>
+</ol>
+<h3 id="mencatat-pembayaran">Mencatat pembayaran</h3>
+<ol>
+<li>Klik <strong>Bayar</strong> pada krama yang bersangkutan.</li>
+<li>Isi jumlah, tanggal, akun keuangan, dan keterangan.</li>
+<li>Konfirmasi simpan.</li>
+</ol>
+<p>Pembayaran bisa berupa <strong>wajib</strong>, <strong>punia</strong>, atau kombinasi sesuai kebutuhan desa.</p>
+<h3 id="tab-riwayat">Tab Riwayat</h3>
+<ul>
+<li>Lihat semua transaksi paturunan.</li>
+<li><strong>Edit</strong> atau <strong>Hapus</strong> (dengan konfirmasi) jika ada koreksi.</li>
+</ul>
+<h3 id="tab-impor">Tab Impor</h3>
+<ul>
+<li>Impor pembayaran massal dari Excel (untuk migrasi data lama).</li>
+</ul>
+<h3 id="whatsapp">WhatsApp</h3>
+<ul>
+<li>Tombol WhatsApp di daftar krama mengirim pesan penagihan menggunakan template di Pengaturan.</li>
+</ul>
+<hr>
+<h2 id="7-krama-tamiu--tamiu">7. Krama Tamiu &amp; Tamiu</h2>
+<p><strong>Menu:</strong> Krama Tamiu &amp; Tamiu</p>
+<h3 id="daftar-pemasih">Daftar pemasih</h3>
+<ul>
+<li>Krama Tamiu dan Tamiu dalam satu daftar dengan filter jenis.</li>
+<li>Tambah pemasih baru lewat <strong>Tambah</strong> (pilih jenis).</li>
+</ul>
+<h3 id="halaman-perhatian">Halaman Perhatian</h3>
+<p><strong>Menu:</strong> Krama Tamiu &amp; Tamiu → <strong>Perhatian</strong></p>
+<p>Menampilkan pemasih yang:</p>
+<ul>
+<li>Masa berlakunya akan habis</li>
+<li>Sudah tidak aktif</li>
+<li>Perlu tindak lanjut dari pengurus</li>
+</ul>
+<hr>
+<h2 id="8-dudukan">8. Dudukan</h2>
+<p><strong>Menu:</strong> Dudukan</p>
+<p>Modul ini mengelola iuran krama tamiu dan tamiu (pemasih).</p>
+<h3 id="tab-daftar-1">Tab Daftar</h3>
+<ul>
+<li>Daftar pemasih per bulan berjalan.</li>
+<li>Filter banjar, klasifikasi, jenis, tunggakan.</li>
+<li>Klik <strong>Bayar</strong> untuk mencatat pembayaran bulan ini.</li>
+</ul>
+<h3 id="tab-tunggakan">Tab Tunggakan</h3>
+<ul>
+<li>Pemasih yang masih punya sisa tagihan lintas bulan.</li>
+<li>Berguna untuk penagihan.</li>
+</ul>
+<h3 id="tab-riwayat-1">Tab Riwayat</h3>
+<ul>
+<li>Semua transaksi dudukan.</li>
+<li>Edit/hapus dengan konfirmasi.</li>
+</ul>
+<h3 id="keringanan">Keringanan</h3>
+<ul>
+<li>Dari dialog pembayaran atau modul terkait, pengurus dapat mencatat <strong>keringanan</strong> (pengurangan tagihan) dengan alasan.</li>
+</ul>
+<h3 id="tab-impor-1">Tab Impor</h3>
+<ul>
+<li>Impor pembayaran dudukan massal dari Excel.</li>
+</ul>
+<hr>
+<h2 id="9-keuangan">9. Keuangan</h2>
+<p><strong>Menu:</strong> Keuangan</p>
+<h3 id="tab-buku-kas">Tab Buku Kas</h3>
+<ul>
+<li>Saldo per akun keuangan.</li>
+<li>Klik akun untuk melihat mutasi (pemasukan &amp; pengeluaran).</li>
+</ul>
+<h3 id="tab-transfer">Tab Transfer</h3>
+<ul>
+<li>Pindahkan saldo antar akun kas.</li>
+</ul>
+<h3 id="tab-pemasukan">Tab Pemasukan</h3>
+<ul>
+<li>Catat pemasukan non-paturunan/dudukan (donasi, bantuan, dll.).</li>
+</ul>
+<h3 id="tab-pengeluaran">Tab Pengeluaran</h3>
+<ul>
+<li>Catat pengeluaran kas desa.</li>
+<li>Pilih pos biaya dan akun sumber.</li>
+</ul>
+<h3 id="plafon-dana-dudukan">Plafon dana dudukan</h3>
+<ul>
+<li>Panel khusus untuk mengatur alokasi dana dudukan per periode.</li>
+</ul>
+<blockquote>
+<p>Pembayaran paturunan dan dudukan otomatis tercatat di buku kas saat transaksi disimpan.</p>
+</blockquote>
+<hr>
+<h2 id="10-laporan">10. Laporan</h2>
+<p><strong>Menu:</strong> Laporan</p>
+<p>Pintu masuk ke semua laporan. Pilih sesuai kebutuhan:</p>
+<h3 id="ringkasan--demografi">Ringkasan &amp; demografi</h3>
+<table>
+<thead>
+<tr>
+<th>Laporan</th>
+<th>Kegunaan</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Ringkasan Eksekutif</strong></td>
+<td>Gambaran gabungan untuk pengurus</td>
+</tr>
+<tr>
+<td><strong>Rekap Krama</strong></td>
+<td>Matriks krama per klasifikasi &amp; banjar</td>
+</tr>
+<tr>
+<td><strong>Laporan Krama Mipil</strong></td>
+<td>Demografi pipil</td>
+</tr>
+<tr>
+<td><strong>Laporan Pemasih</strong></td>
+<td>Status masa berlaku pemasih</td>
+</tr>
+<tr>
+<td><strong>Laporan Paturunan</strong></td>
+<td>Tagihan &amp; realisasi per iuran</td>
+</tr>
+<tr>
+<td><strong>Laporan Dudukan</strong></td>
+<td>Tagihan &amp; realisasi per periode</td>
+</tr>
+</tbody>
+</table>
+<h3 id="keuangan">Keuangan</h3>
+<table>
+<thead>
+<tr>
+<th>Laporan</th>
+<th>Kegunaan</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Laporan Buku Kas</strong></td>
+<td>Mutasi per akun</td>
+</tr>
+<tr>
+<td><strong>Rekap Penerimaan Paturunan</strong></td>
+<td>Per banjar/tempek/arahan</td>
+</tr>
+<tr>
+<td><strong>Rekap Penerimaan Dudukan</strong></td>
+<td>Per banjar &amp; jenis</td>
+</tr>
+</tbody>
+</table>
+<h3 id="audit--penagihan">Audit &amp; penagihan</h3>
+<table>
+<thead>
+<tr>
+<th>Laporan</th>
+<th>Kegunaan</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Tunggakan Paturunan</strong></td>
+<td>Daftar belum lunas</td>
+</tr>
+<tr>
+<td><strong>Tunggakan Dudukan</strong></td>
+<td>Sisa tagihan pemasih</td>
+</tr>
+<tr>
+<td><strong>Pertimbangan Keringanan</strong></td>
+<td>Review sebelum keputusan</td>
+</tr>
+<tr>
+<td><strong>Audit Keringanan</strong></td>
+<td>Riwayat keringanan yang sudah diputuskan</td>
+</tr>
+</tbody>
+</table>
+<p>Kebanyakan laporan bisa <strong>dieksport PDF</strong> atau dicetak dari pratinjau.</p>
+<hr>
+<h2 id="11-pengaturan">11. Pengaturan</h2>
+<p><strong>Menu:</strong> Pengaturan</p>
+<p>Halaman Pengaturan dibagi tab:</p>
+<table>
+<thead>
+<tr>
+<th>Tab</th>
+<th>Isi</th>
+<th>Siapa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Umum</strong></td>
+<td>Setup Wilayah &amp; Desa, template WhatsApp</td>
+<td>Admin &amp; operator</td>
+</tr>
+<tr>
+<td><strong>Database</strong></td>
+<td>Backup, restore, kosongkan database</td>
+<td>Admin</td>
+</tr>
+<tr>
+<td><strong>Pengguna</strong></td>
+<td>Akun staf kantor (admin/operator/viewer)</td>
+<td>Admin</td>
+</tr>
+<tr>
+<td><strong>Modul Online</strong></td>
+<td>Langganan cloud, akun petugas, sinkronisasi</td>
+<td>Admin (setelah aktivasi desktop)</td>
+</tr>
+</tbody>
+</table>
+<p>Tab <strong>Modul Online</strong> muncul setelah lisensi desktop aktif. Fitur sinkronisasi dan petugas baru tersedia setelah <strong>langganan cloud</strong> diaktifkan dengan kode <code>KSKC1...</code> dari vendor.</p>
+<h3 id="modul-online-opsional">Modul Online (opsional)</h3>
+<p>Hanya di tab <strong>Modul Online</strong> — bukan menu sidebar terpisah.</p>
+<ol>
+<li><strong>Langganan cloud</strong> — tempel kode <code>KSKC1...</code> dari vendor (berlangganan bulanan).</li>
+<li>Setelah aktif, bagian berikut tersedia:</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>Fitur</th>
+<th>Fungsi</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Akun petugas lapangan</strong></td>
+<td>Buat username petugas HP, hubungkan ke tim kasukretan</td>
+</tr>
+<tr>
+<td><strong>Sinkronisasi cloud</strong></td>
+<td>Kirim/tarik data ke server API</td>
+</tr>
+</tbody>
+</table>
+<h3 id="database-tab-database">Database (tab Database)</h3>
+<ul>
+<li><strong>Backup</strong> — simpan salinan database ke file <code>.db</code></li>
+<li><strong>Restore</strong> — pulihkan dari backup</li>
+<li><strong>Kosongkan</strong> — hapus semua data (hati-hati, butuh konfirmasi khusus)</li>
+</ul>
+<p>Lakukan backup berkala, terutama sebelum update aplikasi atau operasi besar.</p>
+<h3 id="pengguna-tab-pengguna">Pengguna (tab Pengguna)</h3>
+<ul>
+<li>Tambah, ubah, nonaktifkan akun staf kantor.</li>
+<li>Atur peran: admin, operator, atau viewer.</li>
+</ul>
+<h3 id="setup-wilayah--desa">Setup Wilayah &amp; Desa</h3>
+<ul>
+<li>Lihat bagian 4.1 di atas.</li>
+</ul>
+<h3 id="template-whatsapp">Template WhatsApp</h3>
+<ul>
+<li>Sesuaikan teks pesan penagihan paturunan/dudukan.</li>
+<li>Placeholder seperti nama krama dan jumlah tunggakan diisi otomatis.</li>
+</ul>
+<hr>
+<h2 id="12-modul-online--petugas-lapangan">12. Modul Online — Petugas Lapangan</h2>
+<blockquote>
+<p>Modul ini diakses lewat <strong>browser HP</strong>, bukan aplikasi desktop. URL diberikan vendor, misalnya:<br>
+<code>https://nama-desa.pages.dev/petugas/login</code></p>
+</blockquote>
+<h3 id="login-petugas">Login petugas</h3>
+<ol>
+<li>Buka URL petugas di browser HP.</li>
+<li>Login dengan akun petugas yang dibuat di desktop (<strong>Pengaturan → tab Modul Online → Akun petugas lapangan</strong>).</li>
+<li>Akun harus sudah <strong>dikirim ke cloud</strong> dari desktop kantor.</li>
+</ol>
+<h3 id="beranda-petugas">Beranda petugas</h3>
+<p>Periksa <strong>Kesiapan cloud</strong> — semua item harus hijau:</p>
+<ul>
+<li>Banjar</li>
+<li>Tim petugas</li>
+<li>Krama</li>
+<li>Akun keuangan</li>
+</ul>
+<p>Jika merah, kantor belum selesai kirim master/krama ke cloud.</p>
+<h3 id="paturunan-petugas">Paturunan (petugas)</h3>
+<ol>
+<li>Pilih <strong>Paturunan</strong> dari beranda.</li>
+<li>Filter banjar &amp; iuran.</li>
+<li>Cari krama by nama/nomor kartu, atau tap <strong>Scan</strong> untuk baca QR kartu.</li>
+<li>Tap krama → isi jumlah bayar, tanggal, akun kas.</li>
+<li>Simpan — data masuk ke cloud.</li>
+</ol>
+<h3 id="dudukan-petugas">Dudukan (petugas)</h3>
+<ol>
+<li>Pilih <strong>Dudukan</strong> dari beranda.</li>
+<li>Pilih bulan, banjar, petugas (otomatis terisi jika akun terhubung ke tim).</li>
+<li>Cari pemasih atau scan QR kartu.</li>
+<li>Catat pembayaran.</li>
+</ol>
+<h3 id="setelah-petugas-selesai">Setelah petugas selesai</h3>
+<p>Di <strong>desktop kantor</strong> → <strong>Pengaturan → tab Modul Online → Sinkronisasi cloud</strong>:</p>
+<ol>
+<li>Klik <strong>Tarik dari cloud</strong> (atau sinkron dua arah).</li>
+<li>Pembayaran petugas masuk ke database desktop.</li>
+<li>Cek di tab <strong>Riwayat</strong> Paturunan/Dudukan.</li>
+</ol>
+<hr>
+<h2 id="13-modul-online--portal-krama">13. Modul Online — Portal Krama</h2>
+<blockquote>
+<p>Opsional. Krama membuka browser untuk cek tunggakan sendiri.<br>
+URL: <code>https://nama-desa.pages.dev/portal/login</code></p>
+</blockquote>
+<ol>
+<li>Krama login dengan akun portal (dibuat &amp; dikirim dari desktop).</li>
+<li><strong>Krama Mipil</strong> melihat tunggakan paturunan.</li>
+<li><strong>Pemasih</strong> melihat tunggakan dudukan.</li>
+</ol>
+<p>Portal bersifat <strong>baca saja</strong> — pembayaran tetap dicatat oleh kantor atau petugas.</p>
+<hr>
+<h2 id="14-sinkronisasi-cloud-desktop">14. Sinkronisasi Cloud (Desktop)</h2>
+<p><strong>Menu:</strong> Pengaturan → tab <strong>Modul Online</strong> → <strong>Sinkronisasi cloud</strong></p>
+<h3 id="persiapan">Persiapan</h3>
+<ol>
+<li>Isi <strong>URL API cloud</strong> (contoh: <code>https://kasukretan-api.onrender.com/api</code>).
+<ul>
+<li>Bukan URI Postgres / Supabase.</li>
+</ul>
+</li>
+<li><strong>Simpan</strong> URL.</li>
+<li><strong>Login ke API</strong> dengan akun admin cloud.</li>
+</ol>
+<h3 id="urutan-pertama-kali">Urutan pertama kali</h3>
+<pre class="hljs"><code><div>1. Kirim master ke cloud
+2. Kirim krama ke cloud
+3. Cek isi cloud (banjar, krama, tim harus &gt; 0)
+4. Kirim akun petugas (dari panel Akun petugas lapangan)
+</div></code></pre>
+<h3 id="operasional-harian">Operasional harian</h3>
+<table>
+<thead>
+<tr>
+<th>Aksi</th>
+<th>Kapan</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Kirim master</strong></td>
+<td>Ada perubahan banjar, iuran, tim, akun</td>
+</tr>
+<tr>
+<td><strong>Kirim krama</strong></td>
+<td>Ada krama baru atau perubahan data krama</td>
+</tr>
+<tr>
+<td><strong>Tarik dari cloud</strong></td>
+<td>Setelah petugas input di lapangan</td>
+</tr>
+<tr>
+<td><strong>Kirim ke cloud</strong></td>
+<td>Jika kantor input pembayaran yang perlu tampil di petugas</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>API gratis Render bisa <strong>lambat ±1 menit</strong> saat pertama kali diakses setelah idle (cold start). Tunggu sebentar lalu coba lagi.</p>
+</blockquote>
+<hr>
+<h2 id="15-alur-kerja-harian">15. Alur Kerja Harian</h2>
+<h3 id="kantor-saja-tanpa-petugas-hp">Kantor saja (tanpa petugas HP)</h3>
+<pre class="hljs"><code><div>Input krama / pembayaran di desktop
+    → Cek laporan &amp; buku kas
+    → Backup database berkala
+</div></code></pre>
+<h3 id="kantor--petugas-lapangan">Kantor + petugas lapangan</h3>
+<pre class="hljs"><code><div>Pagi: pastikan cloud siap (kesiapan hijau di HP petugas)
+    ↓
+Petugas: input pembayaran di lapangan
+    ↓
+Sore: kantor tarik dari cloud
+    ↓
+Kantor: cek riwayat, laporan, buku kas
+</div></code></pre>
+<hr>
+<h2 id="16-tips--kebiasaan-baik">16. Tips &amp; Kebiasaan Baik</h2>
+<ol>
+<li><strong>Backup rutin</strong> — minimal mingguan, atau sebelum update aplikasi.</li>
+<li><strong>Jangan ubah kode wilayah</strong> setelah ada krama — buat desa baru dengan instalasi terpisah jika salah.</li>
+<li><strong>Viewer</strong> cocok untuk pengurus yang hanya perlu melihat laporan.</li>
+<li><strong>Operator</strong> untuk staf yang input harian; <strong>admin</strong> untuk pengaturan sistem.</li>
+<li><strong>Tutup aplikasi</strong> sebelum menjalankan installer update.</li>
+<li><strong>Ganti password default</strong> akun API cloud sebelum operasional.</li>
+</ol>
+<hr>
+<h2 id="17-pertanyaan-umum-faq">17. Pertanyaan Umum (FAQ)</h2>
+<h3 id="login-gagal">Login gagal</h3>
+<ul>
+<li>Periksa username/password.</li>
+<li>Pastikan akun masih aktif (admin bisa cek di Pengaturan → tab Pengguna).</li>
+</ul>
+<h3 id="nomor-kartu-tidak-muncul">Nomor kartu tidak muncul</h3>
+<ul>
+<li>Wilayah belum lengkap di Pengaturan.</li>
+<li>Status harus &quot;Siap terbit nomor kartu&quot;.</li>
+</ul>
+<h3 id="petugas-hp-cloud-merah">Petugas HP: cloud merah</h3>
+<ul>
+<li>Desktop belum kirim master dan krama ke cloud.</li>
+<li>URL API salah atau server sedang cold start.</li>
+</ul>
+<h3 id="tarik-dari-cloud-kosong">Tarik dari cloud kosong</h3>
+<ul>
+<li>Petugas belum input, atau belum login akun petugas yang benar.</li>
+<li>Coba sinkron ulang setelah beberapa menit.</li>
+</ul>
+<h3 id="viewer-tidak-bisa-tambah-krama">Viewer tidak bisa tambah krama</h3>
+<ul>
+<li>Memang dibatasi. Minta admin mengubah peran ke operator.</li>
+</ul>
+<h3 id="data-hilang-setelah-update-aplikasi">Data hilang setelah update aplikasi</h3>
+<ul>
+<li>Data tersimpan terpisah dari folder program. Restore dari backup jika perlu.</li>
+</ul>
+<h3 id="whatsapp-tidak-terbuka">WhatsApp tidak terbuka</h3>
+<ul>
+<li>Pastikan nomor kontak krama sudah diisi.</li>
+<li>Periksa template di Pengaturan → tab Umum → Template WhatsApp.</li>
+</ul>
+<hr>
+<h2 id="18-dokumen-terkait">18. Dokumen Terkait</h2>
+<table>
+<thead>
+<tr>
+<th>Dokumen</th>
+<th>Isi</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="./LEMBAR-KERJA-INSTALASI.html">LEMBAR-KERJA-INSTALASI.html</a></td>
+<td>Checklist instalasi per desa</td>
+</tr>
+<tr>
+<td><a href="./GO-LIVE-ONLINE.html">GO-LIVE-ONLINE.html</a></td>
+<td>Go-live lengkap: Supabase → Hugging Face → Cloudflare</td>
+</tr>
+<tr>
+<td><a href="./DEPLOY-PETUGAS.html">DEPLOY-PETUGAS.html</a></td>
+<td>Referensi modul Petugas &amp; alternatif hosting API</td>
+</tr>
+<tr>
+<td><a href="./DEPLOY-HUGGINGFACE-API.html">DEPLOY-HUGGINGFACE-API.html</a></td>
+<td>Detail teknis API Hugging Face</td>
+</tr>
+<tr>
+<td><a href="./LICENSE.html">LICENSE.html</a></td>
+<td>Aktivasi lisensi &amp; kode mesin</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<p><em>Kasukretan Krama — Panduan Pengguna. Sesuaikan kebijakan operasional dengan adat dan keputusan pengurus desa adat Anda.</em></p>
+
+</body>
+</html>

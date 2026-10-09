@@ -1,0 +1,3 @@
+# SPA fallback — Cloudflare Pages, Netlify, dan sejenisnya.
+# Semua rute React Router (mis. /petugas/login) dilayani index.html
+/*    /index.html   200

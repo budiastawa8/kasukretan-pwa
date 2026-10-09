@@ -1,0 +1,26 @@
+export {
+  LIST_PAGE as DUDUKAN_PAGE,
+  LIST_CARD as DUDUKAN_CARD,
+  LIST_CARD_PHONE as DUDUKAN_CARD_PHONE,
+  LIST_FILTER_GRID as DUDUKAN_FILTER_GRID,
+  LIST_FILTER_ROW as DUDUKAN_FILTER_ROW,
+  LIST_TABLE as DUDUKAN_TABLE,
+} from "../ui/list-compact";
+
+export const DUDUKAN_BAYAR_DIALOG =
+  "space-y-1 leading-snug text-sm [&_label]:mb-0 [&_label]:text-xs [&_input]:h-8 [&_input]:text-sm [&_input]:py-0.5 [&_select]:h-8 [&_select]:text-sm [&_select]:py-0.5";
+
+export const DUDUKAN_DIALOG_TAB =
+  "flex-1 inline-flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-semibold transition-colors";
+
+export const DUDUKAN_DIALOG_ZONE_BAYAR =
+  "rounded-lg border-2 border-copper-300 bg-copper-50/50 p-1.5 space-y-1";
+
+export const DUDUKAN_DIALOG_ZONE_RIWAYAT =
+  "rounded-lg border border-copper-200 bg-slate-50/80 p-1.5 space-y-1";
+
+export const DUDUKAN_DIALOG_ZONE_HEAD =
+  "border-b border-copper-200/80 pb-1 mb-0.5";
+
+export const DUDUKAN_DIALOG_TABLE =
+  "w-full text-sm leading-tight [&_th]:py-px [&_th]:font-medium [&_td]:py-px";

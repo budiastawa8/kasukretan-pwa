@@ -1,0 +1,33 @@
+/* Footer QR ILIKITA — selaraskan pratinjau HTML (Lihat) dengan PDF (Buka PDF).
+   Nilai dari src/lib/ilikita-footer-qr-layout.ts */
+
+:root {
+  --ilikita-footer-gap-after-table: 20pt;
+  --ilikita-footer-line-step: 12.756pt; /* 4.5 * MM */
+  --ilikita-qr-size: 61.024pt; /* 18*MM + 10 */
+  --ilikita-qr-gap-before: 5.669pt; /* 2*MM */
+  --ilikita-qr-offset-x: 0pt;
+  --ilikita-qr-offset-y: 5pt;
+}
+
+.ilikita-footer-below-table {
+  margin-top: var(--ilikita-footer-gap-after-table) !important;
+}
+
+.pipil-below-col .pipil-field,
+.kt-below-col:first-child .kt-field {
+  min-height: var(--ilikita-footer-line-step);
+  margin-bottom: 0 !important;
+  line-height: var(--ilikita-footer-line-step) !important;
+  align-items: center;
+}
+
+.ilikita-qr {
+  display: block;
+  width: var(--ilikita-qr-size);
+  height: var(--ilikita-qr-size);
+  margin-top: calc(var(--ilikita-qr-gap-before) - var(--ilikita-qr-offset-y));
+  margin-left: var(--ilikita-qr-offset-x);
+  object-fit: contain;
+  background: #fff;
+}

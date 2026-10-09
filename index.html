@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" sizes="128x128" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#3d2310" />
+    <meta name="description" content="Kasukretan Krama — pencatatan krama desa adat" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Kasukretan" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <script>
+      /* Deteksi HP awal (termasuk Chrome "Situs desktop" di LAN/IP) sebelum React. */
+      (function () {
+        try {
+          var shortSide = Math.min(screen.width || 0, screen.height || 0);
+          var coarse = window.matchMedia("(pointer: coarse)").matches;
+          var mqPhone = window.matchMedia("(max-width: 767px)").matches;
+          var uaMobile =
+            (navigator.userAgentData && navigator.userAgentData.mobile === true) ||
+            /Android.+Mobile|iPhone|iPod/i.test(navigator.userAgent);
+          var phone = mqPhone || (shortSide > 0 && shortSide <= 767 && (coarse || uaMobile));
+          var tablet =
+            !phone &&
+            ((window.matchMedia("(min-width: 768px) and (max-width: 1023px)").matches) ||
+              (shortSide > 767 && shortSide <= 1023 && (coarse || uaMobile)));
+          document.documentElement.dataset.client = phone ? "phone" : tablet ? "tablet" : "desktop";
+        } catch (e) {}
+      })();
+    </script>
+    <title>Kasukretan Krama</title>
+    <style>
+      #app-splash-static {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        background: #faf3eb;
+        font-family: "Segoe UI", system-ui, sans-serif;
+      }
+      #app-splash-static::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: radial-gradient(
+          ellipse 120% 80% at 50% -20%,
+          rgba(234, 212, 188, 0.45),
+          transparent 55%
+        );
+        animation: splash-glow-pulse 3.2s ease-in-out infinite;
+      }
+      #app-splash-static img {
+        position: relative;
+        width: 8rem;
+        height: 8rem;
+        object-fit: contain;
+        animation:
+          splash-fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both,
+          splash-logo-float 3.5s ease-in-out 0.7s infinite;
+      }
+      #app-splash-static h1 {
+        position: relative;
+        margin: 0;
+        font-size: 1.5rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        color: #3d2310;
+        animation: splash-fade-up 0.65s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
+      }
+      #app-splash-static p {
+        position: relative;
+        margin: 0.25rem 0 0;
+        font-size: 0.875rem;
+        color: #8b6f5c;
+        animation: splash-fade-up 0.65s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;
+      }
+      #app-splash-static .splash-dots {
+        display: inline-flex;
+        width: 1.1em;
+      }
+      #app-splash-static .splash-dots span {
+        animation: splash-dot-pulse 1.4s ease-in-out infinite;
+      }
+      #app-splash-static .splash-dots span:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+      #app-splash-static .splash-dots span:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+      @keyframes splash-glow-pulse {
+        0%,
+        100% {
+          opacity: 0.65;
+          transform: scale(1);
+        }
+        50% {
+          opacity: 1;
+          transform: scale(1.03);
+        }
+      }
+      @keyframes splash-fade-up {
+        from {
+          opacity: 0;
+          transform: translateY(14px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      @keyframes splash-logo-float {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-5px);
+        }
+      }
+      @keyframes splash-dot-pulse {
+        0%,
+        80%,
+        100% {
+          opacity: 0.2;
+        }
+        40% {
+          opacity: 1;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #app-splash-static::before,
+        #app-splash-static img,
+        #app-splash-static h1,
+        #app-splash-static p,
+        #app-splash-static .splash-dots span {
+          animation: none;
+        }
+      }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&family=Roboto+Condensed:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="root">
+      <div id="app-splash-static" aria-live="polite" aria-label="Memuat Kasukretan Krama">
+        <img src="/logo.png" alt="" width="128" height="128" />
+        <div style="text-align: center">
+          <h1>Kasukretan Krama</h1>
+          <p>
+            Memuat aplikasi<span class="splash-dots" aria-hidden
+              ><span>.</span><span>.</span><span>.</span></span
+            >
+          </p>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

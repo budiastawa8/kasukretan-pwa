@@ -1,0 +1,21 @@
+node_modules
+dist
+dev-dist
+*.tsbuildinfo
+*.log
+.DS_Store
+.vercel
+
+# Rahasia & data lokal
+.env
+.env.local
+.env.*.local
+data/
+backup/
+*.db
+*.db-shm
+*.db-wal
+
+.vscode/*
+!.vscode/extensions.json
+.idea

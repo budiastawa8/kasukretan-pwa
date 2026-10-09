@@ -1,0 +1,916 @@
+/* Kartu Krama Adat — 8,5 cm × 5 cm (landscape) per anggota */
+
+:root {
+  --kartu-font: "Roboto Condensed", "Arial Narrow", "Segoe UI", sans-serif;
+  --kartu-w: 85mm;
+  --kartu-h: 50mm;
+  --kartu-red: #f2b8b8;
+  --kartu-body: #f4efe6;
+  --kartu-back-logo-size: 9mm;
+  --kartu-back-top-bar-h: 9mm;
+  --kartu-back-footer-bar-h: 3.5mm;
+  --kartu-back-body-gap: 10pt;
+  --kartu-back-sign-space-h: calc(7.5mm + 5pt);
+  --kartu-back-sign-shift-up: 10pt;
+  /* Grid A4 portrait — selaras dengan kartu-a4-grid.ts */
+  --kartu-a4-w: 210mm;
+  --kartu-a4-h: 297mm;
+  --kartu-a4-pad-x: 12mm;
+  --kartu-a4-pad-y: 12mm;
+  --kartu-a4-col-gap: 8mm;
+  --kartu-a4-row-gap: 6mm;
+  --kartu-pair-gap: 2mm;
+}
+
+@media print {
+  aside,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  body {
+    background: #fff !important;
+  }
+
+  .kartu-print-stage {
+    padding: 0 !important;
+    background: transparent !important;
+    transform: none !important;
+    gap: 0 !important;
+  }
+
+  .kartu-print-wrapper {
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: transparent !important;
+    gap: 0 !important;
+  }
+
+  .kartu-a4-page {
+    page: kartu-a4;
+    page-break-after: always;
+    break-after: page;
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+  }
+
+  .kartu-a4-page:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+
+  .kartu-print-wrapper--a4-grid .kartu-sheet {
+    page: auto;
+    page-break-after: avoid;
+    break-after: avoid;
+    box-shadow: none !important;
+    border: 0.15mm solid #bbb;
+  }
+}
+
+@page kartu-krama {
+  size: 85mm 50mm;
+  margin: 0;
+}
+
+@page kartu-a4 {
+  size: A4 portrait;
+  margin: 0;
+}
+
+body.kartu-cetak-body {
+  margin: 0;
+  background: #e8e6e3;
+}
+
+.kartu-cetak-stage {
+  padding: 1rem 0 2rem;
+}
+
+@media print {
+  body.kartu-cetak-body {
+    background: #fff !important;
+  }
+
+  .kartu-cetak-toolbar {
+    display: none !important;
+  }
+
+  .kartu-cetak-stage {
+    padding: 0 !important;
+  }
+
+  .kartu-sheet {
+    page: kartu-krama;
+    page-break-after: always;
+    break-after: page;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .kartu-sheet:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+}
+
+.kartu-print-stage {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1rem 0 1.5rem;
+  background: color-mix(in srgb, var(--color-copper-300) 35%, #d8d8d8);
+  border-radius: 6px;
+}
+
+.kartu-print-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 12px;
+}
+
+/* Kartu Krama Adat (Pipil) — 2×4 per A4 */
+.kartu-print-wrapper--a4-grid {
+  padding: 0;
+  width: 100%;
+  max-width: none;
+}
+
+.kartu-a4-pages {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.kartu-a4-page {
+  width: var(--kartu-a4-w);
+  min-height: var(--kartu-a4-h);
+  box-sizing: border-box;
+  padding: var(--kartu-a4-pad-y) var(--kartu-a4-pad-x);
+  display: grid;
+  grid-template-columns: calc(var(--kartu-w) * 2 + var(--kartu-pair-gap));
+  grid-template-rows: repeat(4, var(--kartu-h));
+  row-gap: var(--kartu-a4-row-gap);
+  justify-content: center;
+  align-content: start;
+  background: #fff;
+  box-shadow:
+    0 2px 4px rgb(0 0 0 / 0.06),
+    0 8px 24px rgb(61 35 16 / 0.12);
+  border: 1px solid #c9b8a8;
+  border-radius: 2px;
+}
+
+.kartu-a4-page > * {
+  width: calc(var(--kartu-w) * 2 + var(--kartu-pair-gap));
+  height: var(--kartu-h);
+  min-width: 0;
+  min-height: 0;
+}
+
+.kartu-pair {
+  display: flex;
+  flex-direction: row;
+  gap: var(--kartu-pair-gap);
+  width: 100%;
+  height: 100%;
+}
+
+.kartu-pair .kartu-sheet {
+  flex: 0 0 var(--kartu-w);
+  width: var(--kartu-w);
+  height: var(--kartu-h);
+}
+
+.kartu-pair-wrap {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.kartu-a4-page .kartu-sheet {
+  width: 100%;
+  height: 100%;
+  box-shadow: none;
+}
+
+.kartu-a4-page .relative.group {
+  width: calc(var(--kartu-w) * 2 + var(--kartu-pair-gap));
+  height: var(--kartu-h);
+  position: relative;
+}
+
+/* Kartu fisik */
+.kartu-sheet {
+  font-family: var(--kartu-font);
+  width: var(--kartu-w);
+  height: var(--kartu-h);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: #111;
+  text-transform: uppercase;
+  background: var(--kartu-body);
+  box-shadow: 0 2px 10px rgb(0 0 0 / 0.15);
+  border: 0.2mm solid #bbb;
+  position: relative;
+  line-height: 1.2;
+  font-size: 5.5pt;
+  font-weight: 600;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.kartu-sheet * {
+  box-sizing: border-box;
+}
+
+.kartu-header {
+  flex: 0 0 11mm;
+  background: var(--kartu-red);
+  display: grid;
+  grid-template-columns: 9mm 1fr 9mm;
+  align-items: center;
+  padding: 0.6mm 1.2mm;
+  gap: 0.6mm;
+}
+
+.kartu-header-logo {
+  width: 8mm;
+  height: 8mm;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+}
+
+.kartu-header-logo-placeholder {
+  width: 8mm;
+  height: 8mm;
+  margin: 0 auto;
+  border: 0.15mm solid rgb(0 0 0 / 0.18);
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.35);
+}
+
+.kartu-header-center {
+  text-align: center;
+  color: #111;
+  min-width: 0;
+}
+
+.kartu-header-center .line1,
+.kartu-header-center .line2 {
+  font-size: 5.6pt;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+
+.kartu-header-center .line3 {
+  font-size: 4.4pt;
+  font-weight: 600;
+  margin-top: 0.2mm;
+  line-height: 1.1;
+}
+
+.kartu-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 20mm;
+  gap: 1mm;
+  padding: 1.8mm 1.6mm 1.5mm;
+  min-height: 0;
+  background-image: radial-gradient(circle at 20% 30%, rgb(0 0 0 / 0.03) 0.15mm, transparent 0.16mm),
+    radial-gradient(circle at 70% 60%, rgb(0 0 0 / 0.025) 0.12mm, transparent 0.13mm);
+  background-size: 2.5mm 2.5mm, 3mm 3mm;
+}
+
+.kartu-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55mm;
+  min-width: 0;
+}
+
+.kartu-field {
+  --kartu-label-w: 17mm;
+  display: grid;
+  grid-template-columns: var(--kartu-label-w) 1.8mm minmax(0, 1fr);
+  column-gap: 0.4mm;
+  align-items: baseline;
+  min-width: 0;
+  line-height: 1.12;
+}
+
+.kartu-field-label {
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kartu-field-colon {
+  font-weight: 700;
+  text-align: center;
+}
+
+.kartu-field-value {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.kartu-field-value--wrap,
+.kartu-field-value--compact {
+  white-space: normal;
+  line-height: 1.1;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.kartu-field-value--wrap {
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.kartu-field-value--compact {
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  font-size: 5pt;
+}
+
+.kartu-alamat-block {
+  margin-top: 0.2mm;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45mm;
+}
+
+.kartu-field--indent .kartu-field-label {
+  padding-left: 3mm;
+}
+
+/* Kartu Krama Tamiu — kop kuning */
+.kartu-kop-rule {
+  display: none;
+}
+
+.kartu-sheet--krama-tamiu {
+  --kartu-label-w: 15.5mm;
+  font-size: 5pt;
+}
+
+.kartu-sheet--krama-tamiu .kartu-header {
+  flex: 0 0 9.5mm;
+  background: #e8c547;
+  color: #111;
+  padding: 0.45mm 1mm;
+}
+
+.kartu-sheet--krama-tamiu .kartu-header-logo,
+.kartu-sheet--krama-tamiu .kartu-header-logo-placeholder {
+  width: 7mm;
+  height: 7mm;
+}
+
+.kartu-sheet--krama-tamiu .kartu-header-center .line1,
+.kartu-sheet--krama-tamiu .kartu-header-center .line2 {
+  font-size: 4.9pt;
+  line-height: 1.02;
+}
+
+.kartu-sheet--krama-tamiu .kartu-header-center .line3 {
+  font-size: 4pt;
+  line-height: 1.05;
+  margin-top: 0.1mm;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.kartu-sheet--krama-tamiu .kartu-header-logo-placeholder {
+  border-color: rgb(0 0 0 / 0.18);
+  background: rgb(255 255 255 / 0.45);
+}
+
+.kartu-sheet--krama-tamiu .kartu-body {
+  grid-template-columns: minmax(0, 1fr) 18mm;
+  gap: 1mm;
+  padding: calc(1mm + 5pt) 1.4mm 1mm;
+}
+
+.kartu-sheet--krama-tamiu .kartu-fields {
+  gap: 0.22mm;
+}
+
+.kartu-sheet--krama-tamiu .kartu-field {
+  line-height: 1.08;
+}
+
+.kartu-sheet--krama-tamiu .kartu-field-label,
+.kartu-sheet--krama-tamiu .kartu-field-colon {
+  font-size: 4.85pt;
+  font-weight: 500;
+}
+
+.kartu-sheet--krama-tamiu .kartu-field-value,
+.kartu-sheet--krama-tamiu .kartu-field-value--compact {
+  font-weight: 500;
+}
+
+@media screen {
+  .kartu-sheet--krama-tamiu .kartu-field-value,
+  .kartu-sheet--krama-tamiu .kartu-field-value--compact {
+    overflow: visible;
+    text-overflow: unset;
+    display: block;
+    -webkit-line-clamp: unset;
+    line-clamp: unset;
+  }
+}
+
+@media print {
+  .kartu-sheet--krama-tamiu .kartu-field-value,
+  .kartu-sheet--krama-tamiu .kartu-field-value--compact {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+}
+
+.kartu-sheet--krama-tamiu .kartu-photo {
+  margin-top: -0.5mm;
+  flex: 0 0 21mm;
+  height: 21mm;
+  min-height: 21mm;
+}
+
+.kartu-sheet--krama-tamiu .kartu-side-footer {
+  margin-top: 1mm;
+  font-size: 4.5pt;
+  font-weight: 500;
+  line-height: 1.1;
+  word-break: break-word;
+}
+
+@media print {
+  .kartu-sheet--krama-tamiu .kartu-header {
+    background: #e8c547 !important;
+    color: #111 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
+/* Kartu Tamiu (anggota) — kop hitam */
+.kartu-sheet--tamiu {
+  --kartu-label-w: 15.5mm;
+  font-size: 5pt;
+  font-weight: 500;
+}
+
+.kartu-sheet--tamiu .kartu-header {
+  flex: 0 0 9.5mm;
+  background: #000;
+  color: #fff;
+  padding: 0.45mm 1mm;
+}
+
+.kartu-sheet--tamiu .kartu-header-logo,
+.kartu-sheet--tamiu .kartu-header-logo-placeholder {
+  width: 7mm;
+  height: 7mm;
+  background: transparent;
+  border: none;
+}
+
+.kartu-sheet--tamiu .kartu-header-center .line1,
+.kartu-sheet--tamiu .kartu-header-center .line2 {
+  font-size: 4.9pt;
+  font-weight: 800;
+  line-height: 1.02;
+  color: #fff;
+}
+
+.kartu-sheet--tamiu .kartu-header-center .line3 {
+  font-size: 4pt;
+  font-weight: 500;
+  line-height: 1.05;
+  margin-top: 0.1mm;
+  color: #fff;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.kartu-sheet--tamiu .kartu-header-logo-placeholder {
+  opacity: 0.25;
+  background: rgb(255 255 255 / 0.08);
+  border: none;
+}
+
+.kartu-sheet--tamiu .kartu-body {
+  grid-template-columns: minmax(0, 1fr) 18mm;
+  gap: 1mm;
+  padding: 1mm 1.4mm 1mm;
+}
+
+.kartu-sheet--tamiu .kartu-fields {
+  gap: 0.22mm;
+}
+
+.kartu-sheet--tamiu .kartu-field {
+  line-height: 1.08;
+}
+
+.kartu-sheet--tamiu .kartu-field--multiline {
+  align-items: start;
+}
+
+.kartu-sheet--tamiu .kartu-field-label,
+.kartu-sheet--tamiu .kartu-field-colon {
+  font-size: 4.85pt;
+  font-weight: 500;
+}
+
+.kartu-sheet--tamiu .kartu-field-value,
+.kartu-sheet--tamiu .kartu-field-value--compact {
+  font-weight: 500;
+}
+
+.kartu-sheet--tamiu .kartu-field--multiline .kartu-field-value--wrap {
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+
+.kartu-sheet--tamiu .kartu-side-footer {
+  margin-top: 1mm;
+  font-size: 4.5pt;
+  font-weight: 500;
+  line-height: 1.1;
+  word-break: break-word;
+}
+
+@media screen {
+  .kartu-sheet--tamiu .kartu-field-value,
+  .kartu-sheet--tamiu .kartu-field-value--compact {
+    overflow: visible;
+    text-overflow: unset;
+    display: block;
+    -webkit-line-clamp: unset;
+    line-clamp: unset;
+  }
+
+  .kartu-sheet--tamiu .kartu-field--multiline .kartu-field-value--multiline {
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
+@media print {
+  .kartu-sheet--tamiu .kartu-field-value,
+  .kartu-sheet--tamiu .kartu-field-value--compact {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+
+  .kartu-sheet--tamiu .kartu-field--multiline .kartu-field-value--multiline {
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+  }
+}
+
+.kartu-sheet--tamiu .kartu-photo {
+  margin-top: -0.5mm;
+  flex: 0 0 21mm;
+  height: 21mm;
+  min-height: 21mm;
+}
+
+@media print {
+  .kartu-sheet--tamiu .kartu-header {
+    background: #000 !important;
+    color: #fff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .kartu-sheet--tamiu .kartu-header-center .line1,
+  .kartu-sheet--tamiu .kartu-header-center .line2,
+  .kartu-sheet--tamiu .kartu-header-center .line3 {
+    color: #fff !important;
+  }
+}
+
+.kartu-side {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.kartu-side-footer {
+  margin-top: 1.6mm;
+  text-align: center;
+  font-size: 5pt;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.kartu-qr {
+  display: block;
+  width: 11mm;
+  height: 11mm;
+  margin: 0.8mm auto 0;
+  object-fit: contain;
+  background: #fff;
+}
+
+.kartu-photo {
+  position: relative;
+  margin-top: -1mm;
+  flex: 0 0 24mm;
+  height: 24mm;
+  min-height: 24mm;
+  width: 100%;
+  border: none;
+  background: linear-gradient(180deg, #dce9f5 0%, #c5d8ea 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.kartu-photo-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+@media print {
+  .kartu-header img {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .kartu-photo {
+    position: relative !important;
+    overflow: visible !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .kartu-photo--has-foto {
+    background-color: #fff !important;
+  }
+
+  .kartu-sheet--krama-tamiu .kartu-photo-img,
+  .kartu-sheet--tamiu .kartu-photo-img {
+    height: 21mm !important;
+  }
+
+  .kartu-photo-img {
+    position: relative !important;
+    inset: auto !important;
+    display: block !important;
+    width: 100% !important;
+    height: 24mm !important;
+    max-width: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    filter: none !important;
+  }
+}
+
+.kartu-photo-placeholder {
+  width: 70%;
+  height: 75%;
+  opacity: 0.85;
+}
+
+/* —— Kartu Krama Adat — sisi belakang —— */
+.kartu-sheet--back {
+  text-transform: none;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+}
+
+.kartu-back-top-bar {
+  flex: 0 0 var(--kartu-back-top-bar-h);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--kartu-red);
+  width: 100%;
+}
+
+.kartu-back-footer-bar {
+  flex: 0 0 var(--kartu-back-footer-bar-h);
+  background: var(--kartu-red);
+  width: 100%;
+}
+
+.kartu-back-logo,
+.kartu-back-logo-placeholder {
+  width: var(--kartu-back-logo-size);
+  height: var(--kartu-back-logo-size);
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.kartu-back-logo-placeholder {
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.35);
+}
+
+.kartu-back-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 0.92fr 1.35fr;
+  gap: 1.5mm;
+  padding: var(--kartu-back-body-gap) 2mm 1.2mm;
+  min-height: 0;
+  background: var(--kartu-body);
+  background-image: radial-gradient(circle at 20% 30%, rgb(0 0 0 / 0.03) 0.15mm, transparent 0.16mm),
+    radial-gradient(circle at 70% 60%, rgb(0 0 0 / 0.025) 0.12mm, transparent 0.13mm);
+  background-size: 2.5mm 2.5mm, 3mm 3mm;
+}
+
+.kartu-back-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  text-align: center;
+  min-width: 0;
+  gap: 0;
+}
+
+.kartu-back-sign-space {
+  width: 72%;
+  min-height: var(--kartu-back-sign-space-h);
+  margin: calc(0.3mm - var(--kartu-back-sign-shift-up)) 0 0.4mm;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kartu-back-sign-img {
+  display: block;
+  max-width: 100%;
+  max-height: var(--kartu-back-sign-space-h);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+
+.kartu-back-role {
+  margin: 0;
+  font-size: 5.5pt;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.kartu-back-name {
+  margin: 0;
+  font-size: 6pt;
+  font-weight: 700;
+  line-height: 1.15;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kartu-back-qr {
+  display: block;
+  width: 14mm;
+  height: 14mm;
+  margin: 0.4mm 0;
+  object-fit: contain;
+  background: #fff;
+  border: 0.2mm solid #333;
+}
+
+.kartu-back-call {
+  margin: 0.2mm 0 0;
+  font-size: 4.8pt;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.kartu-back-support {
+  margin: auto 0 0;
+  font-size: 4pt;
+  font-weight: 500;
+  line-height: 1.1;
+  color: #333;
+}
+
+.kartu-back-right {
+  min-width: 0;
+  padding-top: 0.2mm;
+}
+
+.kartu-back-ketentuan-title {
+  margin: 0 0 0.6mm;
+  font-size: 6pt;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+}
+
+.kartu-back-ketentuan-list {
+  margin: 0;
+  padding-left: 3.2mm;
+  font-size: 5.5pt;
+  font-weight: 600;
+  line-height: 1.12;
+  list-style: decimal;
+}
+
+.kartu-back-ketentuan-list li {
+  margin-bottom: 0.35mm;
+  padding-left: 0.3mm;
+}
+
+.kartu-back-ketentuan-list li:last-child {
+  margin-bottom: 0;
+}
+
+@media print {
+  .kartu-sheet--back .kartu-back-top-bar,
+  .kartu-sheet--back .kartu-back-footer-bar {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
+/* Kartu Krama Tamiu — sisi belakang (kop/footer kuning, layout sama Mipil) */
+.kartu-sheet--back-tamiu .kartu-back-top-bar,
+.kartu-sheet--back-tamiu .kartu-back-footer-bar {
+  background: #e8c547;
+}
+
+@media print {
+  .kartu-sheet--back-tamiu .kartu-back-top-bar,
+  .kartu-sheet--back-tamiu .kartu-back-footer-bar {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
+/* Kartu Tamiu anggota — sisi belakang (kop/footer hitam, layout sama Mipil) */
+.kartu-sheet--back-tamiu-anggota .kartu-back-top-bar,
+.kartu-sheet--back-tamiu-anggota .kartu-back-footer-bar {
+  background: #000;
+}
+
+@media print {
+  .kartu-sheet--back-tamiu-anggota .kartu-back-top-bar,
+  .kartu-sheet--back-tamiu-anggota .kartu-back-footer-bar {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+

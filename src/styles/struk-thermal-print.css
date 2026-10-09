@@ -1,0 +1,224 @@
+/* Struk thermal petugas — HTML + window.print() (HP-friendly) */
+
+:root {
+  --struk-font: "Roboto Condensed", "Arial Narrow", "Segoe UI", system-ui, sans-serif;
+}
+
+.struk-cetak-page {
+  min-height: 100dvh;
+  background: #e8e0d8;
+}
+
+.struk-cetak-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: rgb(255 255 255 / 0.95);
+  border-bottom: 1px solid #dbb896;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.06);
+}
+
+.struk-cetak-toolbar__title {
+  flex: 1;
+  min-width: 8rem;
+}
+
+.struk-cetak-toolbar__title h1 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #3d2310;
+}
+
+.struk-cetak-toolbar__title p {
+  margin: 0.125rem 0 0;
+  font-size: 0.8125rem;
+  color: #5c3518;
+}
+
+.struk-cetak-stage {
+  display: flex;
+  justify-content: center;
+  padding: 1.25rem 0.75rem 2rem;
+}
+
+.struk-sheet {
+  box-sizing: border-box;
+  width: 80mm;
+  max-width: 100%;
+  padding: 3mm 2.5mm;
+  font-family: var(--struk-font);
+  font-size: 11px;
+  line-height: 1.35;
+  color: #111;
+  background: #fff;
+  box-shadow: 0 2px 12px rgb(0 0 0 / 0.12);
+}
+
+.struk-sheet--58 {
+  width: 58mm;
+  font-size: 10px;
+}
+
+.struk-header {
+  text-align: center;
+  margin-bottom: 2mm;
+}
+
+.struk-header__org {
+  margin: 0;
+  font-weight: 700;
+  font-size: 1.05em;
+}
+
+.struk-header__desa {
+  margin: 1mm 0 0;
+  font-weight: 700;
+}
+
+.struk-header__title {
+  margin: 2mm 0 0;
+  font-weight: 700;
+  font-size: 1.05em;
+  letter-spacing: 0.02em;
+}
+
+.struk-rule {
+  border: none;
+  border-top: 1px dashed #333;
+  margin: 2mm 0;
+}
+
+.struk-field {
+  display: grid;
+  grid-template-columns: 22mm 2mm 1fr;
+  gap: 0 1mm;
+  margin-bottom: 1.5mm;
+  align-items: start;
+}
+
+.struk-sheet--58 .struk-field {
+  grid-template-columns: 18mm 2mm 1fr;
+}
+
+.struk-field__label {
+  font-weight: 700;
+}
+
+.struk-field__sep {
+  font-weight: 700;
+}
+
+.struk-field__value {
+  word-break: break-word;
+}
+
+.struk-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 2mm 0;
+  font-size: 0.95em;
+}
+
+.struk-table th,
+.struk-table td {
+  padding: 1mm 0;
+  vertical-align: top;
+}
+
+.struk-table th {
+  font-weight: 700;
+  text-align: left;
+  border-bottom: 1px solid #333;
+}
+
+.struk-table th:last-child,
+.struk-table td:last-child {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.struk-table tfoot td {
+  font-weight: 700;
+  border-top: 1px dashed #333;
+  padding-top: 2mm;
+}
+
+.struk-footer {
+  margin-top: 2mm;
+}
+
+.struk-footer__closing {
+  margin: 2mm 0 0;
+  text-align: center;
+  font-style: italic;
+}
+
+/* 2 baris kosong di akhir struk agar mudah disobek / tidak terpotong */
+.struk-print-tail {
+  height: calc(2 * 1.35em);
+}
+
+@media print {
+  aside,
+  .print\:hidden,
+  .struk-cetak-toolbar {
+    display: none !important;
+  }
+
+  .petugas-module > div > header,
+  .petugas-module > div > nav {
+    display: none !important;
+  }
+
+  .petugas-module,
+  .petugas-module > div {
+    min-height: 0 !important;
+    background: #fff !important;
+    border: none !important;
+    box-shadow: none !important;
+    max-width: none !important;
+  }
+
+  .petugas-module main {
+    padding: 0 !important;
+  }
+
+  body {
+    background: #fff !important;
+  }
+
+  .app-main,
+  .petugas-module {
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .struk-cetak-page {
+    min-height: 0;
+    background: #fff !important;
+  }
+
+  .struk-cetak-stage {
+    padding: 0 !important;
+    display: block !important;
+  }
+
+  .struk-sheet {
+    width: 100% !important;
+    max-width: none !important;
+    box-shadow: none !important;
+    margin: 0 auto;
+    padding: 0 !important;
+  }
+
+  .struk-footer__closing {
+    margin: 1.5mm 0 0;
+  }
+}

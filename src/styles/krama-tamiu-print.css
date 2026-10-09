@@ -1,0 +1,610 @@
+/* Lembar cetak Ilikita Pemasih — A4 landscape (formulir resmi) */
+
+@import "./ilikita-footer-qr.css";
+
+:root {
+  --kt-font: "Roboto Condensed", "Arial Narrow", "Segoe UI", sans-serif;
+  --kt-a4-long: 297mm;
+  --kt-a4-short: 210mm;
+}
+
+@media print {
+  aside,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  body {
+    background: #fff !important;
+  }
+
+  .app-main {
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .pipil-print-stage,
+  .kt-print-stage {
+    padding: 0 !important;
+    background: transparent !important;
+    transform: none !important;
+    width: auto !important;
+    min-height: 0 !important;
+  }
+
+  .pipil-print-wrapper,
+  .kt-print-wrapper {
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: transparent !important;
+    max-width: none !important;
+  }
+}
+
+@page {
+  size: A4 landscape;
+  margin: 8mm 10mm;
+}
+
+body.kt-cetak-body {
+  margin: 0;
+  background: #fff;
+}
+
+.kt-print-stage {
+  padding: 1rem 0 2rem;
+}
+
+.kt-print-stage {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  background: #fff;
+  min-height: 120px;
+}
+
+.kt-print-wrapper,
+.pipil-print-wrapper {
+  width: var(--kt-a4-long);
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 12px;
+  background: #fff;
+  box-shadow: 0 2px 12px rgb(0 0 0 / 0.12);
+  border: 1px solid #ccc;
+}
+
+.kt-sheet {
+  font-family: var(--kt-font);
+  font-size: 10.5pt;
+  font-weight: 500;
+  color: #000;
+  background: #fff;
+  width: 100%;
+  min-height: var(--kt-a4-short);
+  height: auto;
+  margin: 0;
+  box-sizing: border-box;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  display: flex;
+  flex-direction: column;
+  text-transform: uppercase;
+}
+
+.kt-sheet * {
+  box-sizing: border-box;
+}
+
+/* Kop — shared structure */
+.kt-header {
+  display: grid;
+  grid-template-columns: 80px 1fr 80px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.kt-sheet--classic .kt-header {
+  background: #e8c547;
+  color: #000;
+}
+
+.kt-sheet--tamiu-official .kt-header {
+  grid-template-columns: 88px 1fr 88px;
+  gap: 10px;
+  background: #000;
+  color: #fff;
+  padding: 10px 14px;
+}
+
+.kt-sheet--classic .kt-header img,
+.kt-sheet--classic .kt-header-logo-placeholder {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 4px;
+  padding: 2px;
+}
+
+.kt-sheet--tamiu-official .kt-header img,
+.kt-sheet--tamiu-official .kt-header-logo-placeholder {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+}
+
+.kt-header-logo-placeholder {
+  flex-shrink: 0;
+  opacity: 0.35;
+}
+
+.kt-sheet--tamiu-official .kt-header-logo-placeholder {
+  opacity: 0.25;
+  background: rgb(255 255 255 / 0.08);
+}
+
+.kt-header-center {
+  text-align: center;
+  line-height: 1.2;
+}
+
+.kt-header-center .line1 {
+  font-size: 13pt;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.kt-header-center .line2 {
+  font-size: 14pt;
+  font-weight: 700;
+  margin-top: 1px;
+  letter-spacing: 0.02em;
+}
+
+.kt-sheet--tamiu-official .kt-header-center .line2 {
+  font-size: 15pt;
+  margin-top: 2px;
+}
+
+.kt-header-center .line3 {
+  font-size: 11.5pt;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+/* Garis pemisah penuh antara kop dan judul */
+.kt-kop-rule {
+  display: block;
+  width: 100%;
+  height: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-top: 1.5px solid #000;
+}
+
+.kt-body {
+  padding: 10px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  background: #fff;
+}
+
+.kt-sheet--tamiu-official .kt-body {
+  padding: 10px 14px 14px;
+}
+
+.kt-title {
+  text-align: center;
+  font-weight: 700;
+  font-size: 12pt;
+  margin: 6px 0 2px;
+  letter-spacing: 0.06em;
+}
+
+.kt-sheet--tamiu-official .kt-title {
+  margin: 8px 0 4px;
+}
+
+.kt-npkt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 11pt;
+  margin: 0 0 16px;
+  letter-spacing: 0.06em;
+}
+
+.kt-sheet--tamiu-official .kt-nomor {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0;
+  font-weight: 700;
+  font-size: 11pt;
+  margin: 0 0 14px;
+  letter-spacing: 0.04em;
+}
+
+.kt-sheet--tamiu-official .kt-nomor-value {
+  display: inline;
+  font-weight: 700;
+}
+
+.kt-field {
+  --kt-label-w: 36mm;
+  display: grid;
+  grid-template-columns: var(--kt-label-w) 3mm minmax(0, 1fr);
+  column-gap: 1mm;
+  align-items: baseline;
+  font-size: 10.5pt;
+  line-height: 1.4;
+  margin-bottom: 3px;
+}
+
+.kt-sheet--tamiu-official .kt-field {
+  line-height: 1.35;
+  margin-bottom: 4px;
+}
+
+.kt-grid-col:nth-child(1) .kt-field {
+  --kt-label-w: 44mm;
+}
+
+.kt-grid-col:nth-child(2) .kt-field {
+  --kt-label-w: 30mm;
+}
+
+.kt-grid-col:nth-child(3) .kt-field {
+  --kt-label-w: 28mm;
+}
+
+.kt-below-col:first-child .kt-field {
+  --kt-label-w: 34mm;
+}
+
+.kt-field-label {
+  font-weight: 500;
+  text-align: left;
+}
+
+.kt-field-colon {
+  font-weight: 500;
+  text-align: center;
+}
+
+.kt-field-value {
+  min-height: 1.3em;
+  padding: 0 2px;
+  font-weight: 500;
+}
+
+.kt-sheet--tamiu-official .kt-field-value {
+  min-height: 1.25em;
+}
+
+.kt-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 20px;
+  margin-bottom: 8px;
+}
+
+.kt-sheet--classic .kt-grid-2,
+.kt-sheet--tamiu-official .kt-grid-2 {
+  grid-template-columns: calc(50% + 10pt) calc(50% - 10pt);
+  margin-bottom: 3pt;
+}
+
+.kt-sheet--classic .kt-grid-2 .kt-field--nama-pengajeg,
+.kt-sheet--tamiu-official .kt-grid-2 .kt-field--nama-pengajeg {
+  grid-column: 1 / -1;
+  --kt-label-w: calc(36mm + 10pt);
+}
+
+.kt-sheet--classic .kt-grid-2 .kt-field--nama-pengajeg .kt-field-value,
+.kt-sheet--tamiu-official .kt-grid-2 .kt-field--nama-pengajeg .kt-field-value {
+  min-width: 0;
+}
+
+.kt-sheet--classic .kt-grid-2 .kt-grid-col:nth-child(2) .kt-field,
+.kt-sheet--tamiu-official .kt-grid-2 .kt-grid-col:nth-child(2) .kt-field {
+  --kt-label-w: calc(36mm + 10pt);
+}
+
+.kt-sheet--classic .kt-grid-2 .kt-grid-col:nth-child(3) .kt-field {
+  --kt-label-w: 44mm;
+}
+
+.kt-sheet--tamiu-official .kt-grid-2 .kt-grid-col:nth-child(3) .kt-field {
+  --kt-label-w: 48mm;
+}
+
+.kt-grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px 18px;
+  margin-bottom: 8px;
+}
+
+.kt-sheet--tamiu-official .kt-grid-3 {
+  gap: 8px 20px;
+  margin-bottom: 10px;
+}
+
+/** Satu baris kosong di kolom Tinggal/Asal agar judul sejajar dengan Klasifikasi. */
+.kt-grid-col-spacer {
+  min-height: 1.4em;
+  margin-bottom: 3px;
+}
+
+.kt-sheet--tamiu-official .kt-grid-col-spacer {
+  margin-bottom: 4px;
+}
+
+.kt-col-heading {
+  text-align: left;
+  font-weight: 500;
+  font-size: 10.5pt;
+  margin: 0 0 6px;
+  letter-spacing: 0.02em;
+}
+
+.kt-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 8.5pt;
+  table-layout: fixed;
+  font-weight: 500;
+  flex: 0 0 auto;
+}
+
+.kt-table thead tr {
+  background: transparent;
+}
+
+.kt-table th,
+.kt-table td {
+  border: 1px solid #000;
+  padding: 3px 4px;
+  vertical-align: top;
+  word-wrap: break-word;
+  line-height: 1.25;
+}
+
+.kt-table th {
+  font-weight: 500;
+  text-align: center;
+  font-size: 8pt;
+}
+
+.kt-table col.col-no {
+  width: 4%;
+}
+
+.kt-table col.col-nama {
+  width: 22%;
+}
+
+.kt-table col.col-lp {
+  width: 5%;
+}
+
+.kt-table col.col-nik,
+.kt-table col.col-nika {
+  width: 11%;
+}
+
+.kt-table col.col-ttl {
+  width: 18%;
+}
+
+.kt-table col.col-kawin {
+  width: 12%;
+}
+
+.kt-table col.col-kerja {
+  width: 12%;
+}
+
+.kt-table col.col-status {
+  width: 14%;
+}
+
+.kt-table td.num,
+.kt-table th.num,
+.kt-table td.lp,
+.kt-table th.lp {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.kt-table td.nama,
+.kt-table th.nama {
+  text-align: left;
+}
+
+.kt-row-empty td {
+  height: 1.6em;
+}
+
+.kt-below-table {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+  flex: 0 0 auto;
+  font-size: 10.5pt;
+}
+
+.kt-sheet--tamiu-official .kt-below-table {
+  align-items: start;
+}
+
+.kt-below-col {
+  text-align: left;
+}
+
+.kt-below-col--center,
+.kt-below-col--right {
+  text-align: center;
+}
+
+.kt-below-sign-space {
+  min-height: 72px;
+  margin: -14px 0 -8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.kt-below-sign-img {
+  display: block;
+  max-width: 95%;
+  max-height: 96px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+
+.kt-sheet--tamiu-official .kt-below-sign-space {
+  min-height: 72px;
+  margin: -14px 0 -8px;
+}
+
+.kt-sheet--tamiu-official .kt-below-place-date--align {
+  visibility: hidden;
+  margin: 0 0 6px;
+}
+
+.kt-below-line {
+  margin: 0 0 4px;
+  font-weight: 500;
+}
+
+.kt-below-line--align {
+  visibility: hidden;
+}
+
+.kt-below-name {
+  margin: 0;
+  font-weight: 500;
+}
+
+.kt-below-role {
+  margin: 0;
+  font-weight: 500;
+}
+
+.kt-sheet--tamiu-official .kt-below-role {
+  margin: 0 0 4px;
+}
+
+.kt-below-place-date {
+  margin: 0 0 6px;
+  font-weight: 500;
+}
+
+@media screen and (max-width: 900px) {
+  .kt-print-wrapper {
+    width: min(var(--kt-a4-long), calc(100vw - 2rem));
+  }
+
+  .kt-print-stage {
+    overflow-x: auto;
+    justify-content: flex-start;
+  }
+}
+
+@media print {
+  body.kt-cetak-body,
+  .kt-cetak-page {
+    background: #fff !important;
+  }
+
+  .kt-cetak-page .kt-cetak-stage {
+    display: none !important;
+  }
+
+  .kt-cetak-print-only {
+    display: block !important;
+    background: #fff !important;
+  }
+
+  .kt-print-wrapper {
+    width: var(--kt-a4-long);
+    min-height: 0;
+    height: auto;
+  }
+
+  .kt-sheet {
+    width: var(--kt-a4-long);
+    min-height: 0;
+    height: auto;
+    background: #fff !important;
+  }
+
+  .kt-sheet--classic .kt-header {
+    background: #fff !important;
+    color: #000 !important;
+    print-color-adjust: economy;
+    -webkit-print-color-adjust: economy;
+  }
+
+  .kt-sheet--classic .kt-header img {
+    filter: grayscale(100%) contrast(1.08);
+    border: none;
+    print-color-adjust: economy;
+    -webkit-print-color-adjust: economy;
+  }
+
+  .kt-sheet--classic .kt-header-logo-placeholder {
+    background: #fff !important;
+    border: none;
+  }
+
+  .kt-sheet--tamiu-official .kt-header {
+    background: #fff !important;
+    color: #000 !important;
+    print-color-adjust: economy;
+    -webkit-print-color-adjust: economy;
+  }
+
+  .kt-sheet--tamiu-official .kt-header img {
+    filter: grayscale(100%) contrast(1.08);
+    border: none;
+    print-color-adjust: economy;
+    -webkit-print-color-adjust: economy;
+  }
+
+  .kt-sheet--tamiu-official .kt-header-logo-placeholder {
+    background: #fff !important;
+    border: none;
+  }
+
+  .kt-kop-rule {
+    border-top: 1.5px solid #000 !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .kt-table thead tr {
+    background: transparent !important;
+  }
+}

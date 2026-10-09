@@ -1,0 +1,84 @@
+/* Scoped readability + contrast for mode petugas (mobile lapangan) */
+.petugas-module {
+  --color-muted: #5c3518;
+  --color-muted-foreground: #3d2310;
+  --color-card: #ffffff;
+  --color-border: #dbb896;
+  color: #2a1609;
+}
+
+/* +2pt font bump for common text utilities */
+.petugas-module .text-xs {
+  font-size: calc(0.8125rem + 2pt);
+}
+
+.petugas-module .text-sm {
+  font-size: calc(0.9375rem + 2pt);
+}
+
+.petugas-module .text-lg {
+  font-size: calc(1.125rem + 2pt);
+}
+
+.petugas-module .text-\[11px\] {
+  font-size: calc(11px + 2pt);
+}
+
+.petugas-module .text-\[10px\] {
+  font-size: calc(10px + 2pt);
+}
+
+/* Cards & borders */
+.petugas-module .bg-card {
+  background-color: #ffffff;
+}
+
+.petugas-module .border-copper-200 {
+  border-color: #dbb896;
+}
+
+.petugas-module .border-copper-300\/75 {
+  border-color: #c9956a;
+}
+
+/* Status alert contrast */
+.petugas-module .bg-amber-50 {
+  background-color: #fef3c7;
+}
+
+.petugas-module .border-amber-200 {
+  border-color: #f59e0b;
+}
+
+.petugas-module .text-amber-800,
+.petugas-module .text-amber-900 {
+  color: #78350f;
+}
+
+.petugas-module .bg-emerald-50 {
+  background-color: #d1fae5;
+}
+
+.petugas-module .border-emerald-200 {
+  border-color: #10b981;
+}
+
+.petugas-module .text-emerald-900 {
+  color: #064e3b;
+}
+
+.petugas-module .bg-red-50 {
+  background-color: #fee2e2;
+}
+
+.petugas-module .border-red-200 {
+  border-color: #ef4444;
+}
+
+.petugas-module .text-red-600 {
+  color: #b91c1c;
+}
+
+.petugas-module .bg-amber-50\/60 {
+  background-color: color-mix(in srgb, #fef3c7 60%, transparent);
+}

@@ -1,0 +1,287 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "IBM Plex Sans Condensed", "Segoe UI", system-ui, sans-serif;
+
+  /* Skala tipografi desktop (basis 16px) */
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.3;
+  --text-sm: 0.9375rem;
+  --text-sm--line-height: 1.4;
+  --text-base: 1rem;
+  --text-base--line-height: 1.45;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.35;
+  --text-xl: 1.375rem;
+  --text-xl--line-height: 1.3;
+  --text-2xl: 1.625rem;
+  --text-2xl--line-height: 1.25;
+
+  /* Palet tembaga */
+  --color-copper-50: #fbf5ef;
+  --color-copper-100: #f5e8da;
+  --color-copper-200: #ead4bc;
+  --color-copper-300: #dbb896;
+  --color-copper-400: #c9956a;
+  --color-copper-500: #b87333;
+  --color-copper-600: #9a5c28;
+  --color-copper-700: #7a471f;
+  --color-copper-800: #5c3518;
+  --color-copper-900: #3d2310;
+  --color-copper-950: #2a1609;
+
+  /* Token semantik */
+  --color-background: #faf3eb;
+  --color-foreground: #3d2310;
+  --color-card: #fffcf8;
+  --color-primary: #9a5c28;
+  --color-primary-foreground: #fffbf7;
+  --color-accent: #b87333;
+  --color-accent-foreground: #fffbf7;
+  --color-muted: #8b6f5c;
+  --color-muted-foreground: #6b5344;
+  --color-border: #ead4bc;
+  --color-ring: #c9956a;
+  --color-sidebar: #3d2310;
+  --color-sidebar-foreground: #f5e8da;
+  --color-sidebar-muted: #c9956a;
+  --color-sidebar-active: #b87333;
+}
+
+@layer base {
+  html {
+    font-size: 16px;
+  }
+  @media (max-width: 640px) {
+    html {
+      font-size: 15px;
+    }
+  }
+  * {
+    @apply border-copper-200;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased text-base;
+    line-height: 1.45;
+    background-image: radial-gradient(
+      ellipse 120% 80% at 50% -20%,
+      color-mix(in srgb, var(--color-copper-200) 35%, transparent),
+      transparent 55%
+    );
+  }
+}
+
+@layer components {
+  .app-splash-glow {
+    background: radial-gradient(
+      ellipse 120% 80% at 50% -20%,
+      color-mix(in srgb, var(--color-copper-200) 45%, transparent),
+      transparent 55%
+    );
+    animation: splash-glow-pulse 3.2s ease-in-out infinite;
+  }
+
+  .app-splash-logo {
+    animation:
+      splash-fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both,
+      splash-logo-float 3.5s ease-in-out 0.7s infinite;
+  }
+
+  .app-splash-title {
+    animation: splash-fade-up 0.65s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
+  }
+
+  .app-splash-subtitle {
+    animation: splash-fade-up 0.65s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;
+  }
+
+  .app-splash-dots span {
+    animation: splash-dot-pulse 1.4s ease-in-out infinite;
+  }
+
+  .app-splash-dots span:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+
+  .app-splash-dots span:nth-child(3) {
+    animation-delay: 0.4s;
+  }
+
+  @keyframes splash-glow-pulse {
+    0%,
+    100% {
+      opacity: 0.65;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.03);
+    }
+  }
+
+  @keyframes splash-fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes splash-logo-float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-5px);
+    }
+  }
+
+  @keyframes splash-dot-pulse {
+    0%,
+    80%,
+    100% {
+      opacity: 0.2;
+    }
+    40% {
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .app-splash-glow,
+    .app-splash-logo,
+    .app-splash-title,
+    .app-splash-subtitle,
+    .app-splash-dots span {
+      animation: none;
+    }
+  }
+}
+
+/* Rapatkan jarak baris di area konten & login */
+@layer components {
+  .app-main,
+  .app-login {
+    line-height: 1.4;
+    font-size: 1rem;
+  }
+
+  .app-main dl dd,
+  .app-login dl dd {
+    margin-top: 0.2rem;
+    line-height: 1.4;
+  }
+
+  .app-main label,
+  .app-login label {
+    line-height: 1.3;
+  }
+
+  .app-main p,
+  .app-login p {
+    line-height: 1.4;
+  }
+
+  .flatpickr-calendar {
+    font-family: var(--font-sans);
+    font-size: 0.9375rem;
+    border-color: var(--color-border);
+    box-shadow: 0 8px 24px rgb(61 35 16 / 0.15);
+  }
+
+  .flatpickr-day.selected,
+  .flatpickr-day.startRange,
+  .flatpickr-day.endRange {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+  }
+
+  .flatpickr-day:hover {
+    background: var(--color-copper-100);
+  }
+
+  @keyframes modal-shake {
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+    25% {
+      transform: translateX(-5px);
+    }
+    75% {
+      transform: translateX(5px);
+    }
+  }
+
+  .animate-modal-shake {
+    animation: modal-shake 0.28s ease;
+  }
+}
+
+/*
+ * Tabel daftar padat — pakai class list-table (LIST_TABLE_ELEMENT).
+ * Di luar @layer + !important agar menang atas min-h-10 tombol/IconLink di sel.
+ */
+.list-table {
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+  line-height: 1.25;
+}
+
+.list-table th,
+.list-table td {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  padding-right: 0.375rem;
+  line-height: 1.25;
+  vertical-align: middle;
+}
+
+.list-table thead th {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--color-muted);
+  padding-bottom: 0.125rem !important;
+}
+
+.list-table td button,
+.list-table td a {
+  min-height: 1.75rem !important;
+  min-width: 1.75rem !important;
+  height: 1.75rem !important;
+  padding: 0.125rem !important;
+}
+
+.list-table td button svg,
+.list-table td a svg {
+  width: 0.875rem !important;
+  height: 0.875rem !important;
+}
+
+/* Scroll horizontal aman di layar sempit (tabel padat) */
+.app-scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+@media (max-width: 767px) {
+  .list-table td button,
+  .list-table td a {
+    min-height: 2rem !important;
+    min-width: 2rem !important;
+    height: 2rem !important;
+  }
+}
+
+/* Chrome "Situs desktop" di HP: viewport CSS lebar, tapi data-client=phone */
+html[data-client="phone"] .list-table td button,
+html[data-client="phone"] .list-table td a {
+  min-height: 2rem !important;
+  min-width: 2rem !important;
+  height: 2rem !important;
+}

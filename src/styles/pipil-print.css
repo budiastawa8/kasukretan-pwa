@@ -1,0 +1,456 @@
+/* Lembar cetak Pipil — A4 landscape */
+
+@import "./ilikita-footer-qr.css";
+
+:root {
+  --pipil-font: "Roboto Condensed", "Arial Narrow", "Segoe UI", sans-serif;
+  --pipil-a4-long: 297mm;
+  --pipil-a4-short: 210mm;
+}
+
+@media print {
+  aside,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  body {
+    background: #fff !important;
+  }
+
+  .app-main {
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .pipil-print-stage {
+    padding: 0 !important;
+    background: transparent !important;
+    transform: none !important;
+    width: auto !important;
+    min-height: 0 !important;
+  }
+
+  .pipil-print-wrapper {
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: transparent !important;
+    max-width: none !important;
+  }
+}
+
+@page {
+  size: A4 landscape;
+  margin: 8mm 10mm;
+}
+
+/* Halaman cetak khusus (/krama-mipil/:id/cetak) — tanpa sidebar */
+body.pipil-cetak-body {
+  margin: 0;
+  background: #fff;
+}
+
+.pipil-cetak-stage {
+  padding: 1rem 0 2rem;
+}
+
+@media print {
+  body.pipil-cetak-body,
+  .pipil-cetak-page {
+    background: #fff !important;
+  }
+
+  .pipil-cetak-page .pipil-cetak-stage {
+    display: none !important;
+  }
+
+  .pipil-cetak-print-only {
+    display: block !important;
+    background: #fff !important;
+  }
+
+  .pipil-sheet {
+    background: #fff !important;
+  }
+}
+
+/* Simulasi kertas A4 landscape di layar */
+.pipil-print-stage {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 1rem 0 1.5rem;
+  background: #fff;
+  overflow: visible;
+}
+
+.pipil-print-wrapper {
+  width: min(var(--pipil-a4-long), calc(100vw - 15rem));
+  min-height: var(--pipil-a4-short);
+  height: auto;
+  flex-shrink: 0;
+  box-shadow:
+    0 2px 4px rgb(0 0 0 / 0.06),
+    0 8px 24px rgb(61 35 16 / 0.12);
+  border: 1px solid #c9b8a8;
+  border-radius: 2px;
+  overflow: visible;
+  background: #fff;
+}
+
+.pipil-sheet {
+  font-family: var(--pipil-font);
+  font-size: 10.5pt;
+  font-weight: 500;
+  color: #000;
+  background: #fff;
+  width: 100%;
+  min-height: var(--pipil-a4-short);
+  height: auto;
+  margin: 0;
+  box-sizing: border-box;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  display: flex;
+  flex-direction: column;
+  text-transform: uppercase;
+}
+
+.pipil-sheet * {
+  box-sizing: border-box;
+}
+
+.pipil-header {
+  display: grid;
+  grid-template-columns: 80px 1fr 80px;
+  align-items: center;
+  gap: 8px;
+  background: #b91c1c;
+  color: #fff;
+  padding: 8px 12px;
+}
+
+.pipil-header img,
+.pipil-header-logo-placeholder {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 4px;
+  padding: 2px;
+}
+
+.pipil-header-logo-placeholder {
+  flex-shrink: 0;
+}
+
+.pipil-header-center {
+  text-align: center;
+  line-height: 1.2;
+}
+
+.pipil-header-center .line1 {
+  font-size: 13pt;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.pipil-header-center .line2 {
+  font-size: 14pt;
+  font-weight: 700;
+  margin-top: 1px;
+  letter-spacing: 0.02em;
+}
+
+.pipil-header-center .line3 {
+  font-size: 11.5pt;
+  font-weight: 600;
+  margin-top: 1px;
+}
+
+.pipil-body {
+  padding: 10px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  background: #fff;
+}
+
+.pipil-title {
+  text-align: center;
+  font-weight: 700;
+  font-size: 16pt;
+  margin: 6px 0 3px;
+  letter-spacing: 0.06em;
+}
+
+.pipil-npk {
+  text-align: center;
+  font-weight: 700;
+  font-size: 14pt;
+  margin-bottom: 16px;
+  letter-spacing: 0.08em;
+}
+
+.pipil-field {
+  --pipil-label-w: 44mm;
+  display: grid;
+  grid-template-columns: var(--pipil-label-w) 3mm minmax(0, 1fr);
+  column-gap: 1mm;
+  align-items: baseline;
+  font-size: 10.5pt;
+  line-height: 1.4;
+  margin-bottom: 3px;
+}
+
+.pipil-field-label {
+  font-weight: 500;
+  text-align: left;
+}
+
+.pipil-field-colon {
+  font-weight: 500;
+  text-align: center;
+}
+
+.pipil-field-value {
+  min-height: 1.3em;
+  padding: 0 2px;
+  font-weight: 500;
+}
+
+.pipil-below-col .pipil-field {
+  --pipil-label-w: 30mm;
+}
+
+.pipil-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 20px;
+  margin-bottom: 8px;
+}
+
+.pipil-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 8.5pt;
+  table-layout: fixed;
+  font-weight: 500;
+  flex: 0 0 auto;
+}
+
+.pipil-table th,
+.pipil-table td {
+  border: 1px solid #000;
+  padding: 2px 3px;
+  vertical-align: top;
+  word-wrap: break-word;
+  line-height: 1.25;
+}
+
+.pipil-table th {
+  font-weight: 500;
+  text-align: center;
+  background: transparent;
+  font-size: 8.5pt;
+}
+
+.pipil-table col.col-no {
+  width: 3%;
+}
+
+.pipil-table col.col-nama {
+  width: 20%;
+}
+
+.pipil-table col.col-lp {
+  width: 3%;
+}
+
+.pipil-table col.col-nika {
+  width: 10%;
+}
+
+.pipil-table col.col-ttl {
+  width: 13%;
+}
+
+.pipil-table col.col-kawin {
+  width: 8%;
+}
+
+.pipil-table col.col-kerja {
+  width: 9%;
+}
+
+.pipil-table col.col-status {
+  width: 7%;
+}
+
+.pipil-table col.col-ibu {
+  width: 10%;
+}
+
+.pipil-table col.col-ayah {
+  width: 10%;
+}
+
+.pipil-table td.num,
+.pipil-table th.num {
+  text-align: center;
+  padding-left: 1px;
+  padding-right: 1px;
+}
+
+.pipil-table td.lp,
+.pipil-table th.lp {
+  text-align: center;
+  padding-left: 1px;
+  padding-right: 1px;
+  white-space: nowrap;
+}
+
+.pipil-table td.nika,
+.pipil-table th.nika {
+  text-align: center;
+  padding-left: 2px;
+  padding-right: 2px;
+  white-space: nowrap;
+}
+
+.pipil-table td.status-keluarga,
+.pipil-table th.status-keluarga {
+  padding-left: 1px;
+  padding-right: 1px;
+}
+
+.pipil-table th.nama,
+.pipil-table th.lp,
+.pipil-table th.status-keluarga {
+  text-align: center;
+}
+
+.pipil-table td.nama {
+  text-align: left;
+}
+
+.pipil-below-table {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+  flex: 0 0 auto;
+  font-size: 10.5pt;
+}
+
+.pipil-below-col {
+  text-align: left;
+}
+
+.pipil-below-col--center {
+  text-align: center;
+}
+
+.pipil-below-col--right {
+  text-align: center;
+}
+
+.pipil-below-sign-space {
+  min-height: 72px;
+  margin: -14px 0 -8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.pipil-below-sign-img {
+  display: block;
+  max-width: 95%;
+  max-height: 96px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+
+.pipil-below-line {
+  margin: 0 0 4px;
+  font-weight: 500;
+}
+
+.pipil-below-line--align {
+  visibility: hidden;
+}
+
+.pipil-below-place {
+  margin: 0 0 8px;
+  font-weight: 500;
+}
+
+.pipil-below-role {
+  margin: 0;
+  font-weight: 500;
+}
+
+.pipil-below-name {
+  margin: 0;
+  font-weight: 500;
+}
+
+@media screen and (max-width: 900px) {
+  .pipil-print-wrapper {
+    width: min(var(--pipil-a4-long), calc(100vw - 2rem));
+  }
+
+  .pipil-print-stage {
+    overflow-x: auto;
+    justify-content: flex-start;
+  }
+}
+
+@media print {
+  .pipil-print-wrapper {
+    width: var(--pipil-a4-long);
+    min-height: 0;
+    height: auto;
+  }
+
+  .pipil-sheet {
+    width: var(--pipil-a4-long);
+    min-height: 0;
+    height: auto;
+  }
+
+  /* Kop & logo: hitam-putih di kertas */
+  .pipil-header {
+    background: #fff !important;
+    color: #000 !important;
+    border-bottom: 2pt solid #000;
+    print-color-adjust: economy;
+    -webkit-print-color-adjust: economy;
+  }
+
+  .pipil-header-center .line1,
+  .pipil-header-center .line2,
+  .pipil-header-center .line3 {
+    color: #000 !important;
+  }
+
+  .pipil-header img {
+    filter: grayscale(100%) contrast(1.08);
+    print-color-adjust: economy;
+    -webkit-print-color-adjust: economy;
+    border: none;
+  }
+
+  .pipil-header-logo-placeholder {
+    background: #fff !important;
+    border: none;
+  }
+}
