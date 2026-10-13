@@ -100,13 +100,15 @@ async function handleRoute(path: string, req: ApiRequest, res: ServerResponse): 
 
   if (path === "health" && method === "GET") {
     let dbReady = false;
+    let dbError: string | undefined;
     try {
       await dbSelect("SELECT 1 AS ok");
       dbReady = true;
     } catch (err) {
       console.error("[health] database:", err);
+      dbError = (err instanceof Error ? err.message : String(err)).replace(/eyJ[\w.-]+/g, "***");
     }
-    send(res, 200, { ok: true, service: "kasukretan-pwa", bridge: "sqlite", dbReady });
+    send(res, 200, { ok: true, service: "kasukretan-pwa", bridge: "sqlite", dbReady, dbError });
     return;
   }
 
