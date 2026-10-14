@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { KartuQrScanner } from "../components/KartuQrScanner";
 import { PaturunanPembayaranDialog } from "../components/paturunan/PaturunanPembayaranDialog";
 import { DudukanPembayaranDialog } from "../components/dudukan/DudukanPembayaranDialog";
+import { RiwayatSetoranCard } from "../components/pungut/RiwayatSetoranCard";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
@@ -487,7 +488,7 @@ export function PungutPage() {
         </Card>
       )}
 
-      <Card title="Uang yang saya pegang">
+      <Card title="Uang di Tangan">
         <p className="flex items-center gap-1.5 text-sm">
           <Wallet size={16} className="text-amber-800" aria-hidden />
           Belum disetor{mode ? ` (${MODE_LABEL[mode]})` : ""}:{" "}
@@ -501,8 +502,8 @@ export function PungutPage() {
           </p>
         )}
         <p className="mt-1 text-[11px] text-muted leading-snug">
-          Serahkan uang ini ke bendahara. Setelah bendahara menerima setoran, daftar ini kosong dan
-          pembayaran tidak bisa dihapus lagi dari HP.
+          Serahkan uang ini ke bendahara. Setelah bendahara menerima setoran, pembayarannya pindah ke
+          Riwayat Setoran dan tidak bisa dihapus lagi dari HP.
         </p>
         {peganganMode.length > 0 && (
           <ul className="mt-2 divide-y divide-copper-100 border border-copper-100 rounded-md max-h-72 overflow-y-auto">
@@ -533,6 +534,8 @@ export function PungutPage() {
           </ul>
         )}
       </Card>
+
+      <RiwayatSetoranCard petugasId={petugas.id} petugasJabatan={petugas.jabatan} />
 
       {scanOpen && <KartuQrScanner onScan={onScan} onClose={closeScan} />}
 

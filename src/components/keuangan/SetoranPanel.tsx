@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, HandCoins, RotateCcw, Undo2 } from "lucide-react";
+import { ChevronDown, ChevronRight, FileDown, HandCoins, RotateCcw, Undo2 } from "lucide-react";
+import { unduhBuktiSetoran } from "../../lib/bukti-setoran-petugas-unduh";
 import {
   batalkanSetoran,
   listPembayaranBelumDisetor,
@@ -109,6 +110,19 @@ export function SetoranPanel({
   const [detail, setDetail] = useState<PembayaranSetoranItem[]>([]);
   const [batalId, setBatalId] = useState<string | null>(null);
   const [batalBusy, setBatalBusy] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState<string | null>(null);
+
+  async function unduhPdf(s: SetoranRow) {
+    setPdfBusy(s.id);
+    setError("");
+    try {
+      await unduhBuktiSetoran(s);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setPdfBusy(null);
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -379,13 +393,13 @@ export function SetoranPanel({
                   <th className="text-right pr-3">Total</th>
                   {!isPhone && <th className="pr-3">Diterima oleh</th>}
                   {!isPhone && <th className="pr-3">Keterangan</th>}
-                  {canEdit && <th />}
+                  <th />
                 </tr>
               </thead>
               <tbody>
                 {riwayat.map((s) => {
                   const open = expandedId === s.id;
-                  const colSpan = 4 + (isPhone ? 0 : 2) + (canEdit ? 1 : 0);
+                  const colSpan = 5 + (isPhone ? 0 : 2);
                   return [
                     <tr
                       key={s.id}
@@ -405,8 +419,21 @@ export function SetoranPanel({
                       {!isPhone && (
                         <td className="pr-3 text-muted text-xs truncate max-w-xs">{s.keterangan ?? "—"}</td>
                       )}
-                      {canEdit && (
-                        <td>
+                      <td className="whitespace-nowrap">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          icon={FileDown}
+                          iconOnly
+                          title="Unduh PDF bukti setoran"
+                          aria-label="Unduh PDF bukti setoran"
+                          disabled={pdfBusy != null}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void unduhPdf(s);
+                          }}
+                        />
+                        {canEdit && (
                           <Button
                             type="button"
                             variant="ghost"
@@ -418,8 +445,8 @@ export function SetoranPanel({
                               setBatalId(s.id);
                             }}
                           />
-                        </td>
-                      )}
+                        )}
+                      </td>
                     </tr>,
                     open && (
                       <tr key={`${s.id}-detail`} className="border-b border-copper-100 bg-copper-50/30">
