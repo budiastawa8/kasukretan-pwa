@@ -7,7 +7,7 @@ import { probeLanBridge } from "../lib/lan-client";
 import { initLanClientDatabase } from "../lib/db/init";
 import { defaultHomePath } from "../lib/auth-roles";
 import { Button } from "../components/ui/Button";
-import { Input, Label } from "../components/ui/Input";
+import { Input, Label, PasswordInput } from "../components/ui/Input";
 import { Card } from "../components/ui/Card";
 import { AppLogo } from "../components/ui/AppLogo";
 import { InstallAppButton } from "../components/pwa/InstallAppButton";
@@ -105,8 +105,7 @@ function StaffLoginForm() {
           </div>
           <div>
             <Label>Password</Label>
-            <Input
-              type="password"
+            <PasswordInput
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"

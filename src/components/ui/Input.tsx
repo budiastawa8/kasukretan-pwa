@@ -1,5 +1,12 @@
 import { cn } from "../../lib/utils";
-import { forwardRef, type InputHTMLAttributes, type LabelHTMLAttributes, type SelectHTMLAttributes } from "react";
+import {
+  forwardRef,
+  useState,
+  type InputHTMLAttributes,
+  type LabelHTMLAttributes,
+  type SelectHTMLAttributes,
+} from "react";
+import { Eye, EyeOff } from "lucide-react";
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(
   function Input({ className, ...props }, ref) {
@@ -15,6 +22,33 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
     );
   }
 );
+
+export const PasswordInput = forwardRef<
+  HTMLInputElement,
+  Omit<InputHTMLAttributes<HTMLInputElement>, "type">
+>(function PasswordInput({ className, ...props }, ref) {
+  const [terlihat, setTerlihat] = useState(false);
+  return (
+    <div className="relative">
+      <Input
+        ref={ref}
+        type={terlihat ? "text" : "password"}
+        className={cn("pr-11", className)}
+        {...props}
+      />
+      <button
+        type="button"
+        className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-md text-copper-600 hover:text-copper-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-400/40"
+        onClick={() => setTerlihat((v) => !v)}
+        aria-label={terlihat ? "Sembunyikan password" : "Tampilkan password"}
+        aria-pressed={terlihat}
+        title={terlihat ? "Sembunyikan password" : "Tampilkan password"}
+      >
+        {terlihat ? <EyeOff size={18} aria-hidden /> : <Eye size={18} aria-hidden />}
+      </button>
+    </div>
+  );
+});
 
 export function Label({
   className,

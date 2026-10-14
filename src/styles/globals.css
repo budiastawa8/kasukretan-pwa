@@ -164,6 +164,11 @@
 
 /* Rapatkan jarak baris di area konten & login */
 @layer components {
+  /* Edge punya tombol mata bawaan; PasswordInput sudah menyediakan tombolnya sendiri. */
+  input::-ms-reveal {
+    display: none;
+  }
+
   .app-main,
   .app-login {
     line-height: 1.4;
