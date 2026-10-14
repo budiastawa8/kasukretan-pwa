@@ -5,10 +5,34 @@ import { uuid } from "../utils";
 
 export const DESA_ADAT_UPDATED_EVENT = "desa-adat-updated";
 
-export async function getDesaAdat(): Promise<DesaAdat | null> {
+/** Baris desa_adat memuat logo & TTD (gambar base64, ratusan KB) dan dibaca di banyak tempat. */
+const DESA_CACHE_TTL_MS = 5 * 60 * 1000;
+let desaCache: { at: number; promise: Promise<DesaAdat | null> } | null = null;
+
+export function invalidateDesaAdatCache(): void {
+  desaCache = null;
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener(DESA_ADAT_UPDATED_EVENT, invalidateDesaAdatCache);
+}
+
+async function loadDesaAdat(): Promise<DesaAdat | null> {
   const db = await getDb();
   const rows = await db.select<DesaAdat[]>(`SELECT * FROM desa_adat LIMIT 1`);
   return rows[0] ?? null;
+}
+
+export async function getDesaAdat(): Promise<DesaAdat | null> {
+  if (!desaCache || Date.now() - desaCache.at > DESA_CACHE_TTL_MS) {
+    const promise = loadDesaAdat();
+    desaCache = { at: Date.now(), promise };
+    promise.catch(() => {
+      if (desaCache?.promise === promise) desaCache = null;
+    });
+  }
+  const desa = await desaCache.promise;
+  return desa ? { ...desa } : null;
 }
 
 export async function hasAnyKrama(): Promise<boolean> {
@@ -60,7 +84,8 @@ export async function upsertDesaAdat(
         existing.id,
       ]
     );
-    return (await getDesaAdat())!;
+    invalidateDesaAdatCache();
+  return (await getDesaAdat())!;
   }
 
   const id = existing?.id ?? uuid();
@@ -107,6 +132,7 @@ export async function upsertDesaAdat(
       ]
     );
   }
+  invalidateDesaAdatCache();
   return (await getDesaAdat())!;
 }
 
@@ -144,6 +170,7 @@ export async function updatePrajuruDesaAdat(data: PrajuruDesaAdatInput): Promise
       existing.id,
     ]
   );
+  invalidateDesaAdatCache();
   return (await getDesaAdat())!;
 }
 
@@ -270,5 +297,6 @@ export async function updateProfilDesaAdat(data: ProfilDesaAdatInput): Promise<D
       existing.id,
     ]
   );
+  invalidateDesaAdatCache();
   return (await getDesaAdat())!;
 }

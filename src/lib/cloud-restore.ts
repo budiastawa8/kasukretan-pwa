@@ -7,7 +7,8 @@
 import type { Database as SqlJsDatabase, SqlValue } from "sql.js";
 import { getDb } from "./db/client";
 import { applySchemaMigrations } from "./db/init";
-import { lanFetch } from "./lan-client";
+import { clearSelectCache, lanFetch } from "./lan-client";
+import { invalidateDesaAdatCache } from "./services/desa";
 
 type SchemaObject = { type: string; name: string; tbl_name: string; sql: string };
 
@@ -227,6 +228,8 @@ export async function runCloudRestore(
 
     await applySchemaMigrations(await getDb());
     await post("/admin/restore/end", {});
+    clearSelectCache();
+    invalidateDesaAdatCache();
   } finally {
     db.close();
   }

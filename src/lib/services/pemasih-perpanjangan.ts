@@ -1,7 +1,7 @@
 import { getDb } from "../db/client";
 import type { DesaAdat } from "../types";
 import { uuid } from "../utils";
-import { DESA_ADAT_UPDATED_EVENT, getDesaAdat } from "./desa";
+import { DESA_ADAT_UPDATED_EVENT, getDesaAdat, invalidateDesaAdatCache } from "./desa";
 
 export type PemasihPerpanjanganJenis = "manual" | "otomatis";
 
@@ -108,6 +108,7 @@ export async function updateDesaIlikitaKebijakan(input: {
   const db = await getDb();
   await db.execute(`UPDATE desa_adat SET ${sets.join(", ")} WHERE id = ?`, params);
 
+  invalidateDesaAdatCache();
   const updated = await getDesaAdat();
   if (!updated) throw new Error("Gagal menyimpan kebijakan ilikita.");
   window.dispatchEvent(new CustomEvent(DESA_ADAT_UPDATED_EVENT));

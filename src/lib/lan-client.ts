@@ -27,6 +27,7 @@ export function getLanToken(): string | null {
 }
 
 export function setLanToken(token: string | null): void {
+  clearSelectCache();
   if (typeof localStorage === "undefined") return;
   if (token) localStorage.setItem(TOKEN_KEY, token);
   else localStorage.removeItem(TOKEN_KEY);
@@ -196,6 +197,36 @@ export async function lanSqlSelect<T>(sql: string, bind: unknown[] = []): Promis
   });
 }
 
+/**
+ * Satu halaman (mis. Dashboard) memanggil query besar yang sama berkali-kali; lewat
+ * internet seluler itu berarti megabita yang sama diunduh ulang. Query identik dalam
+ * jendela singkat memakai satu respons; setiap perintah tulis mengosongkan cache.
+ */
+const SELECT_CACHE_MS = 5_000;
+const selectCache = new Map<string, { at: number; promise: Promise<unknown> }>();
+
+export function clearSelectCache(): void {
+  selectCache.clear();
+}
+
+function cachedSelect<T>(sql: string, bind: unknown[]): Promise<T> {
+  const key = `${sql}\u0000${JSON.stringify(bind)}`;
+  const now = Date.now();
+  for (const [k, v] of selectCache) {
+    if (now - v.at > SELECT_CACHE_MS) selectCache.delete(k);
+  }
+  let entry = selectCache.get(key);
+  if (!entry) {
+    const promise = lanSqlSelect<T>(sql, bind);
+    entry = { at: now, promise };
+    selectCache.set(key, entry);
+    promise.catch(() => {
+      if (selectCache.get(key)?.promise === promise) selectCache.delete(key);
+    });
+  }
+  return entry.promise.then((rows) => structuredClone(rows) as T);
+}
+
 /** Database adapter HTTP — bentuk sama dengan desktop SQL IPC. */
 export class LanDatabase {
   static async load(_dbPath?: string): Promise<LanDatabase> {
@@ -207,11 +238,16 @@ export class LanDatabase {
   }
 
   async execute(sql: string, bind?: unknown[]): Promise<{ rowsAffected: number }> {
-    return lanSqlExecute(sql, bind ?? []);
+    clearSelectCache();
+    try {
+      return await lanSqlExecute(sql, bind ?? []);
+    } finally {
+      clearSelectCache();
+    }
   }
 
   async select<T>(sql: string, bind?: unknown[]): Promise<T> {
-    return lanSqlSelect<T>(sql, bind ?? []);
+    return cachedSelect<T>(sql, bind ?? []);
   }
 
   async close(): Promise<void> {

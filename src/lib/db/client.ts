@@ -98,4 +98,6 @@ export async function closeDb(): Promise<void> {
   pragmasApplied = false;
   const { resetDatabaseInit } = await import("./init");
   resetDatabaseInit();
+  const { invalidateDesaAdatCache } = await import("../services/desa");
+  invalidateDesaAdatCache();
 }
