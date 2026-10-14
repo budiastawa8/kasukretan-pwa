@@ -15,7 +15,7 @@ import { InstallAppButton } from "../components/pwa/InstallAppButton";
 function LoginShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="app-login flex min-h-[100dvh] flex-col bg-gradient-to-b from-copper-100 via-background to-copper-200/50">
-      <div className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-end px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-8 sm:justify-center sm:py-12">
+      <div className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-8 sm:py-12">
         {children}
       </div>
     </div>
