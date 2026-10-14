@@ -51,12 +51,26 @@ export type RingkasanPungut = {
   bulanTunggakanDudukan: number;
 };
 
+export type ModePungut = "paturunan" | "dudukan";
+
+const KLASIFIKASI_MODE: Record<ModePungut, string[]> = {
+  paturunan: ["MIPIL"],
+  dudukan: ["KRAMA_TAMIU", "TAMIU"],
+};
+
 export function isKramaMipil(k: KramaPungut): boolean {
-  return k.klasifikasi_kode === "MIPIL";
+  return KLASIFIKASI_MODE.paturunan.includes(k.klasifikasi_kode);
 }
 
 export function isKramaPemasih(k: KramaPungut): boolean {
-  return k.klasifikasi_kode === "KRAMA_TAMIU" || k.klasifikasi_kode === "TAMIU";
+  return KLASIFIKASI_MODE.dudukan.includes(k.klasifikasi_kode);
+}
+
+/** Mode pengumpulan yang cocok untuk krama ini (null = tidak punya iuran). */
+export function modeUntukKrama(k: KramaPungut): ModePungut | null {
+  if (isKramaMipil(k)) return "paturunan";
+  if (isKramaPemasih(k)) return "dudukan";
+  return null;
 }
 
 export function bolehPungutKrama(petugas: PetugasLapangan, krama: KramaPungut): boolean {
@@ -243,15 +257,18 @@ export async function findKramaByNomorKartu(nomorKartu: string): Promise<KramaPu
 export async function cariKramaPungut(
   petugas: PetugasLapangan,
   q: string,
+  mode: ModePungut,
   limit = 20
 ): Promise<KramaPungut[]> {
   const needle = q.trim().toLowerCase();
   if (needle.length < 2) return [];
   const db = await getDb();
-  const args: unknown[] = [`%${needle}%`, `%${needle.replace(/-/g, "")}%`];
+  const klasifikasi = KLASIFIKASI_MODE[mode];
+  const args: unknown[] = [`%${needle}%`, `%${needle.replace(/-/g, "")}%`, ...klasifikasi];
   let sql = `${KRAMA_PUNGUT_SELECT}
      WHERE k.status_krama = 'aktif'
-       AND (lower(pd.nama_lengkap) LIKE ? OR lower(REPLACE(k.nomor_kartu, '-', '')) LIKE ?)`;
+       AND (lower(pd.nama_lengkap) LIKE ? OR lower(REPLACE(k.nomor_kartu, '-', '')) LIKE ?)
+       AND kk.kode IN (${klasifikasi.map(() => "?").join(", ")})`;
   if (!petugas.semua_banjar) {
     sql += ` AND k.banjar_id = ?`;
     args.push(petugas.banjar_id);

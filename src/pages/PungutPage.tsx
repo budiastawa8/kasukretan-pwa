@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Ban, HandCoins, Printer, ScanLine, Search, Wallet } from "lucide-react";
+import { ArrowLeftRight, Ban, HandCoins, Printer, ScanLine, Search, Wallet } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { KartuQrScanner } from "../components/KartuQrScanner";
 import { PaturunanPembayaranDialog } from "../components/paturunan/PaturunanPembayaranDialog";
@@ -26,7 +26,9 @@ import {
   getStrukCetakUlang,
   isKramaMipil,
   isKramaPemasih,
+  modeUntukKrama,
   type KramaPungut,
+  type ModePungut,
   type PetugasLapangan,
   type RingkasanPaturunanPungut,
   type RingkasanPungut,
@@ -34,9 +36,58 @@ import {
 import { listPembayaranBelumDisetor, type PembayaranSetoranItem } from "../lib/services/setoran";
 import { cn, formatTanggalLahir } from "../lib/utils";
 
+const MODE_STORAGE_KEY = "kasukretan.pungut_mode.v1";
+
+const MODE_LABEL: Record<ModePungut, string> = {
+  paturunan: "Paturunan",
+  dudukan: "Dudukan",
+};
+
+function readMode(): ModePungut | null {
+  try {
+    const v = localStorage.getItem(MODE_STORAGE_KEY);
+    return v === "paturunan" || v === "dudukan" ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+function useModePungut() {
+  const [mode, setModeState] = useState<ModePungut | null>(readMode);
+  const setMode = useCallback((m: ModePungut | null) => {
+    setModeState(m);
+    try {
+      if (m) localStorage.setItem(MODE_STORAGE_KEY, m);
+      else localStorage.removeItem(MODE_STORAGE_KEY);
+    } catch {
+      /* mode tetap berlaku selama halaman terbuka */
+    }
+  }, []);
+  return [mode, setMode] as const;
+}
+
+function PilihMode({ onPilih }: { onPilih: (m: ModePungut) => void }) {
+  return (
+    <div className="mt-3 space-y-2">
+      <p className="text-sm text-copper-950 font-medium">Mau mengumpulkan apa?</p>
+      <div className="grid grid-cols-2 gap-2">
+        <Button type="button" className="h-20 flex-col text-base" onClick={() => onPilih("paturunan")}>
+          Paturunan
+          <span className="block text-[11px] font-normal opacity-90">Krama mipil</span>
+        </Button>
+        <Button type="button" className="h-20 flex-col text-base" onClick={() => onPilih("dudukan")}>
+          Dudukan
+          <span className="block text-[11px] font-normal opacity-90">Krama pemasih</span>
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function PungutPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [mode, setMode] = useModePungut();
   const [petugas, setPetugas] = useState<PetugasLapangan | null>(null);
   const [petugasLoaded, setPetugasLoaded] = useState(false);
   const [error, setError] = useState("");
@@ -98,12 +149,33 @@ export function PungutPage() {
       setError("");
       setFlash("");
       setStrukBaru(null);
-      if (petugas && bolehPungutKrama(petugas, k) && k.status_krama === "aktif") {
+      if (
+        petugas &&
+        bolehPungutKrama(petugas, k) &&
+        k.status_krama === "aktif" &&
+        modeUntukKrama(k) === mode
+      ) {
         void loadRingkasan(k);
       }
     },
-    [petugas, loadRingkasan]
+    [petugas, mode, loadRingkasan]
   );
+
+  function gantiMode(m: ModePungut | null) {
+    setMode(m);
+    setHasilCari([]);
+    setError("");
+    setFlash("");
+    setStrukBaru(null);
+    setRingkasan(null);
+    if (m && krama && modeUntukKrama(krama) === m) {
+      if (petugas && bolehPungutKrama(petugas, krama) && krama.status_krama === "aktif") {
+        void loadRingkasan(krama);
+      }
+    } else {
+      setKrama(null);
+    }
+  }
 
   const handleScan = useCallback(
     async (raw: string) => {
@@ -134,13 +206,17 @@ export function PungutPage() {
 
   async function cari(e: React.FormEvent) {
     e.preventDefault();
-    if (!petugas) return;
+    if (!petugas || !mode) return;
     setCariBusy(true);
     setError("");
     try {
-      const rows = await cariKramaPungut(petugas, q);
+      const rows = await cariKramaPungut(petugas, q, mode);
       setHasilCari(rows);
-      if (rows.length === 0) setError("Tidak ada krama yang cocok di wilayah Anda.");
+      if (rows.length === 0) {
+        setError(
+          `Tidak ada krama ${mode === "paturunan" ? "mipil" : "pemasih"} yang cocok di wilayah Anda.`
+        );
+      }
     } catch (err) {
       setError(String(err));
     } finally {
@@ -198,7 +274,11 @@ export function PungutPage() {
     );
   }
 
-  const totalPegangan = pegangan.reduce((s, p) => s + p.jumlah, 0);
+  const totalSemuaPegangan = pegangan.reduce((s, p) => s + p.jumlah, 0);
+  const peganganMode = mode ? pegangan.filter((p) => p.sumber === mode) : pegangan;
+  const totalPegangan = peganganMode.reduce((s, p) => s + p.jumlah, 0);
+  const modeKrama = krama ? modeUntukKrama(krama) : null;
+  const beda = krama != null && mode != null && modeKrama !== mode;
   const diLuarWilayah = krama != null && !bolehPungutKrama(petugas, krama);
   const tidakAktif = krama != null && krama.status_krama !== "aktif";
 
@@ -211,34 +291,55 @@ export function PungutPage() {
         <p className="text-xs text-muted">
           Wilayah: {petugas.semua_banjar ? "semua banjar" : `Banjar ${petugas.banjar_nama}`}
         </p>
-        <Button
-          type="button"
-          icon={ScanLine}
-          className="mt-3 h-12 w-full text-base"
-          onClick={() => {
-            setError("");
-            setScanOpen(true);
-          }}
-        >
-          Scan QR kartu
-        </Button>
-        <form onSubmit={cari} className="mt-2 flex gap-1.5">
-          <Input
-            className="h-10 text-sm"
-            placeholder="Atau cari nama / nomor kartu"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-          <Button
-            type="submit"
-            variant="secondary"
-            icon={Search}
-            className="h-10 shrink-0"
-            disabled={cariBusy || q.trim().length < 2}
-          >
-            Cari
-          </Button>
-        </form>
+        {!mode ? (
+          <PilihMode onPilih={gantiMode} />
+        ) : (
+          <>
+            <div className="mt-3 flex items-center justify-between gap-2 rounded-lg border border-copper-200 bg-copper-50/70 px-3 py-2">
+              <p className="text-sm">
+                Mengumpulkan:{" "}
+                <strong className="text-copper-950">{MODE_LABEL[mode]}</strong>
+              </p>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                icon={ArrowLeftRight}
+                onClick={() => gantiMode(null)}
+              >
+                Ganti
+              </Button>
+            </div>
+            <Button
+              type="button"
+              icon={ScanLine}
+              className="mt-2 h-12 w-full text-base"
+              onClick={() => {
+                setError("");
+                setScanOpen(true);
+              }}
+            >
+              Scan QR kartu {mode === "paturunan" ? "mipil" : "pemasih"}
+            </Button>
+            <form onSubmit={cari} className="mt-2 flex gap-1.5">
+              <Input
+                className="h-10 text-sm"
+                placeholder="Atau cari nama / nomor kartu"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+              />
+              <Button
+                type="submit"
+                variant="secondary"
+                icon={Search}
+                className="h-10 shrink-0"
+                disabled={cariBusy || q.trim().length < 2}
+              >
+                Cari
+              </Button>
+            </form>
+          </>
+        )}
         {hasilCari.length > 0 && (
           <ul className="mt-2 divide-y divide-copper-100 border border-copper-100 rounded-md">
             {hasilCari.map((k) => (
@@ -286,7 +387,29 @@ export function PungutPage() {
             {krama.arahan_nama ? ` · ${krama.arahan_nama}` : ""}
           </p>
 
-          {diLuarWilayah ? (
+          {beda ? (
+            <div className="mt-3 text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded px-2 py-2">
+              {modeKrama ? (
+                <>
+                  <p>
+                    Ini kartu krama {modeKrama === "paturunan" ? "mipil" : "pemasih"} — iurannya{" "}
+                    <strong>{MODE_LABEL[modeKrama]}</strong>, bukan {mode && MODE_LABEL[mode]}.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    icon={ArrowLeftRight}
+                    className="mt-2 h-10 w-full"
+                    onClick={() => gantiMode(modeKrama)}
+                  >
+                    Pindah ke {MODE_LABEL[modeKrama]}
+                  </Button>
+                </>
+              ) : (
+                <p>Krama ini tidak memiliki iuran yang bisa dikumpulkan.</p>
+              )}
+            </div>
+          ) : diLuarWilayah ? (
             <p className="mt-3 flex items-start gap-1.5 text-sm text-red-800 bg-red-50 border border-red-200 rounded px-2 py-2">
               <Ban size={16} className="shrink-0 mt-0.5" aria-hidden />
               Krama ini dari Banjar {krama.banjar_nama} — di luar wilayah pengumpulan Anda.
@@ -367,16 +490,23 @@ export function PungutPage() {
       <Card title="Uang yang saya pegang">
         <p className="flex items-center gap-1.5 text-sm">
           <Wallet size={16} className="text-amber-800" aria-hidden />
-          Belum disetor: <strong className="tabular-nums">{formatRupiah(totalPegangan)}</strong>
-          <span className="text-muted text-xs">({pegangan.length} transaksi)</span>
+          Belum disetor{mode ? ` (${MODE_LABEL[mode]})` : ""}:{" "}
+          <strong className="tabular-nums">{formatRupiah(totalPegangan)}</strong>
+          <span className="text-muted text-xs">({peganganMode.length} transaksi)</span>
         </p>
+        {mode && totalSemuaPegangan !== totalPegangan && (
+          <p className="mt-0.5 text-xs text-copper-800">
+            Total semua (Paturunan + Dudukan):{" "}
+            <strong className="tabular-nums">{formatRupiah(totalSemuaPegangan)}</strong>
+          </p>
+        )}
         <p className="mt-1 text-[11px] text-muted leading-snug">
           Serahkan uang ini ke bendahara. Setelah bendahara menerima setoran, daftar ini kosong dan
           pembayaran tidak bisa dihapus lagi dari HP.
         </p>
-        {pegangan.length > 0 && (
+        {peganganMode.length > 0 && (
           <ul className="mt-2 divide-y divide-copper-100 border border-copper-100 rounded-md max-h-72 overflow-y-auto">
-            {pegangan.map((p) => (
+            {peganganMode.map((p) => (
               <li key={`${p.sumber}:${p.id}`} className="flex items-start justify-between gap-2 px-2 py-1.5 text-xs">
                 <span className="min-w-0">
                   <span className="text-muted">{formatTanggalLahir(p.tanggal)}</span>
