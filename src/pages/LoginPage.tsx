@@ -11,6 +11,7 @@ import { Input, Label, PasswordInput } from "../components/ui/Input";
 import { Card } from "../components/ui/Card";
 import { AppLogo } from "../components/ui/AppLogo";
 import { InstallAppButton } from "../components/pwa/InstallAppButton";
+import { UkuranTulisanControl } from "../components/ui/UkuranTulisanControl";
 
 function LoginShell({ children }: { children: React.ReactNode }) {
   return (
@@ -122,6 +123,9 @@ function StaffLoginForm() {
             {loading ? "Memproses..." : "Masuk"}
           </Button>
         </form>
+        <div className="mt-4">
+          <UkuranTulisanControl />
+        </div>
         <InstallAppButton className="mt-4" />
       </Card>
     </LoginShell>

@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { Button } from "../ui/Button";
+import { UkuranTulisanControl } from "../ui/UkuranTulisanControl";
 import { CloudSyncBanner } from "../settings/CloudSyncBanner";
 import { TrialLicenseBanner } from "../settings/TrialLicenseBanner";
 import { APP_CREDITS, appCopyrightLine } from "../../lib/app-credits";
@@ -160,6 +161,9 @@ function SidebarChrome({
       <div className="shrink-0 border-t border-copper-800/60 p-3">
         <p className="truncate text-sm text-copper-300">{userLabel}</p>
         <p className="text-xs text-copper-500">{peranLabel}</p>
+        <div className="mt-2">
+          <UkuranTulisanControl tone="dark" />
+        </div>
         <Button
           type="button"
           variant="ghost"
