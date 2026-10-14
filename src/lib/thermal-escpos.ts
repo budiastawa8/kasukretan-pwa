@@ -7,8 +7,23 @@ const ESC = 0x1b;
 const GS = 0x1d;
 const LF = 0x0a;
 
+/**
+ * Printer thermal murah sering dalam mode huruf Cina: byte di atas 0x7F dibaca berpasangan
+ * sebagai satu huruf Cina. Karena itu semua teks dikirim sebagai ASCII murni, satu byte per huruf.
+ */
+export function escPosAscii(text: string): string {
+  return pdfSafeText(text.replace(/[\u00B7\u2022]/g, "-"))
+    .replace(/\u00A0/g, " ")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\x09\x0A\x0D\x20-\x7E]/g, "?");
+}
+
 function enc(text: string): Uint8Array {
-  return new TextEncoder().encode(pdfSafeText(text));
+  const ascii = escPosAscii(text);
+  const out = new Uint8Array(ascii.length);
+  for (let i = 0; i < ascii.length; i++) out[i] = ascii.charCodeAt(i);
+  return out;
 }
 
 function concat(...parts: Uint8Array[]): Uint8Array {
