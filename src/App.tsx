@@ -17,6 +17,7 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { KeuanganPage } from "./pages/KeuanganPage";
 import { PaturunanPage } from "./pages/PaturunanPage";
 import { DudukanPage } from "./pages/DudukanPage";
+import { PungutPage } from "./pages/PungutPage";
 import { LaporanHubPage } from "./pages/laporan/LaporanHubPage";
 import { LaporanPaturunanPage } from "./pages/laporan/LaporanPaturunanPage";
 import { LaporanPuniaPage } from "./pages/laporan/LaporanPuniaPage";
@@ -169,6 +170,7 @@ export default function App() {
             <Route path="/krama-mipil/:id" element={<KramaDetailPage />} />
             <Route path="/krama-pemasih" element={<KramaPemasihListPage />} />
             <Route path="/dudukan" element={<DudukanPage />} />
+            <Route path="/pungut" element={<PungutPage />} />
             <Route path="/laporan" element={<LaporanHubPage />} />
             <Route path="/laporan/eksekutif" element={<LaporanEksekutifPage />} />
             <Route path="/laporan/rekap-krama" element={<LaporanRekapKramaPage />} />

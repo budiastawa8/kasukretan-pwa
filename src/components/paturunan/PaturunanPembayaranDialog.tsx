@@ -32,6 +32,7 @@ import { ConfirmDialog } from "../ui/ConfirmDialog";
 import {
   completePembayaranBaruSave,
   PembayaranDialogTabs,
+  PetugasLapanganSetorNote,
   SetorLangsungField,
   StatMini,
   StatusSetorBadge,
@@ -79,6 +80,7 @@ export function PaturunanPembayaranDialog({
   tagihan,
   initialTab = "bayar",
   initialEditingPaymentId = null,
+  lockedPetugasId,
 }: {
   open: boolean;
   onClose: () => void;
@@ -97,7 +99,15 @@ export function PaturunanPembayaranDialog({
   tagihan: number;
   initialTab?: "bayar" | "riwayat";
   initialEditingPaymentId?: string | null;
+  /** Mode petugas lapangan: petugas terkunci, selalu belum disetor, tanpa ubah. */
+  lockedPetugasId?: string;
 }) {
+  const petugasLapangan = Boolean(lockedPetugasId);
+  const canUbah = canEdit && !petugasLapangan;
+  const bisaHapus = (p: PaturunanPembayaranRow) =>
+    petugasLapangan
+      ? p.petugas_id === lockedPetugasId && !p.tanggal_setor && !p.setoran_id
+      : canDeleteFinancial;
   const [riwayat, setRiwayat] = useState<PaturunanPembayaranRow[]>([]);
   const {
     petugasList,
@@ -112,6 +122,7 @@ export function PaturunanPembayaranDialog({
     banjarId,
     listAkunTransaksional: listAkunForPembayaranPaturunan,
     getDefaultAkunId: getDefaultAkunPaturunanId,
+    lockedPetugasId,
   });
   const [jumlah, setJumlah] = useState<RupiahInputValue>("");
   const [tanggal, setTanggal] = useState(today());
@@ -174,14 +185,14 @@ export function PaturunanPembayaranDialog({
       appliedEditIdRef.current = null;
       return;
     }
-    if (!initialEditingPaymentId || !canEdit) return;
+    if (!initialEditingPaymentId || !canUbah) return;
     if (appliedEditIdRef.current === initialEditingPaymentId) return;
     const row = riwayat.find((p) => p.id === initialEditingPaymentId);
     if (!row) return;
     appliedEditIdRef.current = initialEditingPaymentId;
     setTab("riwayat");
     mulaiEdit(row);
-  }, [open, initialEditingPaymentId, canEdit, riwayat]);
+  }, [open, initialEditingPaymentId, canUbah, riwayat]);
 
   function mulaiEdit(p: PaturunanPembayaranRow) {
     setTab("riwayat");
@@ -222,7 +233,7 @@ export function PaturunanPembayaranDialog({
         petugasId,
         akunKeuanganId,
         keterangan: keterangan || undefined,
-        disetorLangsung,
+        disetorLangsung: petugasLapangan ? false : disetorLangsung,
       });
       setJumlah("");
       setKeterangan("");
@@ -271,13 +282,13 @@ export function PaturunanPembayaranDialog({
     }
   }
 
-  function requestHapus(id: string) {
-    if (!canDeleteFinancial) return;
-    setDeleteId(id);
+  function requestHapus(p: PaturunanPembayaranRow) {
+    if (!bisaHapus(p)) return;
+    setDeleteId(p.id);
   }
 
   async function confirmHapus() {
-    if (!deleteId || !canDeleteFinancial) return;
+    if (!deleteId) return;
     setDeleteBusy(true);
     setError("");
     try {
@@ -417,7 +428,7 @@ export function PaturunanPembayaranDialog({
                       value={petugasId}
                       onChange={(e) => setPetugasId(e.target.value)}
                       required
-                      disabled={petugasList.length === 0}
+                      disabled={petugasList.length === 0 || petugasLapangan}
                     >
                       {petugasOptions}
                     </Select>
@@ -449,7 +460,11 @@ export function PaturunanPembayaranDialog({
                   value={keterangan}
                   onChange={(e) => setKeterangan(e.target.value)}
                 />
-                <SetorLangsungField checked={disetorLangsung} onChange={setDisetorLangsung} />
+                {petugasLapangan ? (
+                  <PetugasLapanganSetorNote />
+                ) : (
+                  <SetorLangsungField checked={disetorLangsung} onChange={setDisetorLangsung} />
+                )}
                 {preview && (preview.wajib > 0 || preview.punia > 0) && (
                   <p className="text-xs text-copper-800 bg-white border border-copper-200 rounded px-1.5 py-0.5 leading-tight">
                     {preview.wajib > 0 && (
@@ -615,6 +630,7 @@ export function PaturunanPembayaranDialog({
                       </span>
                       {canEdit && !p.setoran_id && (
                         <span className="flex shrink-0">
+                          {canUbah && (
                           <Button
                             type="button"
                             variant="ghost"
@@ -624,7 +640,8 @@ export function PaturunanPembayaranDialog({
                             className="min-h-8 min-w-8"
                             onClick={() => mulaiEdit(p)}
                           />
-                          {canDeleteFinancial && (
+                          )}
+                          {bisaHapus(p) && (
                           <Button
                             type="button"
                             variant="ghost"
@@ -632,7 +649,7 @@ export function PaturunanPembayaranDialog({
                             iconOnly
                             title="Hapus"
                             className="min-h-8 min-w-8"
-                            onClick={() => requestHapus(p.id)}
+                            onClick={() => requestHapus(p)}
                           />
                           )}
                         </span>

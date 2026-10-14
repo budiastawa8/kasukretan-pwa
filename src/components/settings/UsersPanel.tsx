@@ -18,14 +18,47 @@ import {
   updateUser,
   type UserRecord,
 } from "../../lib/services/users";
+import { listTimKasukretan } from "../../lib/services/master";
+import type { TimKasukretan } from "../../lib/types";
 import { useIsPhoneClient } from "../../hooks/useClientFormFactor";
 import { LIST_CARD, LIST_CARD_PHONE } from "../ui/list-compact";
 import { cn } from "../../lib/utils";
+
+function TimKasukretanSelect({
+  tim,
+  value,
+  onChange,
+}: {
+  tim: TimKasukretan[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div>
+      <Label>Nama di Tim Kasukretan</Label>
+      <Select value={value} onChange={(e) => onChange(e.target.value)} required>
+        <option value="">Pilih petugas</option>
+        {tim.map((t) => (
+          <option key={t.id} value={t.id}>
+            {t.nama} — {t.jabatan}
+          </option>
+        ))}
+      </Select>
+      <p className="mt-1 text-[11px] text-muted leading-snug">
+        Menentukan wilayah pungut: hanya banjar petugas ini, kecuali jabatan Ketua, Sekretaris, atau
+        Bendahara (semua banjar).
+      </p>
+    </div>
+  );
+}
 
 export function UsersPanel() {
   const isPhone = useIsPhoneClient();
   const { user: session, refreshUser } = useAuth();
   const [users, setUsers] = useState<UserRecord[]>([]);
+  const [tim, setTim] = useState<TimKasukretan[]>([]);
+  const [newTimId, setNewTimId] = useState("");
+  const [editTimId, setEditTimId] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [flash, setFlash] = useState("");
@@ -47,7 +80,9 @@ export function UsersPanel() {
     setLoading(true);
     setError("");
     try {
-      setUsers(await listUsers());
+      const [u, t] = await Promise.all([listUsers(), listTimKasukretan()]);
+      setUsers(u);
+      setTim(t);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -83,12 +118,14 @@ export function UsersPanel() {
         peran: newPeran,
         nama: newNama || undefined,
         mustChangePassword: true,
+        timKasukretanId: newPeran === "petugas" ? newTimId : null,
       });
       setShowCreate(false);
       setNewUsername("");
       setNewPassword("");
       setNewNama("");
       setNewPeran("operator");
+      setNewTimId("");
       notify("Pengguna ditambahkan");
       await load();
     } catch (err) {
@@ -127,8 +164,13 @@ export function UsersPanel() {
     }
     try {
       await updateUser(target.id, { peran });
-      notify("Peran diperbarui");
       await load();
+      if (peran === "petugas" && !target.tim_kasukretan_id) {
+        openEdit({ ...target, peran });
+        notify("Peran diperbarui — pilih nama di Tim Kasukretan untuk akun ini");
+      } else {
+        notify("Peran diperbarui");
+      }
     } catch (err) {
       setError(String(err));
     }
@@ -138,6 +180,7 @@ export function UsersPanel() {
     setEditUserId(target.id);
     setEditUsername(target.username);
     setEditNama(target.nama ?? "");
+    setEditTimId(target.tim_kasukretan_id ?? "");
     setResetUserId(null);
     setShowCreate(false);
     setError("");
@@ -151,10 +194,16 @@ export function UsersPanel() {
       setError(uErr);
       return;
     }
+    const editPetugas = users.find((u) => u.id === editUserId)?.peran === "petugas";
+    if (editPetugas && !editTimId) {
+      setError("Pilih nama di Tim Kasukretan untuk akun petugas lapangan");
+      return;
+    }
     try {
       await updateUser(editUserId, {
         username: editUsername,
         nama: editNama.trim() || null,
+        ...(editPetugas ? { timKasukretanId: editTimId } : {}),
       });
       if (editUserId === session?.id) await refreshUser();
       notify("Data pengguna disimpan");
@@ -232,7 +281,8 @@ export function UsersPanel() {
       className={cn("space-y-3", LIST_CARD, isPhone && LIST_CARD_PHONE)}
     >
       <p className="text-sm text-muted">
-        Kelola akun staf desktop: admin, operator, keuangan, prajuru. Untuk menghentikan akses,{" "}
+        Kelola akun staf: admin, operator, keuangan, prajuru, dan petugas lapangan (hanya menu
+        Pungut, terikat ke satu nama di Tim Kasukretan). Untuk menghentikan akses,{" "}
         <strong>nonaktifkan</strong> akun — riwayat transaksi tetap tersimpan; penghapusan
         permanen tidak disediakan.
       </p>
@@ -289,6 +339,9 @@ export function UsersPanel() {
                 ))}
               </Select>
             </div>
+            {newPeran === "petugas" && (
+              <TimKasukretanSelect tim={tim} value={newTimId} onChange={setNewTimId} />
+            )}
           </div>
           <Button
             type="submit"
@@ -312,6 +365,18 @@ export function UsersPanel() {
               <div className="min-w-0">
                 <p className="font-mono text-sm font-semibold text-copper-950">{u.username}</p>
                 <p className="text-sm text-copper-800">{u.nama ?? "—"}</p>
+                {u.peran === "petugas" && (
+                  <p
+                    className={cn(
+                      "text-[11px]",
+                      u.tim_kasukretan_nama ? "text-muted" : "text-amber-700"
+                    )}
+                  >
+                    {u.tim_kasukretan_nama
+                      ? `Tim: ${u.tim_kasukretan_nama}`
+                      : "Belum terhubung ke Tim Kasukretan"}
+                  </p>
+                )}
               </div>
               <div>
                 <Label className="text-xs">Peran</Label>
@@ -359,7 +424,21 @@ export function UsersPanel() {
               {users.map((u) => (
                 <tr key={u.id} className="border-b border-copper-50">
                   <td className="py-2 pr-2 font-mono text-xs">{u.username}</td>
-                  <td className="py-2 pr-2">{u.nama ?? "—"}</td>
+                  <td className="py-2 pr-2">
+                    {u.nama ?? "—"}
+                    {u.peran === "petugas" && (
+                      <span
+                        className={cn(
+                          "block text-[11px]",
+                          u.tim_kasukretan_nama ? "text-muted" : "text-amber-700"
+                        )}
+                      >
+                        {u.tim_kasukretan_nama
+                          ? `Tim: ${u.tim_kasukretan_nama}`
+                          : "Belum terhubung ke Tim Kasukretan"}
+                      </span>
+                    )}
+                  </td>
                   <td className="py-2 pr-2">
                     <Select
                       className="text-xs h-8 min-w-[120px]"
@@ -408,6 +487,9 @@ export function UsersPanel() {
               <Label>Nama tampilan</Label>
               <Input value={editNama} onChange={(e) => setEditNama(e.target.value)} />
             </div>
+            {users.find((u) => u.id === editUserId)?.peran === "petugas" && (
+              <TimKasukretanSelect tim={tim} value={editTimId} onChange={setEditTimId} />
+            )}
           </div>
           <div className={cn("flex gap-2", isPhone && "flex-col")}>
             <Button type="submit" className={cn("text-xs", isPhone ? "h-10 w-full" : "h-8")}>

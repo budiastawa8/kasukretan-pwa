@@ -131,6 +131,8 @@ export function usePembayaranAkunDanPetugas(options: {
   banjarId: string;
   listAkunTransaksional: () => Promise<AkunKeuanganRow[]>;
   getDefaultAkunId: () => Promise<string>;
+  /** Akun petugas lapangan: petugas selalu dirinya sendiri. */
+  lockedPetugasId?: string;
 }) {
   const [petugasList, setPetugasList] = useState<TimKasukretan[]>([]);
   const [akunList, setAkunList] = useState<AkunKeuanganRow[]>([]);
@@ -175,9 +177,14 @@ export function usePembayaranAkunDanPetugas(options: {
   }, [options.open, loadPetugas, loadAkun]);
 
   useEffect(() => {
-    if (!options.open || petugasId || petugasList.length !== 1) return;
+    if (!options.open) return;
+    if (options.lockedPetugasId) {
+      if (petugasId !== options.lockedPetugasId) setPetugasId(options.lockedPetugasId);
+      return;
+    }
+    if (petugasId || petugasList.length !== 1) return;
     setPetugasId(petugasList[0]!.id);
-  }, [options.open, petugasId, petugasList]);
+  }, [options.open, options.lockedPetugasId, petugasId, petugasList]);
 
   return {
     petugasList,
@@ -333,6 +340,14 @@ export function SetorLangsungField({
         )}
       </span>
     </label>
+  );
+}
+
+export function PetugasLapanganSetorNote() {
+  return (
+    <p className="text-[11px] text-amber-800 leading-snug">
+      Uang ini dicatat sebagai pegangan Anda dan masuk buku kas setelah disetor ke bendahara.
+    </p>
   );
 }
 

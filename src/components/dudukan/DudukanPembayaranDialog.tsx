@@ -41,6 +41,7 @@ import { ConfirmDialog } from "../ui/ConfirmDialog";
 import {
   completePembayaranBaruSave,
   PembayaranDialogTabs,
+  PetugasLapanganSetorNote,
   SetorLangsungField,
   StatMini,
   StatusSetorBadge,
@@ -79,6 +80,7 @@ export function DudukanPembayaranDialog({
   initialTab = "bayar",
   initialEditingPaymentId = null,
   initialKeringananPeriode = null,
+  lockedPetugasId,
 }: {
   open: boolean;
   onClose: () => void;
@@ -90,7 +92,15 @@ export function DudukanPembayaranDialog({
   initialTab?: "bayar" | "riwayat";
   initialEditingPaymentId?: string | null;
   initialKeringananPeriode?: { tahun: number; bulan: number } | null;
+  /** Mode petugas lapangan: petugas terkunci, selalu belum disetor, tanpa ubah/keringanan. */
+  lockedPetugasId?: string;
 }) {
+  const petugasLapangan = Boolean(lockedPetugasId);
+  const canKelola = canEdit && !petugasLapangan;
+  const bisaHapus = (p: DudukanPembayaranRow) =>
+    petugasLapangan
+      ? p.petugas_id === lockedPetugasId && !p.tanggal_setor && !p.setoran_id
+      : canDeleteFinancial;
   const [detail, setDetail] = useState<DudukanKramaDetail | null>(null);
   const [bulanList, setBulanList] = useState<BulanPilih[]>([]);
   const [riwayat, setRiwayat] = useState<DudukanPembayaranRow[]>([]);
@@ -108,6 +118,7 @@ export function DudukanPembayaranDialog({
     banjarId: detail?.banjar_id ?? "",
     listAkunTransaksional: listAkunForPembayaranDudukan,
     getDefaultAkunId: getDefaultAkunDudukanId,
+    lockedPetugasId,
   });
   const [tanggal, setTanggal] = useState(today());
   const [keterangan, setKeterangan] = useState("");
@@ -513,7 +524,7 @@ export function DudukanPembayaranDialog({
         akunKeuanganId,
         keterangan: keterangan || undefined,
         items,
-        disetorLangsung,
+        disetorLangsung: petugasLapangan ? false : disetorLangsung,
       });
       setKeterangan("");
       completePembayaranBaruSave("Pembayaran dudukan berhasil disimpan.", {
@@ -562,13 +573,13 @@ export function DudukanPembayaranDialog({
     }
   }
 
-  function requestHapus(id: string) {
-    if (!canDeleteFinancial) return;
-    setDeleteId(id);
+  function requestHapus(p: DudukanPembayaranRow) {
+    if (!bisaHapus(p)) return;
+    setDeleteId(p.id);
   }
 
   async function confirmHapus() {
-    if (!deleteId || !canDeleteFinancial) return;
+    if (!deleteId) return;
     setDeleteBusy(true);
     setError("");
     try {
@@ -661,7 +672,7 @@ export function DudukanPembayaranDialog({
               )}
             </div>
 
-        {canEdit && keringananMode && (
+        {canKelola && keringananMode && (
           <div className="flex flex-col min-h-0 flex-1 overflow-hidden rounded border border-violet-200 bg-violet-50/60">
             <p className="shrink-0 font-medium text-violet-950 text-sm leading-tight px-1.5 pt-1.5 pb-1">
               Keringanan — centang bulan yang diberi keringanan
@@ -811,7 +822,7 @@ export function DudukanPembayaranDialog({
                   ) : (
                     <span>Keringanan</span>
                   )}
-                  {canEdit && bulanBisaKeringanan.length > 0 && (
+                  {canKelola && bulanBisaKeringanan.length > 0 && (
                     <button
                       type="button"
                       className="text-[9px] font-normal text-violet-800 hover:underline"
@@ -897,7 +908,7 @@ export function DudukanPembayaranDialog({
                                 />
                               )}
                             </span>
-                          ) : canEdit && !b.di_muka ? (
+                          ) : canKelola && !b.di_muka ? (
                             <Button
                               type="button"
                               variant="ghost"
@@ -952,7 +963,7 @@ export function DudukanPembayaranDialog({
                     value={petugasId}
                     onChange={(e) => setPetugasId(e.target.value)}
                     required
-                    disabled={petugasList.length === 0}
+                    disabled={petugasList.length === 0 || petugasLapangan}
                   >
                     {petugasOptions}
                   </Select>
@@ -993,7 +1004,11 @@ export function DudukanPembayaranDialog({
                   onChange={(e) => setKeterangan(e.target.value)}
                 />
               )}
-              <SetorLangsungField checked={disetorLangsung} onChange={setDisetorLangsung} />
+              {petugasLapangan ? (
+                <PetugasLapanganSetorNote />
+              ) : (
+                <SetorLangsungField checked={disetorLangsung} onChange={setDisetorLangsung} />
+              )}
               <Button
                 type="submit"
                 disabled={
@@ -1124,7 +1139,7 @@ export function DudukanPembayaranDialog({
                             <span className="text-muted block truncate">{k.keterangan}</span>
                           ) : null}
                         </span>
-                        {canEdit && (
+                        {canKelola && (
                           <span className="flex shrink-0">
                             <Button
                               type="button"
@@ -1254,6 +1269,7 @@ export function DudukanPembayaranDialog({
                         </span>
                         {canEdit && !p.setoran_id && (
                           <span className="flex shrink-0">
+                            {canKelola && (
                             <Button
                               type="button"
                               variant="ghost"
@@ -1263,7 +1279,8 @@ export function DudukanPembayaranDialog({
                               className="min-h-8 min-w-8"
                               onClick={() => mulaiEdit(p)}
                             />
-                            {canDeleteFinancial && (
+                            )}
+                            {bisaHapus(p) && (
                             <Button
                               type="button"
                               variant="ghost"
@@ -1271,7 +1288,7 @@ export function DudukanPembayaranDialog({
                               iconOnly
                               title="Hapus"
                               className="min-h-8 min-w-8"
-                              onClick={() => requestHapus(p.id)}
+                              onClick={() => requestHapus(p)}
                             />
                             )}
                           </span>

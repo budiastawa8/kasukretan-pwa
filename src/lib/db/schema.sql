@@ -522,6 +522,7 @@ CREATE TABLE IF NOT EXISTS user (
   nama TEXT,
   aktif INTEGER NOT NULL DEFAULT 1,
   must_change_password INTEGER NOT NULL DEFAULT 0,
+  tim_kasukretan_id TEXT REFERENCES tim_kasukretan(id),
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

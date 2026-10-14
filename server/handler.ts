@@ -8,7 +8,8 @@ import {
   type PublicUser,
 } from "./auth.js";
 import { dbExecute, dbSelect, getClient } from "./db.js";
-import { authorizeSql } from "./policy.js";
+import { executePetugasPaymentWrite } from "./petugas-guard.js";
+import { authorizeSql, type PetugasGuard } from "./policy.js";
 import {
   SCHEMA_OBJECTS_SQL,
   assertNotLocked,
@@ -75,13 +76,17 @@ async function objectExists(type: string, name: string): Promise<boolean> {
   return rows.length > 0;
 }
 
-async function authorizeOrThrow(user: PublicUser, sql: string): Promise<"run" | "noop"> {
+async function authorizeOrThrow(
+  user: PublicUser,
+  sql: string
+): Promise<"run" | "noop" | { guard: PetugasGuard }> {
   const decision = authorizeSql(user.peran, sql);
   if (!decision.allow) throw new HttpError(403, decision.reason);
   if (decision.ensureExists) {
     if (await objectExists(decision.ensureExists.type, decision.ensureExists.name)) return "noop";
     throw new HttpError(403, "Struktur database belum lengkap. Minta admin menjalankan npm run db:init.");
   }
+  if (decision.petugasGuard) return { guard: decision.petugasGuard };
   return "run";
 }
 
@@ -148,21 +153,28 @@ async function handleRoute(path: string, req: ApiRequest, res: ServerResponse): 
 
   if (path === "sql/select" && method === "POST") {
     const { sql, bind } = sqlFromBody(await readBody(req));
-    if ((await authorizeOrThrow(user, sql)) === "noop") {
+    const auth = await authorizeOrThrow(user, sql);
+    if (auth === "noop") {
       send(res, 200, []);
       return;
     }
+    if (auth !== "run") throw new HttpError(403, "Perintah tulis tidak boleh lewat sql/select.");
     send(res, 200, await dbSelect(sql, bind));
     return;
   }
 
   if (path === "sql/execute" && method === "POST") {
     const { sql, bind } = sqlFromBody(await readBody(req));
-    if ((await authorizeOrThrow(user, sql)) === "noop") {
+    const auth = await authorizeOrThrow(user, sql);
+    if (auth === "noop") {
       send(res, 200, { rowsAffected: 0 });
       return;
     }
     await assertNotLocked(user);
+    if (auth !== "run") {
+      send(res, 200, await executePetugasPaymentWrite(user, auth.guard, sql, bind));
+      return;
+    }
     send(res, 200, await dbExecute(sql, bind));
     return;
   }

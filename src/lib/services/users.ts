@@ -13,19 +13,29 @@ export type UserRecord = {
   nama: string | null;
   aktif: number;
   must_change_password: number;
+  /** Nama di Tim Kasukretan — wajib untuk peran petugas. */
+  tim_kasukretan_id: string | null;
+  tim_kasukretan_nama: string | null;
   created_at: string;
 };
 
 type UserDbRow = {
   id: string;
   username: string;
-  password_hash: string;
   peran: string;
   nama: string | null;
   aktif: number;
   must_change_password?: number;
+  tim_kasukretan_id?: string | null;
+  tim_kasukretan_nama?: string | null;
   created_at: string;
 };
+
+const USER_SELECT = `
+  SELECT u.id, u.username, u.peran, u.nama, u.aktif, u.must_change_password,
+         u.tim_kasukretan_id, t.nama as tim_kasukretan_nama, u.created_at
+  FROM user u
+  LEFT JOIN tim_kasukretan t ON t.id = u.tim_kasukretan_id`;
 
 function mapUser(row: UserDbRow): UserRecord {
   return {
@@ -35,26 +45,21 @@ function mapUser(row: UserDbRow): UserRecord {
     nama: row.nama,
     aktif: row.aktif,
     must_change_password: row.must_change_password ?? 0,
+    tim_kasukretan_id: row.tim_kasukretan_id ?? null,
+    tim_kasukretan_nama: row.tim_kasukretan_nama ?? null,
     created_at: row.created_at,
   };
 }
 
 export async function listUsers(): Promise<UserRecord[]> {
   const db = await getDb();
-  const rows = await db.select<UserDbRow[]>(
-    `SELECT id, username, peran, nama, aktif, must_change_password, created_at
-     FROM user ORDER BY username COLLATE NOCASE`
-  );
+  const rows = await db.select<UserDbRow[]>(`${USER_SELECT} ORDER BY u.username COLLATE NOCASE`);
   return rows.map(mapUser);
 }
 
 export async function getUserById(id: string): Promise<UserRecord | null> {
   const db = await getDb();
-  const rows = await db.select<UserDbRow[]>(
-    `SELECT id, username, peran, nama, aktif, must_change_password, created_at
-     FROM user WHERE id = ?`,
-    [id]
-  );
+  const rows = await db.select<UserDbRow[]>(`${USER_SELECT} WHERE u.id = ?`, [id]);
   return rows[0] ? mapUser(rows[0]) : null;
 }
 
@@ -78,11 +83,16 @@ export async function createUser(params: {
   peran: StaffRole;
   nama?: string;
   mustChangePassword?: boolean;
+  timKasukretanId?: string | null;
 }): Promise<UserRecord> {
   const usernameErr = validateUsername(params.username);
   if (usernameErr) throw new Error(usernameErr);
   const passwordErr = validatePassword(params.password);
   if (passwordErr) throw new Error(passwordErr);
+  const timId = params.timKasukretanId?.trim() || null;
+  if (params.peran === "petugas" && !timId) {
+    throw new Error("Pilih nama petugas di Tim Kasukretan untuk akun petugas lapangan");
+  }
 
   const db = await getDb();
   await assertUsernameFree(params.username.trim());
@@ -91,9 +101,9 @@ export async function createUser(params: {
   const hash = await bcrypt.hash(params.password, 10);
   const mustChange = params.mustChangePassword ? 1 : 0;
   await db.execute(
-    `INSERT INTO user (id, username, password_hash, peran, nama, must_change_password)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [id, params.username.trim(), hash, params.peran, params.nama?.trim() || null, mustChange]
+    `INSERT INTO user (id, username, password_hash, peran, nama, must_change_password, tim_kasukretan_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [id, params.username.trim(), hash, params.peran, params.nama?.trim() || null, mustChange, timId]
   );
   const created = await getUserById(id);
   if (!created) throw new Error("Gagal membuat pengguna");
@@ -107,6 +117,7 @@ export async function updateUser(
     peran?: StaffRole;
     nama?: string | null;
     aktif?: boolean;
+    timKasukretanId?: string | null;
   }
 ): Promise<void> {
   const db = await getDb();
@@ -132,6 +143,10 @@ export async function updateUser(
   if (params.aktif !== undefined) {
     sets.push("aktif = ?");
     args.push(params.aktif ? 1 : 0);
+  }
+  if (params.timKasukretanId !== undefined) {
+    sets.push("tim_kasukretan_id = ?");
+    args.push(params.timKasukretanId?.trim() || null);
   }
   if (sets.length === 0) return;
 

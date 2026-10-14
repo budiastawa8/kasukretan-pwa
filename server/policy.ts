@@ -10,17 +10,25 @@
  * - operator — tulis data krama
  * - keuangan — tulis data krama + keuangan (paturunan, dudukan, buku kas)
  * - prajuru  — hanya baca
+ * - petugas  — baca + catat/hapus pembayaran miliknya sendiri yang belum disetor
+ *              (baris diperiksa di handler: petugas, banjar, status setor)
  * Tabel yang tidak terdaftar (master, pengguna, lembaga) hanya untuk admin.
  */
 
-export type Role = "admin" | "operator" | "keuangan" | "prajuru";
+export type Role = "admin" | "operator" | "keuangan" | "prajuru" | "petugas";
 
 export function normalizeRole(value: unknown): Role | null {
   const v = String(value ?? "");
   if (v === "viewer") return "prajuru";
-  if (v === "admin" || v === "operator" || v === "keuangan" || v === "prajuru") return v;
+  if (v === "admin" || v === "operator" || v === "keuangan" || v === "prajuru" || v === "petugas") {
+    return v;
+  }
   return null;
 }
+
+export const PETUGAS_PAYMENT_TABLES = new Set(["paturunan_pembayaran", "dudukan_pembayaran"]);
+
+export type PetugasGuard = { verb: "insert" | "delete"; table: string };
 
 const KRAMA_TABLES = new Set([
   "penduduk",
@@ -83,7 +91,7 @@ const READONLY_PRAGMAS = new Set([
 export type WriteVerb = "insert" | "update" | "delete";
 
 export type PolicyDecision =
-  | { allow: true; ensureExists?: { type: string; name: string } }
+  | { allow: true; ensureExists?: { type: string; name: string }; petugasGuard?: PetugasGuard }
   | { allow: false; reason: string };
 
 /** Buang komentar dan isi string literal agar kata kunci di dalam data tidak terbaca sebagai SQL. */
@@ -156,6 +164,7 @@ function canWrite(role: Role, verb: WriteVerb, table: string, stripped: string):
   if (role === "admin") return true;
   if (role === "prajuru") return false;
   if (SHARED_TABLES.has(table)) return true;
+  if (role === "petugas") return false;
 
   if (KRAMA_TABLES.has(table)) {
     // Hapus krama/penduduk hanya admin & operator (canDeleteKrama).
@@ -191,7 +200,27 @@ const ROLE_LABEL: Record<Role, string> = {
   operator: "Operator",
   keuangan: "Keuangan",
   prajuru: "Prajuru",
+  petugas: "Petugas Lapangan",
 };
+
+const PETUGAS_DELETE_RE = /^\s*DELETE\s+FROM\s+(\w+)\s+WHERE\s+id\s*=\s*(\?|\$1)\s*;?\s*$/i;
+const PETUGAS_INSERT_RE = /^\s*INSERT\s+INTO\s+(\w+)\s*\([^)]*\)\s*VALUES\s*\(/i;
+
+/**
+ * Petugas hanya boleh INSERT ... VALUES satu baris atau DELETE ... WHERE id = ? pada tabel
+ * pembayaran; isi barisnya divalidasi handler sebelum commit.
+ */
+function petugasPaymentGuard(stripped: string): PetugasGuard | null {
+  const del = stripped.match(PETUGAS_DELETE_RE);
+  if (del && PETUGAS_PAYMENT_TABLES.has(del[1].toLowerCase())) {
+    return { verb: "delete", table: del[1].toLowerCase() };
+  }
+  const ins = stripped.match(PETUGAS_INSERT_RE);
+  if (ins && PETUGAS_PAYMENT_TABLES.has(ins[1].toLowerCase()) && !/\bSELECT\b/i.test(stripped)) {
+    return { verb: "insert", table: ins[1].toLowerCase() };
+  }
+  return null;
+}
 
 function deny(role: Role, what: string): PolicyDecision {
   return { allow: false, reason: `Peran ${ROLE_LABEL[role]} tidak berhak ${what}.` };
@@ -240,7 +269,14 @@ export function authorizeSql(role: Role, sql: string): PolicyDecision {
     return role === "admin" ? { allow: true } : deny(role, "menjalankan perintah ini");
   }
 
-  for (const w of findWrites(trimmed)) {
+  const writes = findWrites(trimmed);
+  if (role === "petugas" && writes.some((w) => PETUGAS_PAYMENT_TABLES.has(w.table))) {
+    const guard = writes.length === 1 ? petugasPaymentGuard(trimmed) : null;
+    if (!guard) return deny(role, "mengubah data pembayaran dengan cara ini");
+    return { allow: true, petugasGuard: guard };
+  }
+
+  for (const w of writes) {
     if (!canWrite(role, w.verb, w.table, trimmed)) {
       const aksi = w.verb === "insert" ? "menambah" : w.verb === "update" ? "mengubah" : "menghapus";
       return deny(role, `${aksi} data ${w.table}`);

@@ -4,17 +4,19 @@
  * - operator — input/edit/hapus krama + lihat laporan
  * - keuangan — menu keuangan (+ paturunan/dudukan) + edit krama + laporan
  * - prajuru  — hanya lihat laporan
+ * - petugas  — pungut paturunan/dudukan di banjarnya (scan QR kartu)
  */
 
-export type StaffRole = "admin" | "operator" | "keuangan" | "prajuru";
+export type StaffRole = "admin" | "operator" | "keuangan" | "prajuru" | "petugas";
 
-export const STAFF_ROLES: StaffRole[] = ["admin", "operator", "keuangan", "prajuru"];
+export const STAFF_ROLES: StaffRole[] = ["admin", "operator", "keuangan", "prajuru", "petugas"];
 
 export const STAFF_ROLE_LABELS: Record<StaffRole, string> = {
   admin: "Administrator",
   operator: "Operator",
   keuangan: "Keuangan",
   prajuru: "Prajuru",
+  petugas: "Petugas Lapangan",
 };
 
 /** Map peran lama (viewer) → prajuru. */
@@ -30,8 +32,13 @@ export function isStaffRole(value: string | undefined | null): value is StaffRol
     value === "admin" ||
     value === "operator" ||
     value === "keuangan" ||
-    value === "prajuru"
+    value === "prajuru" ||
+    value === "petugas"
   );
+}
+
+export function isPetugasLapangan(peran: string | undefined | null): boolean {
+  return normalizeStaffRole(peran) === "petugas";
 }
 
 export function isAdmin(peran: string | undefined | null): boolean {
@@ -71,9 +78,10 @@ export function canDeleteArsipIpma(peran: string | undefined | null): boolean {
   return isAdmin(peran);
 }
 
-/** Lihat laporan (semua peran staf). */
+/** Lihat laporan (semua peran staf kecuali petugas lapangan). */
 export function canViewLaporan(peran: string | undefined | null): boolean {
-  return normalizeStaffRole(peran) != null;
+  const r = normalizeStaffRole(peran);
+  return r != null && r !== "petugas";
 }
 
 /**
@@ -86,7 +94,9 @@ export function canEditData(peran: string | undefined | null): boolean {
 }
 
 export function defaultHomePath(peran: string | undefined | null): string {
-  if (normalizeStaffRole(peran) === "prajuru") return "/laporan";
+  const r = normalizeStaffRole(peran);
+  if (r === "prajuru") return "/laporan";
+  if (r === "petugas") return "/pungut";
   return "/";
 }
 
@@ -100,6 +110,10 @@ function pathStarts(pathname: string, prefix: string): boolean {
 export function canAccessPath(peran: string | undefined | null, pathname: string): boolean {
   const r = normalizeStaffRole(peran);
   if (!r) return false;
+
+  // Halaman pungut bergantung pada akun yang terhubung ke Tim Kasukretan.
+  if (pathStarts(pathname, "/pungut")) return r === "petugas";
+  if (r === "petugas") return false;
 
   if (r === "admin") return true;
 

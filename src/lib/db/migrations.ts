@@ -602,6 +602,21 @@ export async function runMasterDataMigrations(db: Database): Promise<void> {
   await migrateDanaPaturunanDudukanLabels(db);
   await migrateStaffRolesRbacV1(db);
   await migrateSetoranPetugas(db);
+  await migrateUserTimKasukretan(db);
+}
+
+/** Akun peran petugas terikat ke satu nama di Tim Kasukretan. */
+async function migrateUserTimKasukretan(db: Database): Promise<void> {
+  if (await tableHasColumn(db, "user", "tim_kasukretan_id")) return;
+  try {
+    await db.execute(
+      `ALTER TABLE user ADD COLUMN tim_kasukretan_id TEXT REFERENCES tim_kasukretan(id)`
+    );
+  } catch {
+    if (!(await tableHasColumn(db, "user", "tim_kasukretan_id"))) {
+      throw new Error("Gagal menambah kolom tim_kasukretan_id pada user");
+    }
+  }
 }
 
 async function migrateSetoranPetugas(db: Database): Promise<void> {

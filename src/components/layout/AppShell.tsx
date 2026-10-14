@@ -4,7 +4,7 @@ import { DESA_ADAT_UPDATED_EVENT, getDesaAdat } from "../../lib/services/desa";
 import { runBatchSyncStatusIlikitaBackground } from "../../lib/services/krama";
 import { runSyncNyadaOtomatisBackground } from "../../lib/services/nyada-otomatis";
 import { APP_MAIN_SCROLL_ID } from "../../lib/scroll-main";
-import { canAccessPath, staffRoleLabel } from "../../lib/auth-roles";
+import { canAccessPath, isPetugasLapangan, staffRoleLabel } from "../../lib/auth-roles";
 import { canUseStaffApp } from "../../lib/runtime";
 import { useIsPhoneClient } from "../../hooks/useClientFormFactor";
 import { GuardedNavLink } from "./GuardedNavLink";
@@ -23,6 +23,7 @@ import {
   Menu,
   X,
   MoreHorizontal,
+  ScanLine,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { Button } from "../ui/Button";
@@ -61,6 +62,7 @@ const NAV_GROUPS: NavGroup[] = [
     id: "iuran",
     label: "Iuran",
     items: [
+      { to: "/pungut", icon: ScanLine, label: "Pungut" },
       { to: "/paturunan", icon: Coins, label: "Paturunan" },
       { to: "/dudukan", icon: HandCoins, label: "Dudukan" },
     ],
@@ -85,7 +87,7 @@ const NAV_GROUPS: NavGroup[] = [
 ];
 
 /** Shortcut bawah HP — sisanya lewat tombol Menu. */
-const PHONE_DOCK_PATHS = ["/", "/krama-mipil", "/krama-pemasih", "/paturunan"] as const;
+const PHONE_DOCK_PATHS = ["/", "/pungut", "/krama-mipil", "/krama-pemasih", "/paturunan"] as const;
 
 function SidebarNav({
   peran,
@@ -247,11 +249,11 @@ export function AppShell() {
   }, []);
 
   useEffect(() => {
-    if (canUseStaffApp()) {
+    if (canUseStaffApp() && !isPetugasLapangan(user?.peran)) {
       runBatchSyncStatusIlikitaBackground();
       runSyncNyadaOtomatisBackground();
     }
-  }, []);
+  }, [user?.peran]);
 
   useEffect(() => {
     if (!mobileOpen) return;
