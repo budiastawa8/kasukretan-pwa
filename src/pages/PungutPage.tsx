@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { Ban, HandCoins, ScanLine, Search, Wallet } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Ban, HandCoins, Printer, ScanLine, Search, Wallet } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { KartuQrScanner } from "../components/KartuQrScanner";
 import { PaturunanPembayaranDialog } from "../components/paturunan/PaturunanPembayaranDialog";
@@ -10,11 +11,19 @@ import { Input } from "../components/ui/Input";
 import { parseKartuQrPayload } from "../lib/kartu-qr";
 import { formatRupiah } from "../lib/dudukan-hitung";
 import {
+  PETUGAS_STRUK_PREVIEW_PATH,
+  stashPetugasStrukPreview,
+  type PetugasStrukPreviewState,
+} from "../lib/petugas-struk-preview";
+import {
   bolehPungutKrama,
+  buildStrukDudukanPungut,
+  buildStrukPaturunanPungut,
   cariKramaPungut,
   findKramaByNomorKartu,
   getPetugasLapanganSaya,
   getRingkasanPungut,
+  getStrukCetakUlang,
   isKramaMipil,
   isKramaPemasih,
   type KramaPungut,
@@ -27,6 +36,7 @@ import { cn, formatTanggalLahir } from "../lib/utils";
 
 export function PungutPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [petugas, setPetugas] = useState<PetugasLapangan | null>(null);
   const [petugasLoaded, setPetugasLoaded] = useState(false);
   const [error, setError] = useState("");
@@ -45,6 +55,8 @@ export function PungutPage() {
   const [bayarDudukan, setBayarDudukan] = useState(false);
 
   const [pegangan, setPegangan] = useState<PembayaranSetoranItem[]>([]);
+  const [strukBaru, setStrukBaru] = useState<PetugasStrukPreviewState | null>(null);
+  const [strukUlangBusy, setStrukUlangBusy] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -85,6 +97,7 @@ export function PungutPage() {
       setHasilCari([]);
       setError("");
       setFlash("");
+      setStrukBaru(null);
       if (petugas && bolehPungutKrama(petugas, k) && k.status_krama === "aktif") {
         void loadRingkasan(k);
       }
@@ -141,13 +154,41 @@ export function PungutPage() {
     void loadPegangan();
   }
 
+  function bukaStruk(state: PetugasStrukPreviewState) {
+    try {
+      stashPetugasStrukPreview(state);
+      navigate(PETUGAS_STRUK_PREVIEW_PATH);
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
+  async function cetakUlang(item: PembayaranSetoranItem) {
+    if (!petugas) return;
+    const key = `${item.sumber}:${item.id}`;
+    setStrukUlangBusy(key);
+    setError("");
+    try {
+      const state = await getStrukCetakUlang(petugas, item);
+      if (!state) {
+        setError("Data pembayaran untuk struk tidak ditemukan.");
+        return;
+      }
+      bukaStruk(state);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setStrukUlangBusy(null);
+    }
+  }
+
   if (!petugasLoaded) {
     return <p className="text-sm text-muted">Memuat…</p>;
   }
 
   if (!petugas) {
     return (
-      <Card title="Pungut iuran">
+      <Card title="Pengumpulan iuran">
         <p className="text-sm text-amber-900">
           Akun Anda belum dihubungkan ke nama di Tim Kasukretan. Minta admin membuka Pengaturan →
           Pengguna, lalu memilih nama petugas untuk akun ini.
@@ -163,7 +204,7 @@ export function PungutPage() {
 
   return (
     <div className="space-y-3 max-w-xl mx-auto">
-      <Card title="Pungut iuran">
+      <Card title="Pengumpulan iuran">
         <p className="text-sm text-copper-950 font-medium">
           {petugas.nama} <span className="text-muted font-normal">· {petugas.jabatan}</span>
         </p>
@@ -219,9 +260,19 @@ export function PungutPage() {
         )}
         {error && <p className="mt-2 text-xs text-red-700">{error}</p>}
         {flash && (
-          <p className="mt-2 text-xs text-emerald-900 bg-emerald-50 border border-emerald-200 rounded px-2 py-1">
-            {flash}
-          </p>
+          <div className="mt-2 text-xs text-emerald-900 bg-emerald-50 border border-emerald-200 rounded px-2 py-1.5">
+            <p>{flash}</p>
+            {strukBaru && (
+              <Button
+                type="button"
+                icon={Printer}
+                className="mt-1.5 h-11 w-full text-base"
+                onClick={() => bukaStruk(strukBaru)}
+              >
+                Cetak struk
+              </Button>
+            )}
+          </div>
         )}
       </Card>
 
@@ -238,7 +289,7 @@ export function PungutPage() {
           {diLuarWilayah ? (
             <p className="mt-3 flex items-start gap-1.5 text-sm text-red-800 bg-red-50 border border-red-200 rounded px-2 py-2">
               <Ban size={16} className="shrink-0 mt-0.5" aria-hidden />
-              Krama ini dari Banjar {krama.banjar_nama} — di luar wilayah pungut Anda.
+              Krama ini dari Banjar {krama.banjar_nama} — di luar wilayah pengumpulan Anda.
             </p>
           ) : tidakAktif ? (
             <p className="mt-3 text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded px-2 py-2">
@@ -306,7 +357,7 @@ export function PungutPage() {
                 </div>
               )}
               {!isKramaMipil(krama) && !isKramaPemasih(krama) && (
-                <p className="text-xs text-muted">Krama ini tidak memiliki iuran yang bisa dipungut.</p>
+                <p className="text-xs text-muted">Krama ini tidak memiliki iuran yang bisa dikumpulkan.</p>
               )}
             </div>
           )}
@@ -333,7 +384,20 @@ export function PungutPage() {
                   <span className="font-medium text-copper-950">{p.kepala_nama}</span>
                   <span className="block text-muted truncate">{p.uraian}</span>
                 </span>
-                <span className="shrink-0 tabular-nums font-medium">{formatRupiah(p.jumlah)}</span>
+                <span className="shrink-0 flex items-center gap-1.5">
+                  <span className="tabular-nums font-medium">{formatRupiah(p.jumlah)}</span>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    icon={Printer}
+                    className="h-8 px-2 text-xs"
+                    title="Cetak ulang struk"
+                    disabled={strukUlangBusy != null}
+                    onClick={() => void cetakUlang(p)}
+                  >
+                    {strukUlangBusy === `${p.sumber}:${p.id}` ? "…" : "Struk"}
+                  </Button>
+                </span>
               </li>
             ))}
           </ul>
@@ -351,6 +415,21 @@ export function PungutPage() {
             void loadPegangan();
           }}
           onSaved={setelahBayar}
+          onPembayaranBaru={({ wajib, punia, tanggal }) =>
+            setStrukBaru({
+              kind: "paturunan",
+              payload: buildStrukPaturunanPungut({
+                krama,
+                iuranNama: bayarIuran.iuran.nama,
+                petugasNama: petugas.nama,
+                wajib,
+                punia,
+                tanggal,
+              }),
+              backTo: "/pungut",
+              backLabel: "Pengumpulan",
+            })
+          }
           canEdit
           kramaId={krama.id}
           iuranId={bayarIuran.iuran.id}
@@ -374,6 +453,19 @@ export function PungutPage() {
             void loadPegangan();
           }}
           onSaved={setelahBayar}
+          onPembayaranBaru={({ items, tanggal }) =>
+            setStrukBaru({
+              kind: "dudukan",
+              payload: buildStrukDudukanPungut({
+                krama,
+                petugasNama: petugas.nama,
+                items,
+                tanggal,
+              }),
+              backTo: "/pungut",
+              backLabel: "Pengumpulan",
+            })
+          }
           canEdit
           kramaId={krama.id}
           lockedPetugasId={petugas.id}

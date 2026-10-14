@@ -18,6 +18,8 @@ import { KeuanganPage } from "./pages/KeuanganPage";
 import { PaturunanPage } from "./pages/PaturunanPage";
 import { DudukanPage } from "./pages/DudukanPage";
 import { PungutPage } from "./pages/PungutPage";
+import { PetugasStrukPreviewPage } from "./pages/petugas/PetugasStrukPreviewPage";
+import { PETUGAS_STRUK_PREVIEW_PATH } from "./lib/petugas-struk-preview";
 import { LaporanHubPage } from "./pages/laporan/LaporanHubPage";
 import { LaporanPaturunanPage } from "./pages/laporan/LaporanPaturunanPage";
 import { LaporanPuniaPage } from "./pages/laporan/LaporanPuniaPage";
@@ -141,6 +143,14 @@ export default function App() {
             element={
               <Protected>
                 <KartuPaturunanPdfPreviewPage />
+              </Protected>
+            }
+          />
+          <Route
+            path={PETUGAS_STRUK_PREVIEW_PATH}
+            element={
+              <Protected>
+                <PetugasStrukPreviewPage />
               </Protected>
             }
           />

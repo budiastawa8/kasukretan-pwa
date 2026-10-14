@@ -45,7 +45,7 @@ function TimKasukretanSelect({
         ))}
       </Select>
       <p className="mt-1 text-[11px] text-muted leading-snug">
-        Menentukan wilayah pungut: hanya banjar petugas ini, kecuali jabatan Ketua, Sekretaris, atau
+        Menentukan wilayah pengumpulan: hanya banjar petugas ini, kecuali jabatan Ketua, Sekretaris, atau
         Bendahara (semua banjar).
       </p>
     </div>
@@ -282,7 +282,7 @@ export function UsersPanel() {
     >
       <p className="text-sm text-muted">
         Kelola akun staf: admin, operator, keuangan, prajuru, dan petugas lapangan (hanya menu
-        Pungut, terikat ke satu nama di Tim Kasukretan). Untuk menghentikan akses,{" "}
+        Pengumpulan, terikat ke satu nama di Tim Kasukretan). Untuk menghentikan akses,{" "}
         <strong>nonaktifkan</strong> akun — riwayat transaksi tetap tersimpan; penghapusan
         permanen tidak disediakan.
       </p>

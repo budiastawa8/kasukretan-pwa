@@ -62,7 +62,7 @@ const NAV_GROUPS: NavGroup[] = [
     id: "iuran",
     label: "Iuran",
     items: [
-      { to: "/pungut", icon: ScanLine, label: "Pungut" },
+      { to: "/pungut", icon: ScanLine, label: "Pengumpulan" },
       { to: "/paturunan", icon: Coins, label: "Paturunan" },
       { to: "/dudukan", icon: HandCoins, label: "Dudukan" },
     ],

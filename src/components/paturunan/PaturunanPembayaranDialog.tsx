@@ -81,11 +81,13 @@ export function PaturunanPembayaranDialog({
   initialTab = "bayar",
   initialEditingPaymentId = null,
   lockedPetugasId,
+  onPembayaranBaru,
 }: {
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
   onSaved?: (message: string) => void;
+  onPembayaranBaru?: (info: { wajib: number; punia: number; tanggal: string }) => void;
   canEdit: boolean;
   canDeleteFinancial?: boolean;
   kramaId: string;
@@ -224,6 +226,7 @@ export function PaturunanPembayaranDialog({
     setError("");
     setLoading(true);
     try {
+      const alokasi = preview;
       await createPembayaranDenganAlokasi({
         kramaId,
         iuranId,
@@ -235,6 +238,7 @@ export function PaturunanPembayaranDialog({
         keterangan: keterangan || undefined,
         disetorLangsung: petugasLapangan ? false : disetorLangsung,
       });
+      if (alokasi) onPembayaranBaru?.({ ...alokasi, tanggal });
       setJumlah("");
       setKeterangan("");
       completePembayaranBaruSave("Pembayaran paturunan berhasil disimpan.", {

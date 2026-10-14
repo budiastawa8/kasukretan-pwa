@@ -2,7 +2,14 @@ import { getDb } from "../db/client";
 import { normalizeNomorKartuKey } from "../kartu-qr";
 import { hitungSisaPaturunan } from "../paturunan-hitung";
 import { isJabatanPenerimaSemuaBanjar } from "../petugas-jabatan";
+import type { PetugasStrukPreviewState } from "../petugas-struk-preview";
+import type {
+  StrukDudukanPdfPayload,
+  StrukDudukanPeriodeLine,
+} from "../struk-pembayaran-dudukan-pdf";
+import type { StrukPaturunanPdfPayload } from "../struk-pembayaran-paturunan-pdf";
 import type { IuranPaturunanRow } from "../types";
+import type { PembayaranSetoranItem } from "./setoran";
 import { getTunggakanDudukanKrama } from "./dudukan";
 import { listIuranPaturunan } from "./iuran-paturunan";
 import { getPembayaranTotals, getTagihanPaturunanKramaIuran } from "./paturunan-pembayaran";
@@ -26,6 +33,8 @@ export type KramaPungut = {
   arahan_nama: string | null;
   klasifikasi_kode: string;
   status_krama: string;
+  jenis_nama: string | null;
+  alamat: string | null;
 };
 
 export type RingkasanPaturunanPungut = {
@@ -72,13 +81,150 @@ export async function getPetugasLapanganSaya(userId: string): Promise<PetugasLap
 
 const KRAMA_PUNGUT_SELECT = `
   SELECT k.id, k.nomor_kartu, pd.nama_lengkap as kepala_nama, k.banjar_id, b.nama as banjar_nama,
-         t.nama as tempek_nama, ar.nama as arahan_nama, kk.kode as klasifikasi_kode, k.status_krama
+         t.nama as tempek_nama, ar.nama as arahan_nama, kk.kode as klasifikasi_kode, k.status_krama,
+         COALESCE(NULLIF(TRIM(jm.nama), ''), jkt.nama, jt.nama) as jenis_nama, k.alamat
   FROM krama k
   JOIN penduduk pd ON pd.id = k.kepala_penduduk_id
   JOIN banjar b ON b.id = k.banjar_id
   JOIN klasifikasi_krama kk ON kk.id = k.klasifikasi_krama_id
   LEFT JOIN tempek t ON t.id = k.tempek_id
-  LEFT JOIN arahan ar ON ar.id = k.arahan_id`;
+  LEFT JOIN arahan ar ON ar.id = k.arahan_id
+  LEFT JOIN jenis_krama_mipil jm ON jm.id = k.jenis_krama_mipil_id
+  LEFT JOIN jenis_krama_tamiu jkt ON jkt.id = k.jenis_krama_tamiu_id
+  LEFT JOIN jenis_tamiu jt ON jt.id = k.jenis_tamiu_id`;
+
+async function getKramaPungutById(kramaId: string): Promise<KramaPungut | null> {
+  const db = await getDb();
+  const rows = await db.select<KramaPungut[]>(`${KRAMA_PUNGUT_SELECT} WHERE k.id = ? LIMIT 1`, [
+    kramaId,
+  ]);
+  return rows[0] ?? null;
+}
+
+function strukFilename(jenis: "paturunan" | "dudukan", krama: KramaPungut, tanggal: string) {
+  return `struk-${jenis}-${krama.nomor_kartu.replace(/\W/g, "")}-${tanggal}`;
+}
+
+export function buildStrukPaturunanPungut(params: {
+  krama: KramaPungut;
+  iuranNama: string;
+  petugasNama: string;
+  wajib: number;
+  punia: number;
+  tanggal: string;
+}): StrukPaturunanPdfPayload {
+  const { krama } = params;
+  return {
+    filename: strukFilename("paturunan", krama, params.tanggal),
+    iuranNama: params.iuranNama,
+    krama: {
+      nomor_kartu: krama.nomor_kartu,
+      kepala_nama: krama.kepala_nama,
+      banjar_nama: krama.banjar_nama,
+      jenis_nama: krama.jenis_nama,
+      tempek_nama: krama.tempek_nama,
+      arahan_nama: krama.arahan_nama,
+    },
+    wajib: params.wajib,
+    punia: params.punia,
+    total: params.wajib + params.punia,
+    tanggal: params.tanggal,
+    petugasNama: params.petugasNama,
+  };
+}
+
+export function buildStrukDudukanPungut(params: {
+  krama: KramaPungut;
+  petugasNama: string;
+  items: StrukDudukanPeriodeLine[];
+  tanggal: string;
+}): StrukDudukanPdfPayload {
+  const { krama } = params;
+  return {
+    filename: strukFilename("dudukan", krama, params.tanggal),
+    krama: {
+      pengajeg_nama: krama.kepala_nama,
+      nomor_pemasih: krama.nomor_kartu,
+      jenis_krama: krama.jenis_nama?.trim() || "—",
+      alamat_pemasih: krama.alamat?.trim() || "—",
+    },
+    items: params.items,
+    total: params.items.reduce((s, i) => s + i.jumlah, 0),
+    tanggal: params.tanggal,
+    petugasNama: params.petugasNama,
+  };
+}
+
+/**
+ * Struk cetak ulang: menggabungkan semua pembayaran petugas ini untuk krama (dan iuran)
+ * yang sama pada tanggal yang sama, karena satu transaksi bisa tersimpan sebagai beberapa baris.
+ */
+export async function getStrukCetakUlang(
+  petugas: PetugasLapangan,
+  item: PembayaranSetoranItem
+): Promise<PetugasStrukPreviewState | null> {
+  const db = await getDb();
+  const back = { backTo: "/pungut", backLabel: "Pengumpulan" };
+
+  if (item.sumber === "paturunan") {
+    const [ref] = await db.select<{ krama_id: string; iuran_id: string; iuran_nama: string }[]>(
+      `SELECT p.krama_id, p.iuran_id, i.nama as iuran_nama
+       FROM paturunan_pembayaran p JOIN iuran_paturunan i ON i.id = p.iuran_id
+       WHERE p.id = ?`,
+      [item.id]
+    );
+    if (!ref) return null;
+    const krama = await getKramaPungutById(ref.krama_id);
+    if (!krama) return null;
+    const rows = await db.select<{ jenis: string; jumlah: number }[]>(
+      `SELECT COALESCE(jenis, 'wajib') as jenis, jumlah FROM paturunan_pembayaran
+       WHERE krama_id = ? AND iuran_id = ? AND tanggal = ? AND petugas_id = ?`,
+      [ref.krama_id, ref.iuran_id, item.tanggal, petugas.id]
+    );
+    const sum = (jenis: string) =>
+      rows.filter((r) => r.jenis === jenis).reduce((s, r) => s + Math.round(Number(r.jumlah) || 0), 0);
+    return {
+      kind: "paturunan",
+      payload: buildStrukPaturunanPungut({
+        krama,
+        iuranNama: ref.iuran_nama,
+        petugasNama: petugas.nama,
+        wajib: sum("wajib"),
+        punia: sum("punia"),
+        tanggal: item.tanggal,
+      }),
+      ...back,
+    };
+  }
+
+  const [ref] = await db.select<{ krama_id: string }[]>(
+    `SELECT krama_id FROM dudukan_pembayaran WHERE id = ?`,
+    [item.id]
+  );
+  if (!ref) return null;
+  const krama = await getKramaPungutById(ref.krama_id);
+  if (!krama) return null;
+  const rows = await db.select<StrukDudukanPeriodeLine[]>(
+    `SELECT tahun, bulan, jumlah FROM dudukan_pembayaran
+     WHERE krama_id = ? AND tanggal = ? AND petugas_id = ?
+     ORDER BY tahun, bulan`,
+    [ref.krama_id, item.tanggal, petugas.id]
+  );
+  return {
+    kind: "dudukan",
+    payload: buildStrukDudukanPungut({
+      krama,
+      petugasNama: petugas.nama,
+      items: rows.map((r) => ({
+        tahun: Number(r.tahun),
+        bulan: Number(r.bulan),
+        jumlah: Math.round(Number(r.jumlah) || 0),
+      })),
+      tanggal: item.tanggal,
+    }),
+    ...back,
+  };
+}
 
 export async function findKramaByNomorKartu(nomorKartu: string): Promise<KramaPungut | null> {
   const key = normalizeNomorKartuKey(nomorKartu);

@@ -81,11 +81,16 @@ export function DudukanPembayaranDialog({
   initialEditingPaymentId = null,
   initialKeringananPeriode = null,
   lockedPetugasId,
+  onPembayaranBaru,
 }: {
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
   onSaved?: (message: string) => void;
+  onPembayaranBaru?: (info: {
+    items: { tahun: number; bulan: number; jumlah: number }[];
+    tanggal: string;
+  }) => void;
   canEdit: boolean;
   canDeleteFinancial?: boolean;
   kramaId: string;
@@ -526,6 +531,7 @@ export function DudukanPembayaranDialog({
         items,
         disetorLangsung: petugasLapangan ? false : disetorLangsung,
       });
+      onPembayaranBaru?.({ items, tanggal });
       setKeterangan("");
       completePembayaranBaruSave("Pembayaran dudukan berhasil disimpan.", {
         onSuccess,

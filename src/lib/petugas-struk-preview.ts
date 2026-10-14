@@ -3,7 +3,7 @@ import type { StrukPaturunanPdfPayload } from "./struk-pembayaran-paturunan-pdf"
 
 const STORAGE_KEY = "kasukretan:petugas-struk-preview";
 
-export const PETUGAS_STRUK_PREVIEW_PATH = "/petugas/struk-preview";
+export const PETUGAS_STRUK_PREVIEW_PATH = "/pungut/struk";
 
 export type PetugasStrukPreviewState =
   | {

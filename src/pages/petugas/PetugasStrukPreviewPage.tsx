@@ -8,7 +8,6 @@ import {
   StrukThermalSheetPaturunan,
   STRUK_THERMAL_WIDTH_DEFAULT,
 } from "../../components/petugas/StrukThermalSheet";
-import { fetchPetugasDesa, type PetugasDesaApi } from "../../lib/api/petugas";
 import { downloadBytes } from "../../lib/download-bytes";
 import { formatRupiah } from "../../lib/dudukan-hitung";
 import { readPetugasStrukPreview } from "../../lib/petugas-struk-preview";
@@ -27,29 +26,10 @@ import {
   printEscPosViaBluetooth,
   warmUpSavedPrinter,
 } from "../../lib/thermal-bluetooth-print";
+import { getDesaAdat } from "../../lib/services/desa";
 import type { DesaAdat } from "../../lib/types";
 
 const PRINT_PAGE_STYLE_ID = "struk-thermal-print-page";
-
-function petugasDesaToDesaAdat(d: PetugasDesaApi): DesaAdat {
-  return {
-    id: d.id,
-    kode_kabupaten: "",
-    nama_kabupaten: d.nama_kabupaten,
-    kode_kecamatan: "",
-    nama_kecamatan: d.nama_kecamatan,
-    kode_desa_adat: "",
-    nama_desa_adat: d.nama_desa_adat,
-    logo_url: d.logo_url,
-    logo_mda_url: d.logo_mda_url,
-    panyarikan_nama: d.panyarikan_nama,
-    panyarikan_jabatan: d.panyarikan_jabatan,
-    patengen_nama: d.patengen_nama,
-    patengen_jabatan: d.patengen_jabatan,
-    bandesa_nama: d.bandesa_nama,
-    bandesa_jabatan: d.bandesa_jabatan,
-  };
-}
 
 function applyPrintPageSize(widthMm: StrukThermalWidthMm): void {
   let el = document.getElementById(PRINT_PAGE_STYLE_ID) as HTMLStyleElement | null;
@@ -81,14 +61,15 @@ export function PetugasStrukPreviewPage() {
   useEffect(() => {
     let cancelled = false;
     setLoadingDesa(true);
-    fetchPetugasDesa()
+    getDesaAdat()
       .then((d) => {
         if (cancelled) return;
         if (d) {
           setDesaNama(d.nama_desa_adat?.trim() || "—");
-          setDesaFull(petugasDesaToDesaAdat(d));
+          setDesaFull(d);
         }
       })
+      .catch(() => {})
       .finally(() => {
         if (!cancelled) setLoadingDesa(false);
       });
@@ -190,7 +171,7 @@ export function PetugasStrukPreviewPage() {
   }, [previewState, desaFull, thermalWidthMm]);
 
   if (!previewState) {
-    return <Navigate to="/petugas" replace />;
+    return <Navigate to="/pungut" replace />;
   }
 
   const kramaNama =
