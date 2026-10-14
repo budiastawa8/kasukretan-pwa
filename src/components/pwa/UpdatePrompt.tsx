@@ -1,9 +1,13 @@
+import { useEffect } from "react";
 import { RefreshCw } from "lucide-react";
 import { useRegisterSW } from "virtual:pwa-register/react";
 import { Button } from "../ui/Button";
 
-/** Cek versi baru tiap jam selama aplikasi terbuka. */
+/** Cek versi baru tiap jam selama aplikasi terbuka, dan tiap kali aplikasi kembali dibuka. */
 const UPDATE_CHECK_MS = 60 * 60 * 1000;
+
+/** Halaman tanpa isian yang bisa hilang — versi baru langsung dipasang tanpa bertanya. */
+const AUTO_UPDATE_PATHS = ["/login"];
 
 export function UpdatePrompt() {
   const {
@@ -12,11 +16,19 @@ export function UpdatePrompt() {
   } = useRegisterSW({
     onRegisteredSW(_url, registration) {
       if (!registration) return;
-      setInterval(() => {
-        void registration.update();
-      }, UPDATE_CHECK_MS);
+      const check = () => void registration.update();
+      setInterval(check, UPDATE_CHECK_MS);
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") check();
+      });
     },
   });
+
+  useEffect(() => {
+    if (needRefresh && AUTO_UPDATE_PATHS.includes(window.location.pathname)) {
+      void updateServiceWorker(true);
+    }
+  }, [needRefresh, updateServiceWorker]);
 
   if (!needRefresh) return null;
 
