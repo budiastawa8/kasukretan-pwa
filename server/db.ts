@@ -46,10 +46,59 @@ export function rowsToObjects(rs: ResultSet): Record<string, unknown>[] {
   });
 }
 
-export async function dbSelect(sql: string, bind?: unknown[]): Promise<Record<string, unknown>[]> {
+/** Query baca yang melewati batas ini dikirim ulang sekali; query tulis tidak boleh diulang (bisa tercatat dua kali). */
+const SELECT_TIMEOUT_MS = 6_000;
+const SLOW_QUERY_LOG_MS = 2_000;
+
+const READ_ONLY_RE = /^\s*(SELECT|WITH)\b/i;
+const WRITE_KEYWORD_RE = /\b(INSERT|UPDATE|DELETE|REPLACE|CREATE|DROP|ALTER)\b/i;
+
+export type DbTiming = { ms: number; attempts: number };
+
+class QueryTimeoutError extends Error {}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new QueryTimeoutError(`Query > ${ms} ms`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+export async function dbSelect(
+  sql: string,
+  bind?: unknown[],
+  timing?: DbTiming
+): Promise<Record<string, unknown>[]> {
   const client = await getClient();
   const { sql: converted, args } = convertSql(sql, bind);
-  return rowsToObjects(await client.execute({ sql: converted, args }));
+  const retryable = READ_ONLY_RE.test(converted) && !WRITE_KEYWORD_RE.test(converted);
+  const start = Date.now();
+  let attempts = 0;
+  try {
+    for (;;) {
+      attempts++;
+      try {
+        const rs = retryable && attempts === 1
+          ? await withTimeout(client.execute({ sql: converted, args }), SELECT_TIMEOUT_MS)
+          : await client.execute({ sql: converted, args });
+        return rowsToObjects(rs);
+      } catch (err) {
+        if (!(err instanceof QueryTimeoutError)) throw err;
+      }
+    }
+  } finally {
+    const ms = Date.now() - start;
+    if (timing) {
+      timing.ms += ms;
+      timing.attempts += attempts;
+    }
+    if (ms >= SLOW_QUERY_LOG_MS || attempts > 1) {
+      console.warn(
+        `[db] lambat ${ms} ms (percobaan ${attempts}): ${converted.replace(/\s+/g, " ").slice(0, 120)}`
+      );
+    }
+  }
 }
 
 export async function dbExecute(sql: string, bind?: unknown[]): Promise<{ rowsAffected: number }> {

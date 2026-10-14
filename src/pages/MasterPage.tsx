@@ -119,9 +119,14 @@ export function MasterPage() {
   const [newTamiuNominal, setNewTamiuNominal] = useState<RupiahInputValue>("");
 
   const refreshJenis = useCallback(async () => {
-    setJenisMipil(await listJenisMipil());
-    setJenisKT(await listJenisKramaTamiu());
-    setJenisT(await listJenisTamiu());
+    const [mipil, kramaTamiu, tamiu] = await Promise.all([
+      listJenisMipil(),
+      listJenisKramaTamiu(),
+      listJenisTamiu(),
+    ]);
+    setJenisMipil(mipil);
+    setJenisKT(kramaTamiu);
+    setJenisT(tamiu);
   }, []);
 
   const refreshBanjar = useCallback(async () => {

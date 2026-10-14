@@ -7,7 +7,7 @@ import {
   signToken,
   type PublicUser,
 } from "./auth.js";
-import { dbExecute, dbSelect, getClient } from "./db.js";
+import { dbExecute, dbSelect, getClient, type DbTiming } from "./db.js";
 import { executePetugasPaymentWrite } from "./petugas-guard.js";
 import { authorizeSql, type PetugasGuard } from "./policy.js";
 import {
@@ -159,7 +159,10 @@ async function handleRoute(path: string, req: ApiRequest, res: ServerResponse): 
       return;
     }
     if (auth !== "run") throw new HttpError(403, "Perintah tulis tidak boleh lewat sql/select.");
-    send(res, 200, await dbSelect(sql, bind));
+    const timing: DbTiming = { ms: 0, attempts: 0 };
+    const rows = await dbSelect(sql, bind, timing);
+    res.setHeader("Server-Timing", `db;dur=${timing.ms};desc="${timing.attempts}x"`);
+    send(res, 200, rows);
     return;
   }
 
