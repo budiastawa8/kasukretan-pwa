@@ -6,39 +6,19 @@ import { DateInput } from "../ui/DateInput";
 import { Label } from "../ui/Input";
 import { unduhBuktiSetoran } from "../../lib/bukti-setoran-petugas-unduh";
 import { nomorBuktiSetoran } from "../../lib/bukti-setoran-petugas-pdf";
-import { dateToIsoLocal } from "../../lib/date-iso";
 import { formatRupiah } from "../../lib/dudukan-hitung";
+import {
+  PERIODE_PRESET_LABEL as PRESET_LABEL,
+  periodePreset,
+  type PeriodePreset as Preset,
+} from "../../lib/periode-preset";
 import {
   listPembayaranDalamSetoran,
   listSetoran,
   type PembayaranSetoranItem,
   type SetoranRow,
 } from "../../lib/services/setoran";
-import { cn, formatTanggalLahir, today } from "../../lib/utils";
-
-type Preset = "bulan-ini" | "bulan-lalu" | "3-bulan";
-
-function periodePreset(preset: Preset): { dari: string; sampai: string } {
-  const now = new Date();
-  const awalBulan = (offset: number) => new Date(now.getFullYear(), now.getMonth() + offset, 1);
-  switch (preset) {
-    case "bulan-ini":
-      return { dari: dateToIsoLocal(awalBulan(0)), sampai: today() };
-    case "bulan-lalu":
-      return {
-        dari: dateToIsoLocal(awalBulan(-1)),
-        sampai: dateToIsoLocal(new Date(now.getFullYear(), now.getMonth(), 0)),
-      };
-    case "3-bulan":
-      return { dari: dateToIsoLocal(awalBulan(-2)), sampai: today() };
-  }
-}
-
-const PRESET_LABEL: Record<Preset, string> = {
-  "bulan-ini": "Bulan ini",
-  "bulan-lalu": "Bulan lalu",
-  "3-bulan": "3 bulan",
-};
+import { cn, formatTanggalLahir } from "../../lib/utils";
 
 export function RiwayatSetoranCard({
   petugasId,

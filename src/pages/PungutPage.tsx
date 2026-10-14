@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { KartuQrScanner } from "../components/KartuQrScanner";
 import { PaturunanPembayaranDialog } from "../components/paturunan/PaturunanPembayaranDialog";
 import { DudukanPembayaranDialog } from "../components/dudukan/DudukanPembayaranDialog";
+import { PerolehanBanjarCard } from "../components/pungut/PerolehanBanjarCard";
 import { RiwayatSetoranCard } from "../components/pungut/RiwayatSetoranCard";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
@@ -534,6 +535,8 @@ export function PungutPage() {
           </ul>
         )}
       </Card>
+
+      {mode && <PerolehanBanjarCard petugas={petugas} mode={mode} />}
 
       <RiwayatSetoranCard petugasId={petugas.id} petugasJabatan={petugas.jabatan} />
 
