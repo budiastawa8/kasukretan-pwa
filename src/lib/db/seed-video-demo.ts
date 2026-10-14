@@ -394,6 +394,13 @@ export async function seedVideoDemoContent(db: Database): Promise<void> {
   }
 
   await db.execute(
+    `UPDATE paturunan_pembayaran SET tanggal_setor = tanggal WHERE tanggal_setor IS NULL`
+  );
+  await db.execute(
+    `UPDATE dudukan_pembayaran SET tanggal_setor = tanggal WHERE tanggal_setor IS NULL`
+  );
+
+  await db.execute(
     `INSERT INTO penomoran_kartu_counter (id, desa_adat_id, banjar_id, urutan_terakhir) VALUES (?, ?, ?, 10)`,
     [uuid(), desaId, banjarSuling]
   );

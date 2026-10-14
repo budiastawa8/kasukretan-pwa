@@ -428,6 +428,10 @@ export interface PaturunanPembayaranRow {
   akun_keuangan_id?: string | null;
   akun_keuangan_nama?: string | null;
   keterangan?: string | null;
+  /** Terisi bila uang diterima lewat setoran petugas. */
+  setoran_id?: string | null;
+  /** Tanggal masuk buku kas; kosong = uang masih dipegang petugas. */
+  tanggal_setor?: string | null;
   created_at?: string;
 }
 
@@ -466,6 +470,10 @@ export interface DudukanPembayaranRow {
   jenis_tamiu_id?: string | null;
   /** Nama jenis tampilan saat pembayaran dicatat. */
   jenis_nama?: string | null;
+  /** Terisi bila uang diterima lewat setoran petugas. */
+  setoran_id?: string | null;
+  /** Tanggal masuk buku kas; kosong = uang masih dipegang petugas. */
+  tanggal_setor?: string | null;
   created_at?: string;
 }
 

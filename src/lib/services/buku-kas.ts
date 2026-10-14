@@ -196,9 +196,11 @@ export async function getSaldoAkun(akunKeuanganId: string): Promise<number> {
   const db = await getDb();
   const masuk = await db.select<{ total: number }[]>(
     `SELECT COALESCE(SUM(jumlah), 0) as total FROM (
-       SELECT jumlah FROM paturunan_pembayaran WHERE akun_keuangan_id = ?
+       SELECT jumlah FROM paturunan_pembayaran
+       WHERE akun_keuangan_id = ? AND tanggal_setor IS NOT NULL
        UNION ALL
-       SELECT jumlah FROM dudukan_pembayaran WHERE akun_keuangan_id = ?
+       SELECT jumlah FROM dudukan_pembayaran
+       WHERE akun_keuangan_id = ? AND tanggal_setor IS NOT NULL
        UNION ALL
        SELECT pp.jumlah FROM transaksi_pemasukan_pos pp
        JOIN transaksi_pemasukan t ON t.id = pp.transaksi_id
@@ -261,8 +263,10 @@ export async function listRingkasanSaldoAkun(): Promise<RingkasanSaldoAkun[]> {
      LEFT JOIN (
        SELECT akun_keuangan_id, SUM(jumlah) as total FROM (
          SELECT akun_keuangan_id, jumlah FROM paturunan_pembayaran
+         WHERE tanggal_setor IS NOT NULL
          UNION ALL
          SELECT akun_keuangan_id, jumlah FROM dudukan_pembayaran
+         WHERE tanggal_setor IS NOT NULL
          UNION ALL
          SELECT t.akun_keuangan_id, pp.jumlah
          FROM transaksi_pemasukan_pos pp
@@ -452,7 +456,7 @@ export async function listBukuKas(params: {
       created_at: string;
     }[]
   >(
-    `SELECT p.tanggal,
+    `SELECT p.tanggal_setor as tanggal,
             COALESCE(k.tempek_id, '') as tempek_id,
             COALESCE(NULLIF(TRIM(te.nama), ''), '—') as tempek_nama,
             p.iuran_id,
@@ -466,8 +470,8 @@ export async function listBukuKas(params: {
      JOIN iuran_paturunan i ON i.id = p.iuran_id
      LEFT JOIN tempek te ON te.id = k.tempek_id
      LEFT JOIN tim_kasukretan tk ON tk.id = p.petugas_id
-     WHERE p.akun_keuangan_id = ?
-     GROUP BY p.tanggal, k.tempek_id, p.petugas_id, p.iuran_id`,
+     WHERE p.akun_keuangan_id = ? AND p.tanggal_setor IS NOT NULL
+     GROUP BY p.tanggal_setor, k.tempek_id, p.petugas_id, p.iuran_id`,
     [akunId]
   );
 
@@ -482,7 +486,7 @@ export async function listBukuKas(params: {
       created_at: string;
     }[]
   >(
-    `SELECT p.tanggal,
+    `SELECT p.tanggal_setor as tanggal,
             k.banjar_id,
             b.nama as banjar_nama,
             p.petugas_id,
@@ -493,8 +497,8 @@ export async function listBukuKas(params: {
      JOIN krama k ON k.id = p.krama_id
      JOIN banjar b ON b.id = k.banjar_id
      LEFT JOIN tim_kasukretan t ON t.id = p.petugas_id
-     WHERE p.akun_keuangan_id = ?
-     GROUP BY p.tanggal, k.banjar_id, p.petugas_id`,
+     WHERE p.akun_keuangan_id = ? AND p.tanggal_setor IS NOT NULL
+     GROUP BY p.tanggal_setor, k.banjar_id, p.petugas_id`,
     [akunId]
   );
 
@@ -845,7 +849,7 @@ export async function listLaporanBukuKas(params: {
       created_at: string;
     }[]
   >(
-    `SELECT p.tanggal,
+    `SELECT p.tanggal_setor as tanggal,
             COALESCE(k.tempek_id, '') as tempek_id,
             COALESCE(NULLIF(TRIM(te.nama), ''), '—') as tempek_nama,
             p.iuran_id,
@@ -859,8 +863,8 @@ export async function listLaporanBukuKas(params: {
      JOIN iuran_paturunan i ON i.id = p.iuran_id
      LEFT JOIN tempek te ON te.id = k.tempek_id
      LEFT JOIN tim_kasukretan tk ON tk.id = p.petugas_id
-     WHERE p.akun_keuangan_id = ?
-     GROUP BY p.tanggal, k.tempek_id, p.petugas_id, p.iuran_id`,
+     WHERE p.akun_keuangan_id = ? AND p.tanggal_setor IS NOT NULL
+     GROUP BY p.tanggal_setor, k.tempek_id, p.petugas_id, p.iuran_id`,
     [akunId]
   );
 
@@ -875,7 +879,7 @@ export async function listLaporanBukuKas(params: {
       created_at: string;
     }[]
   >(
-    `SELECT p.tanggal,
+    `SELECT p.tanggal_setor as tanggal,
             k.banjar_id,
             b.nama as banjar_nama,
             p.petugas_id,
@@ -886,8 +890,8 @@ export async function listLaporanBukuKas(params: {
      JOIN krama k ON k.id = p.krama_id
      JOIN banjar b ON b.id = k.banjar_id
      LEFT JOIN tim_kasukretan t ON t.id = p.petugas_id
-     WHERE p.akun_keuangan_id = ?
-     GROUP BY p.tanggal, k.banjar_id, p.petugas_id`,
+     WHERE p.akun_keuangan_id = ? AND p.tanggal_setor IS NOT NULL
+     GROUP BY p.tanggal_setor, k.banjar_id, p.petugas_id`,
     [akunId]
   );
 
@@ -1210,6 +1214,7 @@ async function collectRekapPosAggForAkun(params: {
   const db = await getDb();
   const akunId = params.akunKeuanganId;
   const datePat = tanggalSqlFilter(params.dari, params.sampai);
+  const dateSetor = tanggalSqlFilter(params.dari, params.sampai, "tanggal_setor");
   const dateTrf = tanggalSqlFilter(params.dari, params.sampai, "t.tanggal");
   const map = new Map<string, RekapPosAgg>();
 
@@ -1232,16 +1237,16 @@ async function collectRekapPosAggForAkun(params: {
   const paturunan = await db.select<{ total: number }[]>(
     `SELECT COALESCE(SUM(jumlah), 0) as total
      FROM paturunan_pembayaran
-     WHERE akun_keuangan_id = ?${datePat.sql}`,
-    [akunId, ...datePat.args]
+     WHERE akun_keuangan_id = ? AND tanggal_setor IS NOT NULL${dateSetor.sql}`,
+    [akunId, ...dateSetor.args]
   );
   addPemasukanPos(map, POS_REKAP_PATURUNAN, paturunan[0]?.total ?? 0, 1);
 
   const dudukan = await db.select<{ total: number }[]>(
     `SELECT COALESCE(SUM(jumlah), 0) as total
      FROM dudukan_pembayaran
-     WHERE akun_keuangan_id = ?${datePat.sql}`,
-    [akunId, ...datePat.args]
+     WHERE akun_keuangan_id = ? AND tanggal_setor IS NOT NULL${dateSetor.sql}`,
+    [akunId, ...dateSetor.args]
   );
   addPemasukanPos(map, POS_REKAP_DUDUKAN, dudukan[0]?.total ?? 0, 2);
 

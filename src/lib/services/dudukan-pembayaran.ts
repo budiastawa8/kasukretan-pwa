@@ -19,6 +19,7 @@ import {
   getDefaultAkunDudukanId,
 } from "./akun-keuangan";
 import { assertKramaAktifUntukPembayaran } from "./krama";
+import { assertPembayaranBelumMasukSetoran } from "./setoran";
 
 export type DudukanPembayaranSaveOptions = {
   /** Impor riwayat — izinkan krama nonaktif & lewati validasi tagihan periode. */
@@ -530,6 +531,8 @@ export async function createPembayaranDudukanMulti(
     keterangan?: string;
     akunKeuanganId?: string;
     items: { tahun: number; bulan: number; jumlah: number }[];
+    /** `false` = uang masih dipegang petugas, masuk buku kas saat disetor. */
+    disetorLangsung?: boolean;
   },
   opts?: DudukanPembayaranSaveOptions
 ): Promise<string[]> {
@@ -559,8 +562,8 @@ export async function createPembayaranDudukanMulti(
     await db.execute(
       `INSERT INTO dudukan_pembayaran
         (id, krama_id, tahun, bulan, jumlah, tanggal, petugas_id, akun_keuangan_id, keterangan,
-         jenis_krama_tamiu_id, jenis_tamiu_id, jenis_nama, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, datetime('now'))`,
+         jenis_krama_tamiu_id, jenis_tamiu_id, jenis_nama, tanggal_setor, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, datetime('now'))`,
       [
         id,
         params.kramaId,
@@ -574,6 +577,7 @@ export async function createPembayaranDudukanMulti(
         jenisSnap.jenis_krama_tamiu_id,
         jenisSnap.jenis_tamiu_id,
         jenisSnap.jenis_nama,
+        params.disetorLangsung === false ? null : tanggal,
       ]
     );
     ids.push(id);
@@ -620,8 +624,8 @@ export async function createPembayaranDudukan(
   await db.execute(
     `INSERT INTO dudukan_pembayaran
       (id, krama_id, tahun, bulan, jumlah, tanggal, petugas_id, akun_keuangan_id, keterangan,
-       jenis_krama_tamiu_id, jenis_tamiu_id, jenis_nama, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, datetime('now'))`,
+       jenis_krama_tamiu_id, jenis_tamiu_id, jenis_nama, tanggal_setor, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $6, datetime('now'))`,
     [
       id,
       params.kramaId,
@@ -663,6 +667,7 @@ export async function updatePembayaranDudukan(
   if (!opts?.riwayatImport) {
     await assertDudukanBerlakuUntukKrama(params.kramaId, params.tahun, params.bulan);
   }
+  await assertPembayaranBelumMasukSetoran("dudukan", id);
   await assertPetugasForKrama(params.petugasId, params.kramaId);
 
   const db = await getDb();
@@ -671,7 +676,8 @@ export async function updatePembayaranDudukan(
   await db.execute(
     `UPDATE dudukan_pembayaran SET
       tahun = $1, bulan = $2, jumlah = $3, tanggal = $4, petugas_id = $5, keterangan = $6,
-      akun_keuangan_id = COALESCE($7, akun_keuangan_id)
+      akun_keuangan_id = COALESCE($7, akun_keuangan_id),
+      tanggal_setor = CASE WHEN tanggal_setor IS NULL THEN NULL ELSE $4 END
      WHERE id = $8`,
     [
       parseTahun(params.tahun),
@@ -687,6 +693,7 @@ export async function updatePembayaranDudukan(
 }
 
 export async function deletePembayaranDudukan(id: string): Promise<void> {
+  await assertPembayaranBelumMasukSetoran("dudukan", id);
   const db = await getDb();
   await db.execute(`DELETE FROM dudukan_pembayaran WHERE id = $1`, [id]);
   const { queuePaymentDeletion } = await import("../sync/payment-deletions");

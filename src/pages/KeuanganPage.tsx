@@ -64,6 +64,7 @@ import { ConfirmDialog } from "../components/ui/ConfirmDialog";
 import { ListPagination } from "../components/ui/ListPagination";
 import { BukuKasSaldoRingkasan } from "../components/keuangan/BukuKasSaldoRingkasan";
 import { KasDudukanPlafonPanel } from "../components/keuangan/KasDudukanPlafonPanel";
+import { SetoranPanel } from "../components/keuangan/SetoranPanel";
 import {
   LIST_CARD,
   LIST_CARD_PHONE,
@@ -73,7 +74,7 @@ import {
 } from "../components/ui/list-compact";
 import { useIsPhoneClient } from "../hooks/useClientFormFactor";
 
-type Tab = "buku-kas" | "transfer" | "pemasukan" | "pengeluaran";
+type Tab = "buku-kas" | "setoran" | "transfer" | "pemasukan" | "pengeluaran";
 
 const POS_ROW_POS_CLASS = "w-full min-w-0 sm:min-w-[calc(10rem-50pt)] sm:flex-1";
 const POS_ROW_JUMLAH_CLASS = "w-full sm:w-[calc(7rem+50pt)] sm:shrink-0";
@@ -85,6 +86,10 @@ const TAB_STYLES: Record<Tab, { active: string; inactive: string }> = {
   "buku-kas": {
     active: "bg-white text-copper-900 shadow-sm border border-copper-200",
     inactive: "text-muted hover:text-copper-800 hover:bg-white/60",
+  },
+  setoran: {
+    active: "bg-amber-100 text-amber-950 shadow-sm border border-amber-300 ring-1 ring-amber-200/80",
+    inactive: "text-amber-800 hover:bg-amber-50/90",
   },
   transfer: {
     active: "bg-sky-100 text-sky-950 shadow-sm border border-sky-300 ring-1 ring-sky-200/80",
@@ -285,7 +290,7 @@ export function KeuanganPage() {
     if (tab === "buku-kas") void loadBukuKas();
     else if (tab === "pengeluaran") void loadPengeluaran();
     else if (tab === "pemasukan") void loadPemasukan();
-    else void loadTransfer();
+    else if (tab === "transfer") void loadTransfer();
   }, [tab, loadBukuKas, loadPengeluaran, loadPemasukan, loadTransfer]);
 
   useEffect(() => {
@@ -709,7 +714,7 @@ export function KeuanganPage() {
             Keuangan
           </h1>
           <p className="text-xs sm:text-sm text-muted mt-0.5">
-            Buku kas, transfer, pemasukan, dan pengeluaran.
+            Buku kas, setoran petugas, transfer, pemasukan, dan pengeluaran.
           </p>
         </div>
         <Link
@@ -733,6 +738,7 @@ export function KeuanganPage() {
         {(
           [
             ["buku-kas", "Buku Kas"],
+            ["setoran", "Setoran"],
             ["transfer", "Transfer"],
             ["pemasukan", "Pemasukan"],
             ["pengeluaran", "Pengeluaran"],
@@ -922,6 +928,15 @@ export function KeuanganPage() {
             compact
           />
         </Card>
+      )}
+
+      {tab === "setoran" && (
+        <SetoranPanel
+          canEdit={canEdit}
+          userId={user?.id}
+          isPhone={isPhone}
+          onChanged={() => void Promise.all([loadBukuKas(), loadRingkasanSaldo()])}
+        />
       )}
 
       {tab === "transfer" && (

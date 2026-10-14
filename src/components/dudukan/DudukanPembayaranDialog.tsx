@@ -41,8 +41,11 @@ import { ConfirmDialog } from "../ui/ConfirmDialog";
 import {
   completePembayaranBaruSave,
   PembayaranDialogTabs,
+  SetorLangsungField,
   StatMini,
+  StatusSetorBadge,
   usePembayaranAkunDanPetugas,
+  useSetorLangsung,
   ZoneHeading,
 } from "../pembayaran/pembayaran-dialog-shared";
 import {
@@ -108,6 +111,7 @@ export function DudukanPembayaranDialog({
   });
   const [tanggal, setTanggal] = useState(today());
   const [keterangan, setKeterangan] = useState("");
+  const [disetorLangsung, setDisetorLangsung] = useSetorLangsung();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -509,6 +513,7 @@ export function DudukanPembayaranDialog({
         akunKeuanganId,
         keterangan: keterangan || undefined,
         items,
+        disetorLangsung,
       });
       setKeterangan("");
       completePembayaranBaruSave("Pembayaran dudukan berhasil disimpan.", {
@@ -988,6 +993,7 @@ export function DudukanPembayaranDialog({
                   onChange={(e) => setKeterangan(e.target.value)}
                 />
               )}
+              <SetorLangsungField checked={disetorLangsung} onChange={setDisetorLangsung} />
               <Button
                 type="submit"
                 disabled={
@@ -1241,11 +1247,12 @@ export function DudukanPembayaranDialog({
                           {p.akun_keuangan_nama ? (
                             <span className="text-muted"> · {p.akun_keuangan_nama}</span>
                           ) : null}
+                          <StatusSetorBadge tanggalSetor={p.tanggal_setor} setoranId={p.setoran_id} />
                           {p.keterangan ? (
                             <span className="text-muted block truncate">{p.keterangan}</span>
                           ) : null}
                         </span>
-                        {canEdit && (
+                        {canEdit && !p.setoran_id && (
                           <span className="flex shrink-0">
                             <Button
                               type="button"

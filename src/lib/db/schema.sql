@@ -149,6 +149,18 @@ CREATE TABLE IF NOT EXISTS kas_dudukan_alokasi (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Uang dari petugas yang diterima bendahara. Pembayaran baru masuk buku kas
+-- setelah tanggal_setor terisi (setor langsung atau lewat setoran).
+CREATE TABLE IF NOT EXISTS setoran (
+  id TEXT PRIMARY KEY,
+  petugas_id TEXT REFERENCES tim_kasukretan(id),
+  tanggal TEXT NOT NULL,
+  total REAL NOT NULL,
+  keterangan TEXT,
+  diterima_oleh TEXT REFERENCES user(id),
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS paturunan_pembayaran (
   id TEXT PRIMARY KEY,
   krama_id TEXT NOT NULL REFERENCES krama(id),
@@ -159,6 +171,8 @@ CREATE TABLE IF NOT EXISTS paturunan_pembayaran (
   petugas_id TEXT REFERENCES tim_kasukretan(id),
   akun_keuangan_id TEXT REFERENCES akun_keuangan(id),
   keterangan TEXT,
+  setoran_id TEXT REFERENCES setoran(id),
+  tanggal_setor TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -175,6 +189,8 @@ CREATE TABLE IF NOT EXISTS dudukan_pembayaran (
   jenis_krama_tamiu_id TEXT REFERENCES jenis_krama_tamiu(id),
   jenis_tamiu_id TEXT REFERENCES jenis_tamiu(id),
   jenis_nama TEXT,
+  setoran_id TEXT REFERENCES setoran(id),
+  tanggal_setor TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

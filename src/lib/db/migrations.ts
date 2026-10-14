@@ -601,6 +601,56 @@ export async function runMasterDataMigrations(db: Database): Promise<void> {
   await migrateLembagaBadanDanAdminIlikita(db);
   await migrateDanaPaturunanDudukanLabels(db);
   await migrateStaffRolesRbacV1(db);
+  await migrateSetoranPetugas(db);
+}
+
+async function migrateSetoranPetugas(db: Database): Promise<void> {
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS setoran (
+      id TEXT PRIMARY KEY,
+      petugas_id TEXT REFERENCES tim_kasukretan(id),
+      tanggal TEXT NOT NULL,
+      total REAL NOT NULL,
+      keterangan TEXT,
+      diterima_oleh TEXT REFERENCES user(id),
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  for (const table of ["paturunan_pembayaran", "dudukan_pembayaran"] as const) {
+    const cols = [
+      { name: "setoran_id", ddl: "TEXT REFERENCES setoran(id)" },
+      { name: "tanggal_setor", ddl: "TEXT" },
+    ];
+    for (const col of cols) {
+      if (await tableHasColumn(db, table, col.name)) continue;
+      try {
+        await db.execute(`ALTER TABLE ${table} ADD COLUMN ${col.name} ${col.ddl}`);
+      } catch {
+        if (!(await tableHasColumn(db, table, col.name))) {
+          throw new Error(`Gagal menambah kolom ${col.name} pada ${table}`);
+        }
+      }
+    }
+    await db.execute(
+      `CREATE INDEX IF NOT EXISTS idx_${table}_setoran ON ${table} (setoran_id)`
+    );
+    await db.execute(
+      `CREATE INDEX IF NOT EXISTS idx_${table}_tanggal_setor ON ${table} (tanggal_setor)`
+    );
+  }
+
+  // Sekali saja: pembayaran sebelum fitur setoran sudah tercatat di buku kas.
+  if (await isMigrationDone(db, "migration_setoran_petugas_v1")) return;
+  await db.execute(
+    `UPDATE paturunan_pembayaran SET tanggal_setor = tanggal
+     WHERE tanggal_setor IS NULL AND setoran_id IS NULL`
+  );
+  await db.execute(
+    `UPDATE dudukan_pembayaran SET tanggal_setor = tanggal
+     WHERE tanggal_setor IS NULL AND setoran_id IS NULL`
+  );
+  await markMigrationDone(db, "migration_setoran_petugas_v1");
 }
 
 async function migratePemasukanLain(db: Database): Promise<void> {

@@ -114,7 +114,8 @@ export async function getTotalPenerimaanDudukanTahun(
     `SELECT COALESCE(SUM(jumlah), 0) as total
      FROM dudukan_pembayaran
      WHERE akun_keuangan_id IN (${sqlInPlaceholders(akunIds.length)})
-       AND strftime('%Y', tanggal) = ?`,
+       AND tanggal_setor IS NOT NULL
+       AND strftime('%Y', tanggal_setor) = ?`,
     [...akunIds, String(tahun)]
   );
   return roundRp(rows[0]?.total ?? 0);

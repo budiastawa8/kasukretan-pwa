@@ -32,8 +32,11 @@ import { ConfirmDialog } from "../ui/ConfirmDialog";
 import {
   completePembayaranBaruSave,
   PembayaranDialogTabs,
+  SetorLangsungField,
   StatMini,
+  StatusSetorBadge,
   usePembayaranAkunDanPetugas,
+  useSetorLangsung,
   ZoneHeading,
 } from "../pembayaran/pembayaran-dialog-shared";
 import {
@@ -113,6 +116,7 @@ export function PaturunanPembayaranDialog({
   const [jumlah, setJumlah] = useState<RupiahInputValue>("");
   const [tanggal, setTanggal] = useState(today());
   const [keterangan, setKeterangan] = useState("");
+  const [disetorLangsung, setDisetorLangsung] = useSetorLangsung();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -218,6 +222,7 @@ export function PaturunanPembayaranDialog({
         petugasId,
         akunKeuanganId,
         keterangan: keterangan || undefined,
+        disetorLangsung,
       });
       setJumlah("");
       setKeterangan("");
@@ -444,6 +449,7 @@ export function PaturunanPembayaranDialog({
                   value={keterangan}
                   onChange={(e) => setKeterangan(e.target.value)}
                 />
+                <SetorLangsungField checked={disetorLangsung} onChange={setDisetorLangsung} />
                 {preview && (preview.wajib > 0 || preview.punia > 0) && (
                   <p className="text-xs text-copper-800 bg-white border border-copper-200 rounded px-1.5 py-0.5 leading-tight">
                     {preview.wajib > 0 && (
@@ -602,11 +608,12 @@ export function PaturunanPembayaranDialog({
                             {p.petugas_jabatan ? ` (${p.petugas_jabatan})` : ""}
                           </span>
                         ) : null}
+                        <StatusSetorBadge tanggalSetor={p.tanggal_setor} setoranId={p.setoran_id} />
                         {p.keterangan ? (
                           <span className="text-muted block truncate">{p.keterangan}</span>
                         ) : null}
                       </span>
-                      {canEdit && (
+                      {canEdit && !p.setoran_id && (
                         <span className="flex shrink-0">
                           <Button
                             type="button"

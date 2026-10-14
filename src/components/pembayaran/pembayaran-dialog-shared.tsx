@@ -7,7 +7,7 @@ import {
 import { listTimKasukretan } from "../../lib/services/master";
 import { isJabatanPenerimaSemuaBanjar } from "../../lib/petugas-jabatan";
 import type { AkunKeuanganRow, TimKasukretan } from "../../lib/types";
-import { cn } from "../../lib/utils";
+import { cn, formatTanggalLahir } from "../../lib/utils";
 import { DateInput } from "../ui/DateInput";
 import { Input, Label, Select } from "../ui/Input";
 
@@ -282,6 +282,83 @@ export function PembayaranMetaFields({
         onChange={(e) => onKeteranganChange(e.target.value)}
       />
     </>
+  );
+}
+
+const SETOR_LANGSUNG_KEY = "kasukretan.setor_langsung.v1";
+
+function readSetorLangsung(): boolean {
+  try {
+    return localStorage.getItem(SETOR_LANGSUNG_KEY) !== "0";
+  } catch {
+    return true;
+  }
+}
+
+/** Pilihan disimpan per perangkat: HP petugas lapangan cukup mematikannya sekali. */
+export function useSetorLangsung(): [boolean, (v: boolean) => void] {
+  const [value, setValue] = useState(readSetorLangsung);
+  const update = useCallback((v: boolean) => {
+    setValue(v);
+    try {
+      localStorage.setItem(SETOR_LANGSUNG_KEY, v ? "1" : "0");
+    } catch {
+      /* penyimpanan lokal tidak tersedia */
+    }
+  }, []);
+  return [value, update];
+}
+
+export function SetorLangsungField({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <label className="flex items-start gap-1.5 text-xs text-copper-900 leading-snug cursor-pointer select-none">
+      <input
+        type="checkbox"
+        className="mt-0.5 h-3.5 w-3.5 shrink-0"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <span>
+        Uang sudah diterima bendahara (langsung masuk buku kas)
+        {!checked && (
+          <span className="block text-[11px] text-amber-800">
+            Uang masih dipegang petugas — masuk buku kas setelah disetor di Keuangan → Setoran.
+          </span>
+        )}
+      </span>
+    </label>
+  );
+}
+
+/** Status setor satu pembayaran untuk daftar riwayat. */
+export function StatusSetorBadge({
+  tanggalSetor,
+  setoranId,
+}: {
+  tanggalSetor?: string | null;
+  setoranId?: string | null;
+}) {
+  if (!tanggalSetor) {
+    return (
+      <span className="inline-block text-[10px] font-medium px-1 rounded bg-amber-100 text-amber-900 ml-0.5">
+        Belum disetor
+      </span>
+    );
+  }
+  if (!setoranId) return null;
+  return (
+    <span
+      className="inline-block text-[10px] font-medium px-1 rounded bg-emerald-100 text-emerald-900 ml-0.5"
+      title="Sudah disetor lewat setoran petugas — terkunci"
+    >
+      Disetor {formatTanggalLahir(tanggalSetor)}
+    </span>
   );
 }
 

@@ -16,6 +16,7 @@ import {
   getDefaultAkunPaturunanId,
 } from "./akun-keuangan";
 import { assertKramaAktifUntukPembayaran } from "./krama";
+import { assertPembayaranBelumMasukSetoran } from "./setoran";
 
 export type PaturunanPembayaranSaveOptions = {
   /** Impor riwayat — izinkan krama nonaktif. */
@@ -337,6 +338,7 @@ async function insertPembayaran(params: {
   petugasId: string;
   keterangan?: string;
   akunKeuanganId?: string;
+  disetorLangsung?: boolean;
 }): Promise<string> {
   const tanggal = parseIsoDateString(params.tanggal);
   if (!tanggal) throw new Error("Tanggal pembayaran tidak valid");
@@ -349,8 +351,9 @@ async function insertPembayaran(params: {
   const id = uuid();
   await db.execute(
     `INSERT INTO paturunan_pembayaran
-      (id, krama_id, iuran_id, jenis, jumlah, tanggal, petugas_id, akun_keuangan_id, keterangan, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, datetime('now'))`,
+      (id, krama_id, iuran_id, jenis, jumlah, tanggal, petugas_id, akun_keuangan_id, keterangan,
+       tanggal_setor, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, datetime('now'))`,
     [
       id,
       params.kramaId,
@@ -361,6 +364,7 @@ async function insertPembayaran(params: {
       params.petugasId,
       akunId,
       params.keterangan?.trim() || null,
+      params.disetorLangsung === false ? null : tanggal,
     ]
   );
   return id;
@@ -377,6 +381,8 @@ export async function createPembayaranDenganAlokasi(
     petugasId: string;
     keterangan?: string;
     akunKeuanganId?: string;
+    /** `false` = uang masih dipegang petugas, masuk buku kas saat disetor. */
+    disetorLangsung?: boolean;
   },
   opts?: PaturunanPembayaranSaveOptions
 ): Promise<string[]> {
@@ -401,6 +407,7 @@ export async function createPembayaranDenganAlokasi(
         petugasId: params.petugasId,
         keterangan: ket ?? undefined,
         akunKeuanganId: params.akunKeuanganId,
+        disetorLangsung: params.disetorLangsung,
       })
     );
   }
@@ -417,6 +424,7 @@ export async function createPembayaranDenganAlokasi(
           ket ??
           (wajib > 0 ? "Kelebihan atas kewajiban paturunan" : undefined),
         akunKeuanganId: params.akunKeuanganId,
+        disetorLangsung: params.disetorLangsung,
       })
     );
   }
@@ -441,6 +449,7 @@ export async function updatePembayaranPaturunan(
 ): Promise<void> {
   const tanggal = parseIsoDateString(params.tanggal);
   if (!tanggal) throw new Error("Tanggal pembayaran tidak valid");
+  await assertPembayaranBelumMasukSetoran("paturunan", id);
   await assertPetugasForKrama(params.petugasId, params.kramaId);
 
   const akunId = params.akunKeuanganId?.trim();
@@ -450,7 +459,8 @@ export async function updatePembayaranPaturunan(
   await db.execute(
     `UPDATE paturunan_pembayaran SET
       jenis = $1, jumlah = $2, tanggal = $3, petugas_id = $4, keterangan = $5,
-      akun_keuangan_id = COALESCE($6, akun_keuangan_id)
+      akun_keuangan_id = COALESCE($6, akun_keuangan_id),
+      tanggal_setor = CASE WHEN tanggal_setor IS NULL THEN NULL ELSE $3 END
      WHERE id = $7`,
     [
       parsePembayaranJenis(params.jenis),
@@ -465,6 +475,7 @@ export async function updatePembayaranPaturunan(
 }
 
 export async function deletePembayaranPaturunan(id: string): Promise<void> {
+  await assertPembayaranBelumMasukSetoran("paturunan", id);
   const db = await getDb();
   await db.execute(`DELETE FROM paturunan_pembayaran WHERE id = $1`, [id]);
   const { queuePaymentDeletion } = await import("../sync/payment-deletions");

@@ -54,6 +54,7 @@ const KEUANGAN_TABLES = new Set([
   "transaksi_pemasukan",
   "transaksi_pemasukan_pos",
   "transaksi_transfer",
+  "setoran",
 ]);
 
 /** Penanda internal aplikasi (status migrasi/sinkron) — boleh ditulis peran apa pun yang bisa menulis. */
