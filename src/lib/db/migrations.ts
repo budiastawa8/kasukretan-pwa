@@ -603,6 +603,26 @@ export async function runMasterDataMigrations(db: Database): Promise<void> {
   await migrateStaffRolesRbacV1(db);
   await migrateSetoranPetugas(db);
   await migrateUserTimKasukretan(db);
+  await ensureRingkasanIndexes(db);
+}
+
+/** Index untuk query ringkasan dashboard/laporan (aman dijalankan ulang). */
+async function ensureRingkasanIndexes(db: Database): Promise<void> {
+  await db.execute(
+    `CREATE INDEX IF NOT EXISTS idx_krama_klasifikasi_status ON krama (klasifikasi_krama_id, status_krama)`
+  );
+  await db.execute(
+    `CREATE INDEX IF NOT EXISTS idx_anggota_keluarga_krama_status ON anggota_keluarga (krama_id, status)`
+  );
+  await db.execute(
+    `CREATE INDEX IF NOT EXISTS idx_paturunan_pembayaran_iuran_krama ON paturunan_pembayaran (iuran_id, krama_id)`
+  );
+  await db.execute(
+    `CREATE INDEX IF NOT EXISTS idx_paturunan_pembayaran_tanggal ON paturunan_pembayaran (tanggal)`
+  );
+  await db.execute(
+    `CREATE INDEX IF NOT EXISTS idx_dudukan_pembayaran_krama_periode ON dudukan_pembayaran (krama_id, tahun, bulan)`
+  );
 }
 
 /** Akun peran petugas terikat ke satu nama di Tim Kasukretan. */

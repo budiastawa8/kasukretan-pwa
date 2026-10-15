@@ -11,6 +11,7 @@ import {
   getStatistikJiwaMipil,
   type StatistikJiwaMipil,
 } from "../../lib/services/statistik-jiwa-mipil";
+import { cachedQuery } from "../../lib/query-cache";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 import { IconLink } from "../../components/ui/IconLink";
@@ -125,17 +126,29 @@ export function LaporanEksekutifPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (paksaMuatUlang = false) => {
     setLoading(true);
     setError("");
     try {
-      const [laporan, desa] = await Promise.all([getLaporanEksekutif(bulanTren), getDesaAdat()]);
+      const ttl = paksaMuatUlang ? 0 : undefined;
+      const desaPromise = getDesaAdat();
+      const [laporan, desa, jiwa] = await Promise.all([
+        getLaporanEksekutif(bulanTren, { paksaMuatUlang }),
+        desaPromise,
+        desaPromise.then((d) => {
+          const ketentuan = {
+            yowanaUmurMin: d?.yowana_umur_min,
+            yowanaUmurMax: d?.yowana_umur_max,
+            batasUmurNyada: d?.jenis_umur_nyada,
+          };
+          return cachedQuery(
+            `statistik-jiwa-mipil:${JSON.stringify(ketentuan)}`,
+            () => getStatistikJiwaMipil(ketentuan),
+            ttl
+          );
+        }),
+      ]);
       setData(laporan);
-      const jiwa = await getStatistikJiwaMipil({
-        yowanaUmurMin: desa?.yowana_umur_min,
-        yowanaUmurMax: desa?.yowana_umur_max,
-        batasUmurNyada: desa?.jenis_umur_nyada,
-      });
       setStatistikJiwa(jiwa);
       setStatistikJiwaSub({
         yowana: jiwa.yowanaConfigured
@@ -153,7 +166,7 @@ export function LaporanEksekutifPage() {
   }, [bulanTren]);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
 
   useEffect(() => {
@@ -233,7 +246,7 @@ export function LaporanEksekutifPage() {
             variant="secondary"
             icon={RefreshCw}
             className={cn("text-xs", isPhone ? "h-11" : "h-9")}
-            onClick={load}
+            onClick={() => void load(true)}
             disabled={loading}
           >
             Muat ulang

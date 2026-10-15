@@ -706,6 +706,57 @@ export async function loadDudukanListAndRingkasanBulan(
   return { list, ringkasanBulan };
 }
 
+export type DudukanEksekutif = {
+  /** Urutan sama dengan `periods`. */
+  tren: RingkasanBulanDudukan[];
+  tunggakan: {
+    jumlah_krama: number;
+    total_sisa: number;
+    jumlah_bulan_telat: number;
+  };
+};
+
+/** Ringkasan beberapa bulan + total tunggakan dari satu kali muat data pemasih aktif. */
+export async function getDudukanEksekutif(
+  periods: { tahun: number; bulan: number }[]
+): Promise<DudukanEksekutif> {
+  const [rows, batch] = await Promise.all([queryKramaDudukanBase(), loadTunggakanBatchData()]);
+
+  const tren = periods.map((p) => {
+    const t = parseTahun(p.tahun);
+    const b = parseBulan(p.bulan);
+    const key = periodeKey(t, b);
+    const dibayarMap = new Map<string, number>();
+    const keringananMap = new Map<string, number>();
+    for (const row of rows) {
+      const dibayar = batch.dibayarByKrama.get(row.id)?.get(key);
+      if (dibayar) dibayarMap.set(row.id, dibayar);
+      const keringanan = batch.keringananByKrama.get(row.id)?.get(key);
+      if (keringanan) keringananMap.set(row.id, keringanan);
+    }
+    const dudukanRows = buildDudukanRowsForBulan(rows, t, b, dibayarMap, keringananMap);
+    return buildRingkasanBulanFromDudukanRows(dudukanRows, t, b);
+  });
+
+  let jumlah_krama = 0;
+  let total_sisa = 0;
+  let jumlah_bulan_telat = 0;
+  for (const row of rows) {
+    if (hitungTagihanDudukan(Number(row.tarif_nominal) || 0) <= 0) continue;
+    const bulanTunggakan = hitungTunggakanForBaseRow(row, batch).bulan.filter(
+      (b) => b.sisa > 0 && !b.di_muka
+    );
+    if (bulanTunggakan.length === 0) continue;
+    jumlah_krama += 1;
+    for (const b of bulanTunggakan) {
+      total_sisa += b.sisa;
+      if (b.telat) jumlah_bulan_telat += 1;
+    }
+  }
+
+  return { tren, tunggakan: { jumlah_krama, total_sisa, jumlah_bulan_telat } };
+}
+
 function isPeriodePertimbanganKeringanan(b: DudukanTunggakanBulan): boolean {
   if (b.di_muka || b.keringanan !== 0) return false;
   return statusBayarDudukan(b.tagihan, b.dibayar, b.keringanan) === "cicil";

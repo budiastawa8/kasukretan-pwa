@@ -5,6 +5,7 @@
 
 import { getElectronApi } from "../electron-bridge";
 import { isLanClientMode, LanDatabase, probeLanBridge } from "../lan-client";
+import { invalidateQueryCache } from "../query-cache";
 
 function requireSql() {
   const api = getElectronApi();
@@ -41,8 +42,12 @@ export default class Database {
     sql: string,
     bind?: unknown[]
   ): Promise<{ rowsAffected: number }> {
-    if (this.lan) return this.lan.execute(sql, bind);
-    return requireSql().execute(this.dbKey, sql, bind ?? []);
+    try {
+      if (this.lan) return await this.lan.execute(sql, bind);
+      return await requireSql().execute(this.dbKey, sql, bind ?? []);
+    } finally {
+      invalidateQueryCache();
+    }
   }
 
   async select<T>(sql: string, bind?: unknown[]): Promise<T> {
@@ -51,6 +56,7 @@ export default class Database {
   }
 
   async close(_path?: string): Promise<void> {
+    invalidateQueryCache();
     if (this.lan) {
       await this.lan.close();
       return;

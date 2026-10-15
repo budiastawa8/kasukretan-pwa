@@ -6,11 +6,11 @@ import {
   parseTahun,
   tahunSaatIni,
 } from "../dudukan-hitung";
+import { cachedQuery } from "../query-cache";
 import { getPemasihPerhatianRingkasan } from "./krama";
 import { listIuranPaturunan } from "./iuran-paturunan";
-import { getRingkasanBulanDudukan, listDudukanTunggakanLaporan, type RingkasanBulanDudukan } from "./dudukan";
-import { getRingkasanIuran } from "./paturunan";
-import { getLaporanTunggakanPaturunan } from "./laporan-tunggakan-paturunan";
+import { getDudukanEksekutif, type RingkasanBulanDudukan } from "./dudukan";
+import { listKramaPaturunan } from "./paturunan";
 export type PeriodeBulanTahun = { tahun: number; bulan: number };
 
 export function iterBulanTerakhir(jumlah: number): PeriodeBulanTahun[] {
@@ -142,23 +142,64 @@ async function getPaturunanTrenBulanan(jumlahBulan: number): Promise<TrenPaturun
   });
 }
 
-async function getTrenDudukan(jumlahBulan: number): Promise<TrenDudukanBulan[]> {
+type DudukanEksekutifBagian = {
+  tren: TrenDudukanBulan[];
+  bulan_ini: RingkasanBulanDudukan;
+  tunggakan: LaporanEksekutif["tunggakan_dudukan"];
+};
+
+/** Periode tren selalu diakhiri bulan berjalan, jadi ringkasan bulan ini = elemen terakhir. */
+async function getDudukanBagian(jumlahBulan: number): Promise<DudukanEksekutifBagian> {
   const periods = iterBulanTerakhir(jumlahBulan);
-  const ringkasan = await Promise.all(
-    periods.map((p) => getRingkasanBulanDudukan(p.tahun, p.bulan))
+  const { tren, tunggakan } = await getDudukanEksekutif(periods);
+  return {
+    tren: periods.map((p, i) => {
+      const r = tren[i];
+      return {
+        ...p,
+        label: formatBulanIndonesia(p.bulan, p.tahun),
+        label_pendek: labelPendek(p.bulan, p.tahun),
+        tagihan: r.total_tagihan,
+        dibayar: r.total_dibayar,
+        keringanan: r.total_keringanan,
+        sisa: r.total_sisa,
+      };
+    }),
+    bulan_ini: tren[tren.length - 1],
+    tunggakan,
+  };
+}
+
+async function getPaturunanPerIuran(): Promise<LaporanEksekutifPaturunanIuran[]> {
+  const iuranList = await listIuranPaturunan();
+  return Promise.all(
+    iuranList.map(async (iuran) => {
+      const rows = await listKramaPaturunan({ iuranId: iuran.id });
+      let total_dibayar_wajib = 0;
+      let total_punia = 0;
+      let total_sisa = 0;
+      let jumlah_tunggakan = 0;
+      let jumlah_telat = 0;
+      for (const r of rows) {
+        total_dibayar_wajib += r.dibayar ?? 0;
+        total_punia += r.punia ?? 0;
+        total_sisa += r.sisa ?? 0;
+        if ((r.sisa ?? 0) > 0) {
+          jumlah_tunggakan += 1;
+          if (r.peringatan_telat) jumlah_telat += 1;
+        }
+      }
+      return {
+        iuran_id: iuran.id,
+        iuran_nama: iuran.nama,
+        total_dibayar_wajib,
+        total_punia,
+        total_sisa,
+        jumlah_tunggakan,
+        jumlah_telat,
+      };
+    })
   );
-  return periods.map((p, i) => {
-    const r = ringkasan[i];
-    return {
-      ...p,
-      label: formatBulanIndonesia(p.bulan, p.tahun),
-      label_pendek: labelPendek(p.bulan, p.tahun),
-      tagihan: r.total_tagihan,
-      dibayar: r.total_dibayar,
-      keringanan: r.total_keringanan,
-      sisa: r.total_sisa,
-    };
-  });
 }
 
 type JenisKramaQuery = {
@@ -208,7 +249,7 @@ async function getJenisKramaCountsForKlasifikasi(
 
 async function getDemografiKramaEksekutif(): Promise<LaporanEksekutifDemografi> {
   const db = await getDb();
-  const [mipilRows, kramaTamiuRows, tamiuRows, totalRow] = await Promise.all([
+  const [mipilRows, kramaTamiuRows, tamiuRows, perKodeRows] = await Promise.all([
     getJenisKramaCountsForKlasifikasi(db, {
       jenisTable: "jenis_krama_mipil",
       fkColumn: "jenis_krama_mipil_id",
@@ -224,19 +265,22 @@ async function getDemografiKramaEksekutif(): Promise<LaporanEksekutifDemografi> 
       fkColumn: "jenis_tamiu_id",
       klasifikasiKode: "TAMIU",
     }),
-    db.select<{ c: number }[]>(
-      `SELECT COUNT(*) as c FROM krama WHERE status_krama = 'aktif'`
+    db.select<{ kode: string; c: number }[]>(
+      `SELECT kk.kode, COUNT(*) as c
+       FROM krama k
+       JOIN klasifikasi_krama kk ON kk.id = k.klasifikasi_krama_id
+       WHERE k.status_krama = 'aktif'
+       GROUP BY kk.kode`
     ),
   ]);
 
-  const sum = (rows: LaporanEksekutifJenisKrama[]) =>
-    rows.reduce((s, r) => s + r.jumlah_krama, 0);
-  const mipil = sum(mipilRows);
-  const krama_tamiu = sum(kramaTamiuRows);
-  const tamiu = sum(tamiuRows);
+  const perKode = new Map(perKodeRows.map((r) => [r.kode, Number(r.c) || 0]));
+  const mipil = perKode.get("MIPIL") ?? 0;
+  const krama_tamiu = perKode.get("KRAMA_TAMIU") ?? 0;
+  const tamiu = perKode.get("TAMIU") ?? 0;
 
   return {
-    total_krama: totalRow[0]?.c ?? mipil + krama_tamiu + tamiu,
+    total_krama: [...perKode.values()].reduce((s, c) => s + c, 0),
     mipil,
     krama_tamiu,
     tamiu,
@@ -249,79 +293,52 @@ async function getDemografiKramaEksekutif(): Promise<LaporanEksekutifDemografi> 
   };
 }
 
-export async function getLaporanEksekutif(jumlahBulanTren = 6): Promise<LaporanEksekutif> {
+/** Bagian yang tidak bergantung pada panjang tren — dipakai bersama Dashboard dan Ringkasan Eksekutif. */
+async function getIntiEksekutif() {
+  const [demografi, perIuran, pemasihAlert] = await Promise.all([
+    getDemografiKramaEksekutif(),
+    getPaturunanPerIuran(),
+    getPemasihPerhatianRingkasan(),
+  ]);
+  return { demografi, perIuran, pemasihAlert };
+}
+
+/** `paksaMuatUlang` mengabaikan cache (tombol "Muat ulang"). */
+export async function getLaporanEksekutif(
+  jumlahBulanTren = 6,
+  opts?: { paksaMuatUlang?: boolean }
+): Promise<LaporanEksekutif> {
   const bulanTren = Math.max(6, Math.min(12, Math.round(jumlahBulanTren)));
-  const tahunIni = tahunSaatIni();
-  const bulanIni = bulanSaatIni();
+  const ttl = opts?.paksaMuatUlang ? 0 : undefined;
 
-  const [demografi, iuranList, dudukanBulanIni, pemasihAlert, trenPaturunan, trenDudukan, dudukanTunggakan] =
-    await Promise.all([
-      getDemografiKramaEksekutif(),
-      listIuranPaturunan(),
-      getRingkasanBulanDudukan(tahunIni, bulanIni),
-      getPemasihPerhatianRingkasan(),
-      getPaturunanTrenBulanan(bulanTren),
-      getTrenDudukan(bulanTren),
-      listDudukanTunggakanLaporan(),
-    ]);
-
-  const perIuran: LaporanEksekutifPaturunanIuran[] = [];
-  let total_wajib = 0;
-  let total_punia = 0;
-  let total_sisa = 0;
-  let jumlah_tunggakan = 0;
-  let jumlah_telat = 0;
-
-  for (const iuran of iuranList) {
-    const [ringkasan, tunggakan] = await Promise.all([
-      getRingkasanIuran(iuran.id),
-      getLaporanTunggakanPaturunan({ iuranId: iuran.id }),
-    ]);
-    if (!ringkasan) continue;
-
-    total_wajib += ringkasan.total_dibayar_wajib;
-    total_punia += ringkasan.total_punia;
-    total_sisa += ringkasan.total_sisa;
-    jumlah_tunggakan += tunggakan.ringkasan?.total_krama_tunggakan ?? 0;
-    jumlah_telat += tunggakan.ringkasan?.jumlah_telat ?? 0;
-
-    perIuran.push({
-      iuran_id: iuran.id,
-      iuran_nama: iuran.nama,
-      total_dibayar_wajib: ringkasan.total_dibayar_wajib,
-      total_punia: ringkasan.total_punia,
-      total_sisa: ringkasan.total_sisa,
-      jumlah_tunggakan: tunggakan.ringkasan?.total_krama_tunggakan ?? 0,
-      jumlah_telat: tunggakan.ringkasan?.jumlah_telat ?? 0,
-    });
-  }
-
-  let jumlah_bulan_telat = 0;
-  for (const r of dudukanTunggakan) {
-    jumlah_bulan_telat += r.bulan_tunggakan.filter((b) => b.telat).length;
-  }
+  const [inti, dudukan, trenPaturunan] = await Promise.all([
+    cachedQuery("eksekutif:inti", getIntiEksekutif, ttl),
+    cachedQuery(`eksekutif:dudukan:${bulanTren}`, () => getDudukanBagian(bulanTren), ttl),
+    cachedQuery(
+      `eksekutif:tren-paturunan:${bulanTren}`,
+      () => getPaturunanTrenBulanan(bulanTren),
+      ttl
+    ),
+  ]);
+  const { demografi, perIuran, pemasihAlert } = inti;
 
   return {
     demografi,
     paturunan: {
       per_iuran: perIuran,
-      total_wajib,
-      total_punia,
-      total_sisa,
-      jumlah_tunggakan,
-      jumlah_telat,
+      total_wajib: perIuran.reduce((s, i) => s + i.total_dibayar_wajib, 0),
+      total_punia: perIuran.reduce((s, i) => s + i.total_punia, 0),
+      total_sisa: perIuran.reduce((s, i) => s + i.total_sisa, 0),
+      jumlah_tunggakan: perIuran.reduce((s, i) => s + i.jumlah_tunggakan, 0),
+      jumlah_telat: perIuran.reduce((s, i) => s + i.jumlah_telat, 0),
     },
-    dudukan_bulan_ini: dudukanBulanIni,
-    tunggakan_dudukan: {
-      jumlah_krama: dudukanTunggakan.length,
-      total_sisa: dudukanTunggakan.reduce((s, r) => s + r.total_sisa, 0),
-      jumlah_bulan_telat,
-    },
+    dudukan_bulan_ini: dudukan.bulan_ini,
+    tunggakan_dudukan: dudukan.tunggakan,
     perhatian_pemasih: {
       tidak_aktif: pemasihAlert.tidakAktif,
       akan_habis: pemasihAlert.akanHabis,
     },
-    tren_dudukan: trenDudukan,
+    tren_dudukan: dudukan.tren,
     tren_paturunan: trenPaturunan,
   };
 }

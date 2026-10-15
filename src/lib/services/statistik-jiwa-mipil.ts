@@ -209,65 +209,86 @@ async function loadActiveMipilJiwa(filter: StatistikJiwaMipilFilter = {}): Promi
   );
 }
 
-function classifyJiwa(
-  rows: RawRow[],
-  ketentuan: {
-    yowanaUmurMin?: number | null;
-    yowanaUmurMax?: number | null;
-    batasUmurNyada?: number | null;
-  }
-): LaporanStatistikJiwaMipil {
+type KetentuanJiwa = {
+  yowanaUmurMin?: number | null;
+  yowanaUmurMax?: number | null;
+  batasUmurNyada?: number | null;
+};
+
+type KriteriaJiwa = {
+  yowanaMin: number | null;
+  yowanaMax: number | null;
+  batasNyada: number | null;
+  yowanaConfigured: boolean;
+  wredhaConfigured: boolean;
+};
+
+type JiwaAtribut = Pick<RawRow, "jenis_kelamin" | "tanggal_lahir" | "status_kawin">;
+
+type KelompokJiwa = {
+  umur: number | null;
+  yowana: boolean;
+  wredha: boolean;
+  baluLanang: boolean;
+  baluIstri: boolean;
+};
+
+function resolveKriteria(ketentuan: KetentuanJiwa): KriteriaJiwa {
   const yowanaMin = parseYowanaUmur(ketentuan.yowanaUmurMin);
   const yowanaMax = parseYowanaUmur(ketentuan.yowanaUmurMax);
   const batasNyada = parseBatasUmurNyada(ketentuan.batasUmurNyada);
-  const yowanaConfigured = yowanaMin != null && yowanaMax != null && yowanaMin <= yowanaMax;
-  const wredhaConfigured = batasNyada != null;
+  return {
+    yowanaMin,
+    yowanaMax,
+    batasNyada,
+    yowanaConfigured: yowanaMin != null && yowanaMax != null && yowanaMin <= yowanaMax,
+    wredhaConfigured: batasNyada != null,
+  };
+}
+
+function kelompokJiwa(r: JiwaAtribut, k: KriteriaJiwa): KelompokJiwa {
+  const umur = hitungUmur(r.tanggal_lahir);
+  return {
+    umur,
+    baluLanang: isBaluLanang(r.status_kawin, r.jenis_kelamin),
+    baluIstri: isBaluIstri(r.status_kawin, r.jenis_kelamin),
+    wredha: umur != null && k.wredhaConfigured && umur >= k.batasNyada!,
+    yowana:
+      umur != null &&
+      k.yowanaConfigured &&
+      isStatusKawinBelumKawin(r.status_kawin) &&
+      umur >= k.yowanaMin! &&
+      umur <= k.yowanaMax!,
+  };
+}
+
+function classifyJiwa(rows: RawRow[], ketentuan: KetentuanJiwa): LaporanStatistikJiwaMipil {
+  const kriteria = resolveKriteria(ketentuan);
 
   const daftar_yowana: JiwaMipilBaris[] = [];
   const daftar_wredha: JiwaMipilBaris[] = [];
   const daftar_balu_lanang: JiwaMipilBaris[] = [];
   const daftar_balu_istri: JiwaMipilBaris[] = [];
-  let balu_lanang = 0;
-  let balu_istri = 0;
 
   for (const r of rows) {
-    if (isBaluLanang(r.status_kawin, r.jenis_kelamin)) {
-      balu_lanang += 1;
-      daftar_balu_lanang.push(toBaris(r, hitungUmur(r.tanggal_lahir) ?? 0));
-    }
-    if (isBaluIstri(r.status_kawin, r.jenis_kelamin)) {
-      balu_istri += 1;
-      daftar_balu_istri.push(toBaris(r, hitungUmur(r.tanggal_lahir) ?? 0));
-    }
-
-    const umur = hitungUmur(r.tanggal_lahir);
-    if (umur == null) continue;
-
-    if (wredhaConfigured && umur >= batasNyada!) {
-      daftar_wredha.push(toBaris(r, umur));
-    }
-
-    if (
-      yowanaConfigured &&
-      isStatusKawinBelumKawin(r.status_kawin) &&
-      umur >= yowanaMin! &&
-      umur <= yowanaMax!
-    ) {
-      daftar_yowana.push(toBaris(r, umur));
-    }
+    const g = kelompokJiwa(r, kriteria);
+    if (g.baluLanang) daftar_balu_lanang.push(toBaris(r, g.umur ?? 0));
+    if (g.baluIstri) daftar_balu_istri.push(toBaris(r, g.umur ?? 0));
+    if (g.wredha) daftar_wredha.push(toBaris(r, g.umur!));
+    if (g.yowana) daftar_yowana.push(toBaris(r, g.umur!));
   }
 
   return {
     total_jiwa: rows.length,
     yowana: daftar_yowana.length,
     wredha: daftar_wredha.length,
-    balu_lanang,
-    balu_istri,
-    yowanaConfigured,
-    wredhaConfigured,
-    yowana_umur_min: yowanaMin,
-    yowana_umur_max: yowanaMax,
-    batas_umur_nyada: batasNyada,
+    balu_lanang: daftar_balu_lanang.length,
+    balu_istri: daftar_balu_istri.length,
+    yowanaConfigured: kriteria.yowanaConfigured,
+    wredhaConfigured: kriteria.wredhaConfigured,
+    yowana_umur_min: kriteria.yowanaMin,
+    yowana_umur_max: kriteria.yowanaMax,
+    batas_umur_nyada: kriteria.batasNyada,
     daftar_yowana: sortByUmurAsc(daftar_yowana),
     daftar_wredha: sortByUmurAsc(daftar_wredha),
     daftar_balu_lanang: sortByNamaAsc(daftar_balu_lanang),
@@ -275,21 +296,39 @@ function classifyJiwa(
   };
 }
 
-export async function getStatistikJiwaMipil(ketentuan: {
-  yowanaUmurMin?: number | null;
-  yowanaUmurMax?: number | null;
-  batasUmurNyada?: number | null;
-}): Promise<StatistikJiwaMipil> {
-  const rows = await loadActiveMipilJiwa();
-  const report = classifyJiwa(rows, ketentuan);
-  return {
-    yowana: report.yowana,
-    wredha: report.wredha,
-    balu_lanang: report.balu_lanang,
-    balu_istri: report.balu_istri,
-    yowanaConfigured: report.yowanaConfigured,
-    wredhaConfigured: report.wredhaConfigured,
+async function loadActiveMipilJiwaAtribut(): Promise<JiwaAtribut[]> {
+  const db = await getDb();
+  return db.select<JiwaAtribut[]>(
+    `SELECT p.jenis_kelamin, p.tanggal_lahir, p.status_kawin
+     FROM anggota_keluarga ak
+     JOIN penduduk p ON p.id = ak.penduduk_id
+     JOIN krama k ON k.id = ak.krama_id
+     JOIN klasifikasi_krama kk ON kk.id = k.klasifikasi_krama_id AND kk.kode = 'MIPIL'
+     JOIN banjar b ON b.id = k.banjar_id
+     WHERE ak.status = 'aktif' AND k.status_krama = 'aktif'`
+  );
+}
+
+/** Hanya jumlah per kelompok (tanpa daftar nama) — untuk ringkasan eksekutif. */
+export async function getStatistikJiwaMipil(ketentuan: KetentuanJiwa): Promise<StatistikJiwaMipil> {
+  const kriteria = resolveKriteria(ketentuan);
+  const rows = await loadActiveMipilJiwaAtribut();
+  const result: StatistikJiwaMipil = {
+    yowana: 0,
+    wredha: 0,
+    balu_lanang: 0,
+    balu_istri: 0,
+    yowanaConfigured: kriteria.yowanaConfigured,
+    wredhaConfigured: kriteria.wredhaConfigured,
   };
+  for (const r of rows) {
+    const g = kelompokJiwa(r, kriteria);
+    if (g.yowana) result.yowana += 1;
+    if (g.wredha) result.wredha += 1;
+    if (g.baluLanang) result.balu_lanang += 1;
+    if (g.baluIstri) result.balu_istri += 1;
+  }
+  return result;
 }
 
 export async function getLaporanStatistikJiwaMipil(

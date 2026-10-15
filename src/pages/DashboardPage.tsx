@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getRekap, getPemasihPerBanjar, type PemasihPerBanjarRow } from "../lib/services/krama";
+import { getPemasihPerBanjar, type PemasihPerBanjarRow } from "../lib/services/krama";
 import { DESA_ADAT_UPDATED_EVENT, getDesaAdat, isDesaConfigured } from "../lib/services/desa";
 import { getLaporanEksekutif, type LaporanEksekutif } from "../lib/services/laporan-eksekutif";
 import { listRingkasanSaldoDisplay, type RingkasanSaldoAkun } from "../lib/services/buku-kas";
@@ -19,6 +19,7 @@ import {
   LIST_TABLE_ELEMENT,
 } from "../components/ui/list-compact";
 import { cn } from "../lib/utils";
+import { cachedQuery } from "../lib/query-cache";
 import { canUseStaffApp } from "../lib/runtime";
 import { useIsPhoneClient } from "../hooks/useClientFormFactor";
 import { DashboardMetricCard } from "../components/dashboard/DashboardMetricCard";
@@ -47,13 +48,6 @@ function greetingJam(): string {
   if (h < 15) return "Selamat siang";
   if (h < 18) return "Selamat sore";
   return "Selamat malam";
-}
-
-function klasifikasiCount(
-  perKlasifikasi: { label: string; count: number }[],
-  label: string
-): number {
-  return perKlasifikasi.find((k) => k.label === label)?.count ?? 0;
 }
 
 function DashboardDesaLogo({ logoUrl }: { logoUrl: string }) {
@@ -109,9 +103,6 @@ export function DashboardPage() {
   const { user } = useAuth();
   const [data, setData] = useState<LaporanEksekutif | null>(null);
   const [pemasihPerBanjar, setPemasihPerBanjar] = useState<PemasihPerBanjarRow[]>([]);
-  const [kramaPerKlasifikasi, setKramaPerKlasifikasi] = useState<
-    { label: string; count: number }[]
-  >([]);
   const [saldoRows, setSaldoRows] = useState<RingkasanSaldoAkun[]>([]);
   const [totalSaldoRingkasan, setTotalSaldoRingkasan] = useState(0);
   const [desaNama, setDesaNama] = useState("");
@@ -131,16 +122,16 @@ export function DashboardPage() {
     setLoading(true);
     setError("");
     try {
-      const [eksekutif, rekap, pemasihBanjar, saldoDisplay, desa] = await Promise.all([
+      const [eksekutif, pemasihBanjar, saldoDisplay, desa] = await Promise.all([
         getLaporanEksekutif(6),
-        getRekap(),
-        getPemasihPerBanjar(),
-        listRingkasanSaldoDisplay(),
+        isPhone
+          ? Promise.resolve<PemasihPerBanjarRow[]>([])
+          : cachedQuery("dashboard:pemasih-per-banjar", getPemasihPerBanjar),
+        cachedQuery("dashboard:saldo-ringkasan", listRingkasanSaldoDisplay),
         getDesaAdat(),
       ]);
       setData(eksekutif);
       setPemasihPerBanjar(pemasihBanjar);
-      setKramaPerKlasifikasi(rekap.perKlasifikasi);
       setSaldoRows(saldoDisplay.rows);
       setTotalSaldoRingkasan(saldoDisplay.totalSaldo);
       setDesaNama(desa?.nama_desa_adat?.trim() ?? "");
@@ -151,7 +142,7 @@ export function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [staffApp]);
+  }, [staffApp, isPhone]);
 
   useEffect(() => {
     void load();
@@ -208,9 +199,9 @@ export function DashboardPage() {
     tunggakanDudukanSisa: data?.tunggakan_dudukan.total_sisa ?? 0,
   };
 
-  const mipilCount = klasifikasiCount(kramaPerKlasifikasi, "Krama Mipil");
-  const kramaTamiuCount = klasifikasiCount(kramaPerKlasifikasi, "Krama Tamiu");
-  const tamiuCount = klasifikasiCount(kramaPerKlasifikasi, "Tamiu");
+  const mipilCount = data?.demografi.mipil ?? 0;
+  const kramaTamiuCount = data?.demografi.krama_tamiu ?? 0;
+  const tamiuCount = data?.demografi.tamiu ?? 0;
   const totalKramaAktif = mipilCount + kramaTamiuCount + tamiuCount;
 
   return (
