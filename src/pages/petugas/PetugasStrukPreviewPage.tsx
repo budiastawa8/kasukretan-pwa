@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { Bluetooth, FileDown, Printer } from "lucide-react";
 import { BackLink } from "../../components/ui/BackLink";
@@ -21,6 +21,7 @@ import { buildEscPosReceipt } from "../../lib/thermal-escpos";
 import {
   getCachedPrinterName,
   isThermalBluetoothSupported,
+  onPrinterConnectionChange,
   pairThermalPrinter,
   PrinterNotConfiguredError,
   printEscPosViaBluetooth,
@@ -84,6 +85,18 @@ export function PetugasStrukPreviewPage() {
     void warmUpSavedPrinter().then((device) => {
       if (device) {
         setPrinterLabel(device.name?.trim() || getCachedPrinterName());
+      }
+    });
+  }, [bluetoothReady]);
+
+  const busyRef = useRef(false);
+  busyRef.current = printing || pairing;
+
+  useEffect(() => {
+    if (!bluetoothReady) return;
+    return onPrinterConnectionChange((connected) => {
+      if (!connected && !busyRef.current) {
+        setStatusMsg("Printer terputus (mungkin mode hemat daya) — akan tersambung lagi otomatis saat Cetak");
       }
     });
   }, [bluetoothReady]);
@@ -228,7 +241,7 @@ export function PetugasStrukPreviewPage() {
               disabled={pairing || printing}
               onClick={() => void handlePairPrinter()}
             >
-              {pairing ? "…" : "Printer"}
+              {pairing ? "Menghubungkan…" : "Printer"}
             </Button>
           )}
           <Button

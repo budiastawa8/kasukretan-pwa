@@ -27,10 +27,12 @@ declare module "*?arraybuffer" {
 }
 
 /** Web Bluetooth (Chrome Android) — cetak thermal langsung. */
-interface BluetoothDevice {
+interface BluetoothDevice extends EventTarget {
   readonly id: string;
   readonly name?: string;
   readonly gatt?: BluetoothRemoteGATTServer;
+  /** Chrome: wajib menunggu iklan sebelum connect() untuk perangkat dari getDevices(). */
+  watchAdvertisements?(options?: { signal?: AbortSignal }): Promise<void>;
 }
 
 interface BluetoothRemoteGATTServer {
