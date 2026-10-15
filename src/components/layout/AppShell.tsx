@@ -30,6 +30,7 @@ import { Button } from "../ui/Button";
 import { UkuranTulisanControl } from "../ui/UkuranTulisanControl";
 import { CloudSyncBanner } from "../settings/CloudSyncBanner";
 import { TrialLicenseBanner } from "../settings/TrialLicenseBanner";
+import { InstallAppBanner } from "../pwa/InstallAppBanner";
 import { APP_CREDITS, appCopyrightLine } from "../../lib/app-credits";
 import { cn } from "../../lib/utils";
 
@@ -374,6 +375,7 @@ export function AppShell() {
           >
             <TrialLicenseBanner />
             <CloudSyncBanner />
+            <InstallAppBanner isPhone={isPhone} />
             <Outlet />
           </div>
         </main>

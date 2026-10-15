@@ -1,68 +1,23 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Download, Share } from "lucide-react";
 import { Button } from "../ui/Button";
 import { cn } from "../../lib/utils";
-
-type BeforeInstallPromptEvent = Event & {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
-};
-
-let deferredPrompt: BeforeInstallPromptEvent | null = null;
-const listeners = new Set<() => void>();
-
-if (typeof window !== "undefined") {
-  window.addEventListener("beforeinstallprompt", (e) => {
-    e.preventDefault();
-    deferredPrompt = e as BeforeInstallPromptEvent;
-    listeners.forEach((l) => l());
-  });
-  window.addEventListener("appinstalled", () => {
-    deferredPrompt = null;
-    listeners.forEach((l) => l());
-  });
-}
-
-function isStandalone(): boolean {
-  return (
-    window.matchMedia("(display-mode: standalone)").matches ||
-    (navigator as Navigator & { standalone?: boolean }).standalone === true
-  );
-}
-
-function isIos(): boolean {
-  return /iPhone|iPad|iPod/i.test(navigator.userAgent);
-}
+import { isIos, isStandalone, promptInstall, usePwaInstall } from "./pwa-install";
 
 export function InstallAppButton({ className }: { className?: string }) {
-  const [, setTick] = useState(0);
+  const { canPrompt } = usePwaInstall();
   const [iosHint, setIosHint] = useState(false);
-
-  useEffect(() => {
-    const l = () => setTick((n) => n + 1);
-    listeners.add(l);
-    return () => {
-      listeners.delete(l);
-    };
-  }, []);
 
   if (isStandalone()) return null;
 
-  if (deferredPrompt) {
+  if (canPrompt) {
     return (
       <Button
         type="button"
         variant="secondary"
         icon={Download}
         className={cn("h-11 w-full text-sm", className)}
-        onClick={() => {
-          const p = deferredPrompt;
-          if (!p) return;
-          void p.prompt().then(() => p.userChoice).finally(() => {
-            deferredPrompt = null;
-            setTick((n) => n + 1);
-          });
-        }}
+        onClick={() => void promptInstall()}
       >
         Pasang aplikasi di perangkat ini
       </Button>

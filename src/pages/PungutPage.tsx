@@ -489,7 +489,7 @@ export function PungutPage() {
         </Card>
       )}
 
-      <Card title="Uang di Tangan">
+      <Card title="Uang di Tangan Saya">
         <p className="flex items-center gap-1.5 text-sm">
           <Wallet size={16} className="text-amber-800" aria-hidden />
           Belum disetor{mode ? ` (${MODE_LABEL[mode]})` : ""}:{" "}
@@ -504,7 +504,7 @@ export function PungutPage() {
         )}
         <p className="mt-1 text-[11px] text-muted leading-snug">
           Serahkan uang ini ke bendahara. Setelah bendahara menerima setoran, pembayarannya pindah ke
-          Riwayat Setoran dan tidak bisa dihapus lagi dari HP.
+          Riwayat Setoran Saya dan tidak bisa dihapus lagi dari HP.
         </p>
         {peganganMode.length > 0 && (
           <ul className="mt-2 divide-y divide-copper-100 border border-copper-100 rounded-md max-h-72 overflow-y-auto">

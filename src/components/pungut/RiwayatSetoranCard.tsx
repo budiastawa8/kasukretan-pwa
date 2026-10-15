@@ -96,7 +96,7 @@ export function RiwayatSetoranCard({
   const jumlahTransaksi = rows.reduce((s, r) => s + r.jumlah_transaksi, 0);
 
   return (
-    <Card title="Riwayat Setoran">
+    <Card title="Riwayat Setoran Saya">
       <div className="flex flex-wrap gap-1.5">
         {(Object.keys(PRESET_LABEL) as Preset[]).map((p) => (
           <Button
