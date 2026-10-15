@@ -20,3 +20,5 @@ backup/
 .vscode/*
 !.vscode/extensions.json
 .idea
+
+docs/PANDUAN-PROYEK-DESA-BARU.*
