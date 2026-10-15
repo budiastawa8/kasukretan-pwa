@@ -1,11 +1,7 @@
 import { PDFDocument, type PDFPage } from "pdf-lib";
 import type { DesaAdat } from "./types";
 import type { PaturunanRiwayatRow } from "./services/paturunan-pembayaran";
-import {
-  paymentDayKey,
-  assertSinglePaymentDay,
-  resolveBendaharaTimNama,
-} from "./bukti-setoran-dudukan-pdf";
+import { paymentDayKey, resolveBendaharaTimNama } from "./bukti-setoran-dudukan-pdf";
 import { formatRupiah } from "./paturunan-hitung";
 import {
   COLOR_TEXT,
@@ -101,7 +97,10 @@ export type BuktiSetoranPaturunanIuranSection = {
 };
 
 export type BuktiSetoranPaturunanSlip = {
+  /** Awal rentang tanggal bayar (YYYY-MM-DD). */
   tanggal: string;
+  /** Akhir rentang; sama dengan `tanggal` untuk bukti satu hari. */
+  tanggalSampai?: string;
   banjarNama: string;
   banjarId?: string;
   tempekNama: string;
@@ -245,21 +244,47 @@ function buildIuranSections(rows: PaturunanRiwayatRow[]): BuktiSetoranPaturunanI
     }));
 }
 
-export function buildBuktiSetoranPaturunanSlip(rows: PaturunanRiwayatRow[]): BuktiSetoranPaturunanSlip {
-  const tanggal = assertSinglePaymentDay(rows);
-  const dayRows = rows.filter((r) => paymentDayKey(r.tanggal) === tanggal);
-  const { banjarNama, banjarId, tempekNama } = assertSingleBanjarTempek(dayRows);
-  const sections = buildIuranSections(dayRows);
-  const grandTotal = dayRows.reduce((s, r) => s + Math.round(Number(r.jumlah) || 0), 0);
-  return { tanggal, banjarNama, banjarId, tempekNama, sections, grandTotal };
+/** "Tanggal : 01/10/2026" atau "Tanggal : 01/10/2026 s/d 15/10/2026". */
+export function formatBuktiSetoranPaturunanPeriode(slip: BuktiSetoranPaturunanSlip): string {
+  const sampai = slip.tanggalSampai ?? slip.tanggal;
+  if (sampai === slip.tanggal) return formatTanggalLahir(slip.tanggal);
+  return `${formatTanggalLahir(slip.tanggal)} s/d ${formatTanggalLahir(sampai)}`;
+}
+
+/**
+ * Tanpa `range`, rentang diambil dari tanggal bayar terawal–terakhir pada `rows`.
+ * Dengan `range`, hanya baris di dalam rentang yang dipakai.
+ */
+export function buildBuktiSetoranPaturunanSlip(
+  rows: PaturunanRiwayatRow[],
+  range?: { dari: string; sampai: string }
+): BuktiSetoranPaturunanSlip {
+  const periodRows = range
+    ? rows.filter((r) => {
+        const day = paymentDayKey(r.tanggal);
+        return day >= range.dari && day <= range.sampai;
+      })
+    : rows.filter((r) => paymentDayKey(r.tanggal).length > 0);
+  if (!periodRows.length) {
+    throw new Error("Tidak ada tanggal pembayaran pada data yang dipilih.");
+  }
+  const days = periodRows.map((r) => paymentDayKey(r.tanggal)).sort();
+  const tanggal = range?.dari ?? days[0]!;
+  const tanggalSampai = range?.sampai ?? days[days.length - 1]!;
+
+  const { banjarNama, banjarId, tempekNama } = assertSingleBanjarTempek(periodRows);
+  const sections = buildIuranSections(periodRows);
+  const grandTotal = periodRows.reduce((s, r) => s + Math.round(Number(r.jumlah) || 0), 0);
+  return { tanggal, tanggalSampai, banjarNama, banjarId, tempekNama, sections, grandTotal };
 }
 
 export function buildBuktiSetoranPaturunanPdfPayload(
   rows: PaturunanRiwayatRow[],
-  opts: { dari?: string; sampai?: string } = {}
+  range?: { dari: string; sampai: string }
 ): BuktiSetoranPaturunanPdfPayload {
-  const slip = buildBuktiSetoranPaturunanSlip(rows);
-  const slugDate = opts.dari?.trim() || opts.sampai?.trim() || slip.tanggal;
+  const slip = buildBuktiSetoranPaturunanSlip(rows, range);
+  const sampai = slip.tanggalSampai ?? slip.tanggal;
+  const slugDate = sampai === slip.tanggal ? slip.tanggal : `${slip.tanggal}_sd_${sampai}`;
   return {
     filename: `bukti-setoran-paturunan-${slugDate}`,
     slip,
@@ -286,7 +311,7 @@ function drawMetaHeader(ctx: PageCtx, slip: BuktiSetoranPaturunanSlip): void {
   });
   ctx.y -= TITLE_SIZE + TITLE_GAP_PT;
 
-  const tanggalLabel = pdfCaps(`Tanggal : ${formatTanggalLahir(slip.tanggal)}`);
+  const tanggalLabel = pdfCaps(`Tanggal : ${formatBuktiSetoranPaturunanPeriode(slip)}`);
   const tanggalW = ctx.bodyFonts.regular.widthOfTextAtSize(tanggalLabel, META_SIZE);
   ctx.page.drawText(pdfCaps(`BANJAR ADAT : ${slip.banjarNama}`), {
     x: MARGIN_X,

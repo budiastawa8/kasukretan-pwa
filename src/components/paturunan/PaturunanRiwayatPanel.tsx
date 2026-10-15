@@ -125,11 +125,24 @@ export function PaturunanRiwayatPanel({
     jenis !== "" ||
     q.trim() !== "";
 
+  const buktiRange = useMemo(() => {
+    const d = dari.trim();
+    if (!d) return null;
+    return { dari: d, sampai: sampai.trim() || d };
+  }, [dari, sampai]);
+
   const buktiSetoranRows = useMemo(() => {
-    const tanggal = dari.trim();
-    if (!tanggal) return [];
-    return rows.filter((r) => paymentDayKey(r.tanggal) === tanggal);
-  }, [rows, dari]);
+    if (!buktiRange || buktiRange.sampai < buktiRange.dari) return [];
+    return rows.filter((r) => {
+      const day = paymentDayKey(r.tanggal);
+      return day >= buktiRange.dari && day <= buktiRange.sampai;
+    });
+  }, [rows, buktiRange]);
+
+  function changeDari(iso: string) {
+    setDari(iso);
+    setSampai(iso);
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -233,19 +246,22 @@ export function PaturunanRiwayatPanel({
   }
 
   function cetakBuktiSetoran() {
-    const tanggal = dari.trim();
-    if (!tanggal) {
-      window.alert("Isi Dari tanggal untuk bukti setoran (satu hari).");
+    if (!buktiRange) {
+      window.alert("Isi Dari tanggal untuk bukti setoran.");
+      return;
+    }
+    if (buktiRange.sampai < buktiRange.dari) {
+      window.alert("Sampai tanggal tidak boleh sebelum Dari tanggal.");
       return;
     }
     if (buktiSetoranRows.length === 0) {
-      window.alert("Tidak ada pembayaran pada tanggal yang dipilih.");
+      window.alert("Tidak ada pembayaran pada rentang tanggal yang dipilih.");
       return;
     }
     try {
       openPdf((backTo) =>
         stashBuktiSetoranPaturunanPreview(
-          buildBuktiSetoranPaturunanPdfPayload(buktiSetoranRows, { dari: tanggal }),
+          buildBuktiSetoranPaturunanPdfPayload(buktiSetoranRows, buktiRange),
           backTo,
           "Kembali ke Paturunan"
         )
@@ -355,7 +371,7 @@ export function PaturunanRiwayatPanel({
             </div>
             <div>
               <Label>Dari tanggal</Label>
-              <DateInput value={dari} onChange={setDari} />
+              <DateInput value={dari} onChange={changeDari} />
             </div>
             <div>
               <Label>Sampai tanggal</Label>
@@ -455,8 +471,8 @@ export function PaturunanRiwayatPanel({
               icon={FileText}
               className="h-8 text-xs"
               onClick={cetakBuktiSetoran}
-              disabled={loading || !dari.trim() || buktiSetoranRows.length === 0}
-              title="Cetak bukti setoran satu hari (Dari tanggal), satu banjar, satu tempek"
+              disabled={loading || buktiSetoranRows.length === 0}
+              title="Cetak bukti setoran rentang Dari–Sampai tanggal, satu banjar, satu tempek"
             >
               Bukti setoran
             </Button>

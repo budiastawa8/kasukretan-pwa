@@ -2,7 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { PdfPreviewView } from "../../components/pdf/PdfPreviewView";
 import { buildBuktiSetoranDudukanPdfBytes } from "../../lib/bukti-setoran-dudukan-pdf";
-import { buildBuktiSetoranPaturunanPdfBytes } from "../../lib/bukti-setoran-paturunan-pdf";
+import {
+  buildBuktiSetoranPaturunanPdfBytes,
+  formatBuktiSetoranPaturunanPeriode,
+} from "../../lib/bukti-setoran-paturunan-pdf";
 import { buildTunggakanDudukanPdfBytes } from "../../lib/tunggakan-dudukan-pdf";
 import { pageSizePreviewLabel } from "../../lib/tunggakan-dudukan-pdf-options";
 import { buildSuratPenagihanDudukanPdfBytes } from "../../lib/surat-penagihan-dudukan-pdf";
@@ -21,8 +24,6 @@ import {
   jadwalDudukanBatchPdfFilename,
 } from "../../lib/jadwal-dudukan-pdf";
 import { buildJadwalDudukanDataBatch } from "../../lib/services/jadwal-dudukan";
-import { formatTanggalLahir } from "../../lib/utils";
-
 export function LaporanPdfPreviewPage() {
   const location = useLocation();
   const [previewState, setPreviewState] = useState(() => readLaporanPdfPreview());
@@ -174,7 +175,7 @@ export function LaporanPdfPreviewPage() {
         ? [
             previewState.buktiPaturunan.slip.banjarNama,
             previewState.buktiPaturunan.slip.tempekNama,
-            formatTanggalLahir(previewState.buktiPaturunan.slip.tanggal),
+            formatBuktiSetoranPaturunanPeriode(previewState.buktiPaturunan.slip),
             "A4 portrait",
           ].join(" · ")
         : previewState.kind === "tunggakan-dudukan"
