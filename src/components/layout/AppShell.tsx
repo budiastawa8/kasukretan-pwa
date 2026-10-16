@@ -24,6 +24,7 @@ import {
   X,
   MoreHorizontal,
   ScanLine,
+  ClipboardList,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { Button } from "../ui/Button";
@@ -64,7 +65,8 @@ const NAV_GROUPS: NavGroup[] = [
     id: "iuran",
     label: "Iuran",
     items: [
-      { to: "/pungut", icon: ScanLine, label: "Pengumpulan" },
+      { to: "/pungut", icon: ScanLine, label: "Pengumpulan", end: true },
+      { to: "/pungut/rekap", icon: ClipboardList, label: "Rekap & Riwayat" },
       { to: "/paturunan", icon: Coins, label: "Paturunan" },
       { to: "/dudukan", icon: HandCoins, label: "Dudukan" },
     ],

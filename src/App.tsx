@@ -18,6 +18,7 @@ import { KeuanganPage } from "./pages/KeuanganPage";
 import { PaturunanPage } from "./pages/PaturunanPage";
 import { DudukanPage } from "./pages/DudukanPage";
 import { PungutPage } from "./pages/PungutPage";
+import { PungutRekapPage } from "./pages/PungutRekapPage";
 import { PetugasStrukPreviewPage } from "./pages/petugas/PetugasStrukPreviewPage";
 import { PETUGAS_STRUK_PREVIEW_PATH } from "./lib/petugas-struk-preview";
 import { LaporanHubPage } from "./pages/laporan/LaporanHubPage";
@@ -181,6 +182,7 @@ export default function App() {
             <Route path="/krama-pemasih" element={<KramaPemasihListPage />} />
             <Route path="/dudukan" element={<DudukanPage />} />
             <Route path="/pungut" element={<PungutPage />} />
+            <Route path="/pungut/rekap" element={<PungutRekapPage />} />
             <Route path="/laporan" element={<LaporanHubPage />} />
             <Route path="/laporan/eksekutif" element={<LaporanEksekutifPage />} />
             <Route path="/laporan/rekap-krama" element={<LaporanRekapKramaPage />} />

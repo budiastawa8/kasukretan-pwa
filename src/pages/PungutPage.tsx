@@ -1,12 +1,19 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { ArrowLeftRight, Ban, HandCoins, Printer, ScanLine, Search, Wallet } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  ArrowLeftRight,
+  Ban,
+  ClipboardList,
+  HandCoins,
+  Printer,
+  ScanLine,
+  Search,
+  Wallet,
+} from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { KartuQrScanner } from "../components/KartuQrScanner";
 import { PaturunanPembayaranDialog } from "../components/paturunan/PaturunanPembayaranDialog";
 import { DudukanPembayaranDialog } from "../components/dudukan/DudukanPembayaranDialog";
-import { PerolehanBanjarCard } from "../components/pungut/PerolehanBanjarCard";
-import { RiwayatSetoranCard } from "../components/pungut/RiwayatSetoranCard";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
@@ -534,11 +541,14 @@ export function PungutPage() {
             ))}
           </ul>
         )}
+        <Link
+          to="/pungut/rekap"
+          className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-copper-800 hover:underline"
+        >
+          <ClipboardList size={14} />
+          Rekap &amp; Riwayat Saya
+        </Link>
       </Card>
-
-      {mode && <PerolehanBanjarCard petugas={petugas} mode={mode} />}
-
-      <RiwayatSetoranCard petugasId={petugas.id} petugasJabatan={petugas.jabatan} />
 
       {scanOpen && <KartuQrScanner onScan={onScan} onClose={closeScan} />}
 
