@@ -449,7 +449,7 @@ export function LaporanHubPage() {
                 Ringkasan Eksekutif
               </h3>
               <p className="text-xs text-muted mt-0.5 leading-snug">
-                Gambaran gabungan paturunan, dudukan, tunggakan, dan tren 6–12 bulan untuk pengurus.
+                Jumlah Krama Mipil, Krama Tamiu, dan Tamiu beserta rincian per jenis.
               </p>
             </div>
           </div>
