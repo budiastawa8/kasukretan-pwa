@@ -806,11 +806,50 @@ export type DudukanEksekutif = {
   };
 };
 
-/** Ringkasan beberapa bulan + total tunggakan dari satu kali muat data pemasih aktif. */
+/**
+ * Kolom minimal untuk ringkasan eksekutif — tanpa join penduduk/banjar (hemat rows read).
+ */
+async function queryKramaDudukanEksekutifBase(): Promise<KramaDudukanBase[]> {
+  const db = await getDb();
+  return db.select<KramaDudukanBase[]>(
+    `SELECT k.id, k.nomor_kartu, k.tanggal_terdaftar, k.status_krama,
+            k.tanggal_tidak_aktif, k.tanggal_berlaku_mulai_pemasih,
+            kk.kode as klasifikasi_kode, kk.nama_tampilan as klasifikasi_nama,
+            '' as kepala_nama,
+            COALESCE(jkt.nama, jt.nama, '') as jenis_nama,
+            COALESCE(jkt.dudukan_nominal, jt.dudukan_nominal, 0) as tarif_nominal,
+            COALESCE(jkt.masa_berlaku_tahun, jt.masa_berlaku_tahun) as masa_berlaku_tahun,
+            k.banjar_id, '' as banjar_nama, '' as banjar_kode,
+            '—' as alamat, '—' as rt_btn, k.nomor_kontak
+     FROM krama k
+     JOIN klasifikasi_krama kk ON kk.id = k.klasifikasi_krama_id
+     LEFT JOIN jenis_krama_tamiu jkt ON jkt.id = k.jenis_krama_tamiu_id
+     LEFT JOIN jenis_tamiu jt ON jt.id = k.jenis_tamiu_id
+     WHERE kk.kode IN ('KRAMA_TAMIU', 'TAMIU') AND k.status_krama = 'aktif'`
+  );
+}
+
+/** Batch untuk eksekutif: tanpa detail keringanan (petugas) & tanpa last pembayaran. */
+async function loadTunggakanBatchDataEksekutif(): Promise<TunggakanBatchData> {
+  const [dibayarByKrama, keringananByKrama] = await Promise.all([
+    getDibayarPeriodeMapsForPemasihAktif(),
+    getKeringananPeriodeMapsForPemasihAktif(),
+  ]);
+  return {
+    dibayarByKrama,
+    keringananByKrama,
+    keringananDetailByKrama: new Map(),
+  };
+}
+
+/** Ringkasan beberapa bulan + total tunggakan — query slim, tanpa detail keringanan. */
 export async function getDudukanEksekutif(
   periods: { tahun: number; bulan: number }[]
 ): Promise<DudukanEksekutif> {
-  const [rows, batch] = await Promise.all([queryKramaDudukanBase(), loadTunggakanBatchData()]);
+  const [rows, batch] = await Promise.all([
+    queryKramaDudukanEksekutifBase(),
+    loadTunggakanBatchDataEksekutif(),
+  ]);
 
   const tren = periods.map((p) => {
     const t = parseTahun(p.tahun);

@@ -104,6 +104,22 @@ export function LaporanPemasihPage() {
 
   const load = useCallback(async () => {
     setPage(1);
+    /** Tanpa filter: jangan scan seluruh pemasih (hemat kuota Turso). */
+    if (
+      !banjarId &&
+      !q.trim() &&
+      !klasifikasi &&
+      !jenisKramaTamiuId &&
+      !jenisTamiuId &&
+      !statusPemasih &&
+      !perhatian
+    ) {
+      setRingkasan(null);
+      setRows([]);
+      setLoading(false);
+      setError("");
+      return;
+    }
     setLoading(true);
     setError("");
     try {
@@ -363,7 +379,11 @@ export function LaporanPemasihPage() {
             {loading ? (
               <li className="py-4 text-center text-muted text-xs">Memuat…</li>
             ) : pagedRows.length === 0 ? (
-              <li className="py-4 text-center text-muted text-xs">Tidak ada data.</li>
+              <li className="py-4 text-center text-muted text-xs">
+                {!hasActiveFilters
+                  ? "Pilih banjar, status, atau kata kunci untuk memuat laporan."
+                  : "Tidak ada data."}
+              </li>
             ) : (
               pagedRows.map((r) => (
                 <li
@@ -412,7 +432,9 @@ export function LaporanPemasihPage() {
                 ) : pagedRows.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-4 text-center text-muted text-xs">
-                      Tidak ada data.
+                      {!hasActiveFilters
+                        ? "Pilih banjar, status, atau kata kunci untuk memuat laporan."
+                        : "Tidak ada data."}
                     </td>
                   </tr>
                 ) : (

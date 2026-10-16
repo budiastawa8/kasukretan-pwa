@@ -123,7 +123,7 @@ export function DashboardPage() {
     setError("");
     try {
       const [eksekutif, pemasihBanjar, saldoDisplay, desa] = await Promise.all([
-        getLaporanEksekutif(6),
+        getLaporanEksekutif(6, { tanpaTren: isPhone }),
         isPhone
           ? Promise.resolve<PemasihPerBanjarRow[]>([])
           : cachedQuery("dashboard:pemasih-per-banjar", getPemasihPerBanjar),

@@ -158,6 +158,20 @@ export function LaporanMipilPage() {
 
   const loadDaftar = useCallback(async () => {
     setPage(1);
+    const hasFilter =
+      Boolean(filterBase.banjarId) ||
+      Boolean(filterBase.tempekId) ||
+      Boolean(filterBase.arahanId) ||
+      Boolean(filterBase.jenisMipilId) ||
+      Boolean(filterBase.statusPipil) ||
+      Boolean(q?.trim());
+    if (!hasFilter) {
+      setRingkasan(null);
+      setRows([]);
+      setLoading(false);
+      setError("");
+      return;
+    }
     setLoading(true);
     setError("");
     try {
@@ -175,6 +189,17 @@ export function LaporanMipilPage() {
   }, [filterBase, q]);
 
   const loadDemografi = useCallback(async () => {
+    const hasFilter =
+      Boolean(filterBase.banjarId) ||
+      Boolean(filterBase.tempekId) ||
+      Boolean(filterBase.arahanId) ||
+      Boolean(filterBase.jenisMipilId) ||
+      Boolean(filterBase.statusPipil);
+    if (!hasFilter) {
+      setDemografi(null);
+      setLoadingDemografi(false);
+      return;
+    }
     setLoadingDemografi(true);
     setError("");
     try {
@@ -188,6 +213,7 @@ export function LaporanMipilPage() {
   }, [filterBase]);
 
   const loadStatistik = useCallback(async () => {
+    /** Statistik jiwa tetap boleh tanpa filter — sudah agregat; filter opsional. */
     setLoadingStatistik(true);
     setError("");
     try {
@@ -759,7 +785,11 @@ export function LaporanMipilPage() {
                 {loading ? (
                   <li className="py-4 text-center text-muted text-xs">Memuat…</li>
                 ) : pagedRows.length === 0 ? (
-                  <li className="py-4 text-center text-muted text-xs">Tidak ada data.</li>
+                  <li className="py-4 text-center text-muted text-xs">
+                    {!hasActiveFilters
+                      ? "Pilih banjar, jenis, atau kata kunci untuk memuat laporan."
+                      : "Tidak ada data."}
+                  </li>
                 ) : (
                   pagedRows.map((r) => (
                     <li
@@ -810,7 +840,9 @@ export function LaporanMipilPage() {
                     ) : pagedRows.length === 0 ? (
                       <tr>
                         <td colSpan={7} className="py-4 text-center text-muted text-xs">
-                          Tidak ada data.
+                          {!hasActiveFilters
+                            ? "Pilih banjar, jenis, atau kata kunci untuk memuat laporan."
+                            : "Tidak ada data."}
                         </td>
                       </tr>
                     ) : (

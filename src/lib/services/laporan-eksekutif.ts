@@ -149,23 +149,32 @@ type DudukanEksekutifBagian = {
   tunggakan: LaporanEksekutif["tunggakan_dudukan"];
 };
 
-/** Periode tren selalu diakhiri bulan berjalan, jadi ringkasan bulan ini = elemen terakhir. */
-async function getDudukanBagian(jumlahBulan: number): Promise<DudukanEksekutifBagian> {
-  const periods = iterBulanTerakhir(jumlahBulan);
+/**
+ * Periode tren selalu diakhiri bulan berjalan, jadi ringkasan bulan ini = elemen terakhir.
+ * `tanpaTren`: hanya bulan berjalan (hemat untuk Dashboard HP).
+ */
+async function getDudukanBagian(
+  jumlahBulan: number,
+  tanpaTren = false
+): Promise<DudukanEksekutifBagian> {
+  const periods = tanpaTren
+    ? [{ tahun: tahunSaatIni(), bulan: bulanSaatIni() }]
+    : iterBulanTerakhir(jumlahBulan);
   const { tren, tunggakan } = await getDudukanEksekutif(periods);
+  const trenMapped = periods.map((p, i) => {
+    const r = tren[i];
+    return {
+      ...p,
+      label: formatBulanIndonesia(p.bulan, p.tahun),
+      label_pendek: labelPendek(p.bulan, p.tahun),
+      tagihan: r.total_tagihan,
+      dibayar: r.total_dibayar,
+      keringanan: r.total_keringanan,
+      sisa: r.total_sisa,
+    };
+  });
   return {
-    tren: periods.map((p, i) => {
-      const r = tren[i];
-      return {
-        ...p,
-        label: formatBulanIndonesia(p.bulan, p.tahun),
-        label_pendek: labelPendek(p.bulan, p.tahun),
-        tagihan: r.total_tagihan,
-        dibayar: r.total_dibayar,
-        keringanan: r.total_keringanan,
-        sisa: r.total_sisa,
-      };
-    }),
+    tren: tanpaTren ? [] : trenMapped,
     bulan_ini: tren[tren.length - 1],
     tunggakan,
   };
@@ -302,28 +311,34 @@ async function getIntiEksekutif() {
   return { demografi, perIuran, pemasihAlert };
 }
 
-/** `paksaMuatUlang` mengabaikan cache (tombol "Muat ulang"). */
+/** `paksaMuatUlang` mengabaikan cache. `tanpaTren` skip grafik tren (Dashboard HP). */
 export async function getLaporanEksekutif(
   jumlahBulanTren = 6,
-  opts?: { paksaMuatUlang?: boolean }
+  opts?: { paksaMuatUlang?: boolean; tanpaTren?: boolean }
 ): Promise<LaporanEksekutif> {
   const bulanTren = Math.max(6, Math.min(12, Math.round(jumlahBulanTren)));
   const ttl = opts?.paksaMuatUlang ? 0 : undefined;
-  const snapshotKey = `laporan-eksekutif:v2:${bulanTren}`;
+  const tanpaTren = Boolean(opts?.tanpaTren);
+  const snapshotKey = `laporan-eksekutif:v3:${bulanTren}:${tanpaTren ? "notiren" : "tren"}`;
 
   if (!opts?.paksaMuatUlang) {
     const snap = await readRingkasanCache<LaporanEksekutif>(snapshotKey);
     if (snap) return snap;
   }
 
+  const dudukanKey = tanpaTren
+    ? "eksekutif:dudukan:bulan-ini"
+    : `eksekutif:dudukan:${bulanTren}`;
   const [inti, dudukan, trenPaturunan] = await Promise.all([
     cachedQuery("eksekutif:inti", getIntiEksekutif, ttl),
-    cachedQuery(`eksekutif:dudukan:${bulanTren}`, () => getDudukanBagian(bulanTren), ttl),
-    cachedQuery(
-      `eksekutif:tren-paturunan:${bulanTren}`,
-      () => getPaturunanTrenBulanan(bulanTren),
-      ttl
-    ),
+    cachedQuery(dudukanKey, () => getDudukanBagian(bulanTren, tanpaTren), ttl),
+    tanpaTren
+      ? Promise.resolve<TrenPaturunanBulan[]>([])
+      : cachedQuery(
+          `eksekutif:tren-paturunan:${bulanTren}`,
+          () => getPaturunanTrenBulanan(bulanTren),
+          ttl
+        ),
   ]);
   const { demografi, perIuran, pemasihAlert } = inti;
 
