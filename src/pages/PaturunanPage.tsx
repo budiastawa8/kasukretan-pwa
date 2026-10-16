@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePersistedScalar } from "../lib/page-filter-state";
 import { useTableSort } from "../hooks/useTableSort";
-import { clampPage, LIST_PAGE_SIZE, paginateSlice } from "../lib/pagination";
-import { sortTableRows } from "../lib/table-sort";
+import { clampPage, LIST_PAGE_SIZE } from "../lib/pagination";
 import { PATURUNAN_SORT } from "../lib/table-sort-accessors";
 import { SortableTableHead } from "../components/ui/SortableTableHead";
 import { Link, useSearchParams } from "react-router-dom";
 import {
+  countKramaPaturunan,
   getPaturunanRingkasan,
   getRingkasanIuran,
   listBanjar,
@@ -109,11 +109,13 @@ export function PaturunanPage() {
   const [ringkasan, setRingkasan] = useState<PaturunanRingkasan | null>(null);
   const [ringkasanIuran, setRingkasanIuran] = useState<RingkasanIuran | null>(null);
   const [rows, setRows] = useState<PaturunanKramaRow[]>([]);
+  const [totalItems, setTotalItems] = useState(0);
   const [iuranList, setIuranList] = useState<IuranPaturunanRow[]>([]);
   const [banjar, setBanjar] = useState<Banjar[]>([]);
   const [tempek, setTempek] = useState<Tempek[]>([]);
   const [jenisMipil, setJenisMipil] = useState<JenisKramaMipilRow[]>([]);
   const [q, setQ] = usePersistedScalar(PAGE_ID, "q", "");
+  const [debouncedQ, setDebouncedQ] = useState("");
   const [banjarId, setBanjarId] = usePersistedScalar(PAGE_ID, "banjarId", "");
   const [tempekId, setTempekId] = usePersistedScalar(PAGE_ID, "tempekId", "");
   const [jenisMipilId, setJenisMipilId] = usePersistedScalar(PAGE_ID, "jenisMipilId", "");
@@ -152,22 +154,20 @@ export function PaturunanPage() {
   const { okFlashMessage, showOkFlash } = usePageOkFlash();
 
   const { sortKey, sortDir, toggleSort } = useTableSort();
-  const sortedRows = useMemo(
-    () => sortTableRows(rows, sortKey, sortDir, PATURUNAN_SORT),
-    [rows, sortKey, sortDir]
-  );
   const safePage = useMemo(
-    () => clampPage(page, sortedRows.length, pageSize),
-    [page, sortedRows.length, pageSize]
+    () => clampPage(page, totalItems, pageSize),
+    [page, totalItems, pageSize]
   );
-  const pagedRows = useMemo(
-    () => paginateSlice(sortedRows, safePage, pageSize),
-    [sortedRows, safePage, pageSize]
-  );
+  const pagedRows = rows;
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedQ(q.trim()), 250);
+    return () => window.clearTimeout(timer);
+  }, [q]);
 
   useEffect(() => {
     setPage(1);
-  }, [sortKey, sortDir]);
+  }, [sortKey, sortDir, debouncedQ, banjarId, tempekId, jenisMipilId, iuranId]);
 
   const selectedIuranNama = useMemo(
     () => iuranList.find((i) => i.id === activeIuranId)?.nama ?? null,
@@ -178,47 +178,91 @@ export function PaturunanPage() {
     if (page !== safePage) setPage(safePage);
   }, [page, safePage]);
 
-  const load = useCallback(async () => {
-    setPage(1);
-    setLoading(true);
-    setError("");
-    try {
-      const [r, b, j, iuran, peringatan] = await Promise.all([
-        getPaturunanRingkasan(),
-        listBanjar(),
-        listJenisMipil(),
-        listIuranPaturunan(),
-        listPeringatanIuranAktif(),
-      ]);
-      const effectiveIuranId = iuranId || iuran[0]?.id || "";
-      const list = await listKramaPaturunan({
-        q: q || undefined,
-        banjarId: banjarId || undefined,
-        tempekId: tempekId || undefined,
-        jenisMipilId: jenisMipilId || undefined,
-        iuranId: effectiveIuranId || undefined,
-      });
-      setRingkasan(r);
-      setRows(list);
-      setBanjar(b);
-      setJenisMipil(j);
-      setIuranList(iuran);
-      setPeringatanList(peringatan);
+  const filterKey = `${debouncedQ}|${banjarId}|${tempekId}|${jenisMipilId}|${iuranId}|${sortKey}|${sortDir}|${pageSize}`;
+  const lastFullLoadKey = useRef("");
 
-      if (effectiveIuranId) {
-        setRingkasanIuran(await getRingkasanIuran(effectiveIuranId));
-      } else {
-        setRingkasanIuran(null);
+  const load = useCallback(
+    async (opts?: { force?: boolean }) => {
+      setLoading(true);
+      setError("");
+      try {
+        const needFull =
+          opts?.force === true ||
+          lastFullLoadKey.current !== filterKey ||
+          iuranList.length === 0;
+        let iuran = iuranList;
+        if (needFull) {
+          const [r, b, j, iuranRows, peringatan] = await Promise.all([
+            getPaturunanRingkasan(),
+            listBanjar(),
+            listJenisMipil(),
+            listIuranPaturunan(),
+            listPeringatanIuranAktif(),
+          ]);
+          iuran = iuranRows;
+          setRingkasan(r);
+          setBanjar(b);
+          setJenisMipil(j);
+          setIuranList(iuranRows);
+          setPeringatanList(peringatan);
+          lastFullLoadKey.current = filterKey;
+        }
+
+        const effectiveIuranId = iuranId || iuran[0]?.id || "";
+        const filter = {
+          q: debouncedQ || undefined,
+          banjarId: banjarId || undefined,
+          tempekId: tempekId || undefined,
+          jenisMipilId: jenisMipilId || undefined,
+          iuranId: effectiveIuranId || undefined,
+        };
+        const offset = (Math.max(1, page) - 1) * pageSize;
+        const listPromise = listKramaPaturunan({
+          ...filter,
+          limit: pageSize,
+          offset,
+          orderBy: sortKey && sortKey in PATURUNAN_SORT ? sortKey : undefined,
+          orderDir: sortKey ? sortDir : undefined,
+        });
+        const countPromise = countKramaPaturunan(filter);
+        const ringPromise =
+          needFull && effectiveIuranId
+            ? getRingkasanIuran(effectiveIuranId)
+            : Promise.resolve(undefined as RingkasanIuran | null | undefined);
+
+        const [list, total, ringI] = await Promise.all([listPromise, countPromise, ringPromise]);
+        setRows(list);
+        setTotalItems(total);
+        if (ringI !== undefined) setRingkasanIuran(ringI);
+      } catch (e) {
+        setError(String(e));
+      } finally {
+        setLoading(false);
       }
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setLoading(false);
-    }
-  }, [q, banjarId, tempekId, jenisMipilId, iuranId]);
+    },
+    [
+      filterKey,
+      iuranList,
+      debouncedQ,
+      banjarId,
+      tempekId,
+      jenisMipilId,
+      iuranId,
+      page,
+      pageSize,
+      sortKey,
+      sortDir,
+    ]
+  );
 
   useEffect(() => {
-    load();
+    let cancelled = false;
+    void load().catch((e) => {
+      if (!cancelled) console.error(e);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [load]);
 
   useEffect(() => {
@@ -266,7 +310,7 @@ export function PaturunanPage() {
       setTanggalTargetBaru("");
       setIuranId(id);
       setShowTambahIuran(false);
-      await load();
+      await load({ force: true });
     } catch (err) {
       setError(String(err));
     }
@@ -285,7 +329,7 @@ export function PaturunanPage() {
         String(fd.get("keterangan") || "") || undefined
       );
       setEditingIuranId(null);
-      await load();
+      await load({ force: true });
     } catch (err) {
       setError(String(err));
     }
@@ -304,7 +348,7 @@ export function PaturunanPage() {
       if (iuranId === deleteIuranTarget.id) setIuranId("");
       setEditingIuranId(null);
       setDeleteIuranTarget(null);
-      await load();
+      await load({ force: true });
     } catch (err) {
       setError(String(err));
     } finally {
@@ -395,7 +439,7 @@ export function PaturunanPage() {
             mode="paturunan"
             canEdit={canEdit}
             alwaysOpen
-            onRefresh={load}
+            onRefresh={() => load({ force: true })}
             onSaved={(msg) => {
               setImportFlash({ kind: "ok", text: msg });
               setRiwayatRefresh((n) => n + 1);
@@ -669,7 +713,7 @@ export function PaturunanPage() {
                 type="button"
                 icon={Filter}
                 className="h-10 text-xs"
-                onClick={load}
+                onClick={() => void load({ force: true })}
                 disabled={loading}
               >
                 Filter
@@ -751,7 +795,7 @@ export function PaturunanPage() {
         <div className="flex flex-wrap gap-2 mb-2">
           <span className="inline-flex items-center gap-1 rounded-md border border-copper-200 bg-copper-50/80 px-2 py-0.5 text-xs text-copper-900">
             <span className="text-muted">Krama:</span>
-            <span className="font-semibold tabular-nums">{rows.length}</span>
+            <span className="font-semibold tabular-nums">{totalItems}</span>
           </span>
         </div>
 
@@ -1043,7 +1087,7 @@ export function PaturunanPage() {
                 ))}
               </tbody>
             </table>
-            {!loading && !rows.length && (
+            {!loading && totalItems === 0 && (
               <p className="text-center py-3 text-xs text-muted">Tidak ada data</p>
             )}
           </div>
@@ -1052,7 +1096,7 @@ export function PaturunanPage() {
         {!loading && (
           <ListPagination
             page={safePage}
-            totalItems={rows.length}
+            totalItems={totalItems}
             pageSize={pageSize}
             onPageChange={setPage}
             onPageSizeChange={setPageSize}
@@ -1067,7 +1111,7 @@ export function PaturunanPage() {
         <PaturunanPembayaranDialog
           open={!!bayarRow}
           onClose={() => setBayarRow(null)}
-          onSuccess={load}
+          onSuccess={() => void load({ force: true })}
           onSaved={showOkFlash}
           canEdit={canEdit}
           canDeleteFinancial={canDeleteFinancial}

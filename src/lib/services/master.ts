@@ -12,6 +12,36 @@ import { parseMasaBerlakuTahun } from "../masa-berlaku";
 import { parsePaturunanPersen } from "../paturunan-hitung";
 import { uuid } from "../utils";
 
+/** Master jarang berubah — cache memori agar filter/dropdown tidak round-trip ulang. */
+const MASTER_LIST_TTL_MS = 5 * 60_000;
+type MasterListEntry<T> = { at: number; rows: T };
+let banjarListCache: MasterListEntry<Banjar[]> | null = null;
+let jenisMipilListCache: MasterListEntry<JenisKramaMipilRow[]> | null = null;
+let jenisKramaTamiuListCache: MasterListEntry<JenisKramaTamiuRow[]> | null = null;
+let jenisTamiuListCache: MasterListEntry<JenisTamiuRow[]> | null = null;
+
+export function invalidateMasterListCache(): void {
+  banjarListCache = null;
+  jenisMipilListCache = null;
+  jenisKramaTamiuListCache = null;
+  jenisTamiuListCache = null;
+}
+
+function cloneList<T>(rows: T[]): T[] {
+  return structuredClone(rows);
+}
+
+function listFromCache<T>(entry: MasterListEntry<T[]> | null): T[] | null {
+  if (!entry) return null;
+  if (Date.now() - entry.at > MASTER_LIST_TTL_MS) return null;
+  return cloneList(entry.rows);
+}
+
+/** Prefetch setelah koneksi siap — digabung batch SELECT di klien LAN. */
+export async function prefetchMasterLists(): Promise<void> {
+  await Promise.all([listBanjar(), listJenisMipil(), listJenisKramaTamiu(), listJenisTamiu()]);
+}
+
 const KRAMA_REF_COLUMNS = [
   "banjar_id",
   "tempek_id",
@@ -55,10 +85,14 @@ async function countKramaRef(
 }
 
 export async function listBanjar(): Promise<Banjar[]> {
+  const cached = listFromCache(banjarListCache);
+  if (cached) return cached;
   const db = await getDb();
-  return db.select<Banjar[]>(
+  const rows = await db.select<Banjar[]>(
     `SELECT * FROM banjar WHERE aktif = 1 ORDER BY kode ASC`
   );
+  banjarListCache = { at: Date.now(), rows };
+  return cloneList(rows);
 }
 
 export async function createBanjar(desaAdatId: string, nama: string, kode: string) {
@@ -68,6 +102,7 @@ export async function createBanjar(desaAdatId: string, nama: string, kode: strin
     `INSERT INTO banjar (id, desa_adat_id, nama, kode) VALUES ($1, $2, $3, $4)`,
     [id, desaAdatId, requireNama(nama), kode.padStart(2, "0").slice(-2)]
   );
+  invalidateMasterListCache();
   return id;
 }
 
@@ -86,6 +121,7 @@ export async function updateBanjar(id: string, nama: string, kode: string): Prom
     `UPDATE banjar SET nama = $1, kode = $2, updated_at = datetime('now') WHERE id = $3`,
     [requireNama(nama), normalized, id]
   );
+  invalidateMasterListCache();
 }
 
 export async function deleteBanjar(id: string): Promise<void> {
@@ -102,6 +138,7 @@ export async function deleteBanjar(id: string): Promise<void> {
     await db.execute(`UPDATE tempek SET aktif = 0 WHERE id = $1`, [t.id]);
   }
   await db.execute(`UPDATE banjar SET aktif = 0 WHERE id = $1`, [id]);
+  invalidateMasterListCache();
 }
 
 export async function listTempek(banjarId: string): Promise<Tempek[]> {
@@ -190,10 +227,14 @@ export async function deleteArahan(id: string): Promise<void> {
 }
 
 export async function listJenisMipil(): Promise<JenisKramaMipilRow[]> {
+  const cached = listFromCache(jenisMipilListCache);
+  if (cached) return cached;
   const db = await getDb();
-  return db.select<JenisKramaMipilRow[]>(
+  const rows = await db.select<JenisKramaMipilRow[]>(
     `SELECT * FROM jenis_krama_mipil WHERE aktif = 1 ORDER BY created_at ASC, nama ASC`
   );
+  jenisMipilListCache = { at: Date.now(), rows };
+  return cloneList(rows);
 }
 
 export async function createJenisMipil(
@@ -214,6 +255,7 @@ export async function createJenisMipil(
       keterangan ?? null,
     ]
   );
+  invalidateMasterListCache();
   return id;
 }
 
@@ -228,6 +270,7 @@ export async function updateJenisMipil(
     `UPDATE jenis_krama_mipil SET nama = $1, kode = $2, paturunan_persen = $3 WHERE id = $4`,
     [requireNama(nama), kode?.trim() || null, parsePaturunanPersen(paturunanPersen), id]
   );
+  invalidateMasterListCache();
 }
 
 export async function deleteJenisMipil(id: string): Promise<void> {
@@ -236,13 +279,18 @@ export async function deleteJenisMipil(id: string): Promise<void> {
   }
   const db = await getDb();
   await db.execute(`UPDATE jenis_krama_mipil SET aktif = 0 WHERE id = $1`, [id]);
+  invalidateMasterListCache();
 }
 
 export async function listJenisKramaTamiu(): Promise<JenisKramaTamiuRow[]> {
+  const cached = listFromCache(jenisKramaTamiuListCache);
+  if (cached) return cached;
   const db = await getDb();
-  return db.select<JenisKramaTamiuRow[]>(
+  const rows = await db.select<JenisKramaTamiuRow[]>(
     `SELECT * FROM jenis_krama_tamiu WHERE aktif = 1 ORDER BY created_at ASC, nama ASC`
   );
+  jenisKramaTamiuListCache = { at: Date.now(), rows };
+  return cloneList(rows);
 }
 
 export async function createJenisKramaTamiu(
@@ -257,6 +305,7 @@ export async function createJenisKramaTamiu(
     `INSERT INTO jenis_krama_tamiu (id, nama, kode, dudukan_nominal, keterangan, created_at) VALUES ($1, $2, $3, $4, $5, datetime('now'))`,
     [id, requireNama(nama), kode?.trim() || null, dudukanNominal, keterangan ?? null]
   );
+  invalidateMasterListCache();
   return id;
 }
 
@@ -271,6 +320,7 @@ export async function updateJenisKramaTamiu(
     `UPDATE jenis_krama_tamiu SET nama = $1, kode = $2, dudukan_nominal = $3 WHERE id = $4`,
     [requireNama(nama), kode?.trim() || null, dudukanNominal, id]
   );
+  invalidateMasterListCache();
 }
 
 export async function deleteJenisKramaTamiu(id: string): Promise<void> {
@@ -279,13 +329,18 @@ export async function deleteJenisKramaTamiu(id: string): Promise<void> {
   }
   const db = await getDb();
   await db.execute(`UPDATE jenis_krama_tamiu SET aktif = 0 WHERE id = $1`, [id]);
+  invalidateMasterListCache();
 }
 
 export async function listJenisTamiu(): Promise<JenisTamiuRow[]> {
+  const cached = listFromCache(jenisTamiuListCache);
+  if (cached) return cached;
   const db = await getDb();
-  return db.select<JenisTamiuRow[]>(
+  const rows = await db.select<JenisTamiuRow[]>(
     `SELECT * FROM jenis_tamiu WHERE aktif = 1 ORDER BY created_at ASC, nama ASC`
   );
+  jenisTamiuListCache = { at: Date.now(), rows };
+  return cloneList(rows);
 }
 
 export async function createJenisTamiu(
@@ -300,6 +355,7 @@ export async function createJenisTamiu(
     `INSERT INTO jenis_tamiu (id, nama, kode, dudukan_nominal, keterangan, created_at) VALUES ($1, $2, $3, $4, $5, datetime('now'))`,
     [id, requireNama(nama), kode?.trim() || null, dudukanNominal, keterangan ?? null]
   );
+  invalidateMasterListCache();
   return id;
 }
 
@@ -314,6 +370,7 @@ export async function updateJenisTamiu(
     `UPDATE jenis_tamiu SET nama = $1, kode = $2, dudukan_nominal = $3 WHERE id = $4`,
     [requireNama(nama), kode?.trim() || null, dudukanNominal, id]
   );
+  invalidateMasterListCache();
 }
 
 export async function deleteJenisTamiu(id: string): Promise<void> {
@@ -322,6 +379,7 @@ export async function deleteJenisTamiu(id: string): Promise<void> {
   }
   const db = await getDb();
   await db.execute(`UPDATE jenis_tamiu SET aktif = 0 WHERE id = $1`, [id]);
+  invalidateMasterListCache();
 }
 
 export async function updateJenisMipilMasaBerlaku(
@@ -334,6 +392,7 @@ export async function updateJenisMipilMasaBerlaku(
     tahun,
     id,
   ]);
+  invalidateMasterListCache();
 }
 
 export async function updateJenisKramaTamiuMasaBerlaku(
@@ -366,12 +425,14 @@ export async function updateJenisKramaTamiuIlikita(
     if (tahun == null) {
       await db.execute(`UPDATE jenis_krama_tamiu SET auto_perpanjang = 0 WHERE id = $1`, [id]);
     }
+    invalidateMasterListCache();
     return;
   }
   await db.execute(
     `UPDATE jenis_krama_tamiu SET masa_berlaku_tahun = $1, auto_perpanjang = $2 WHERE id = $3`,
     [tahun, auto, id]
   );
+  invalidateMasterListCache();
 }
 
 export async function updateJenisTamiuIlikita(
@@ -387,12 +448,14 @@ export async function updateJenisTamiuIlikita(
     if (tahun == null) {
       await db.execute(`UPDATE jenis_tamiu SET auto_perpanjang = 0 WHERE id = $1`, [id]);
     }
+    invalidateMasterListCache();
     return;
   }
   await db.execute(
     `UPDATE jenis_tamiu SET masa_berlaku_tahun = $1, auto_perpanjang = $2 WHERE id = $3`,
     [tahun, auto, id]
   );
+  invalidateMasterListCache();
 }
 
 export async function listTimKasukretan(banjarId?: string): Promise<TimKasukretan[]> {

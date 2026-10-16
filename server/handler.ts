@@ -166,6 +166,31 @@ async function handleRoute(path: string, req: ApiRequest, res: ServerResponse): 
     return;
   }
 
+  /** Beberapa SELECT dalam satu round-trip (klien menggabungkan Promise.all). */
+  if (path === "sql/select-batch" && method === "POST") {
+    const body = await readBody(req);
+    const raw = Array.isArray(body.queries) ? body.queries : null;
+    if (!raw || raw.length === 0) throw new HttpError(400, "queries kosong");
+    if (raw.length > 40) throw new HttpError(400, "Maksimal 40 query per batch");
+
+    const timing: DbTiming = { ms: 0, attempts: 0 };
+    const results: unknown[] = [];
+    for (const item of raw) {
+      if (!item || typeof item !== "object") throw new HttpError(400, "Query batch tidak valid");
+      const { sql, bind } = sqlFromBody(item as Record<string, unknown>);
+      const auth = await authorizeOrThrow(user, sql);
+      if (auth === "noop") {
+        results.push([]);
+        continue;
+      }
+      if (auth !== "run") throw new HttpError(403, "Perintah tulis tidak boleh lewat sql/select-batch.");
+      results.push(await dbSelect(sql, bind, timing));
+    }
+    res.setHeader("Server-Timing", `db;dur=${timing.ms};desc="${timing.attempts}x"`);
+    send(res, 200, { results });
+    return;
+  }
+
   if (path === "sql/execute" && method === "POST") {
     const { sql, bind } = sqlFromBody(await readBody(req));
     const auth = await authorizeOrThrow(user, sql);

@@ -13,17 +13,18 @@ import {
   UserX,
 } from "lucide-react";
 import { useTableSort } from "../hooks/useTableSort";
-import { clampPage, LIST_PAGE_SIZE, paginateSlice } from "../lib/pagination";
-import { sortTableRows } from "../lib/table-sort";
+import { clampPage, LIST_PAGE_SIZE } from "../lib/pagination";
 import { KRAMA_PEMASIH_SORT } from "../lib/table-sort-accessors";
 import { SortableTableHead } from "../components/ui/SortableTableHead";
 import { formatAlasanTidakAktif } from "../lib/krama-status";
 import { downloadPemasihExport } from "../lib/import/pemasih-template";
 import {
+  countKrama,
   deleteKrama,
   listKrama,
   listRtBtnPemasih,
   reaktivasiKrama,
+  summarizeKramaByJenis,
 } from "../lib/services/krama";
 import { kramaEditPath } from "../lib/krama-routes";
 import { listBanjar, listJenisKramaTamiu, listJenisTamiu, listTempek } from "../lib/services/master";
@@ -79,6 +80,8 @@ export function KramaPemasihListPage() {
   const allowDeleteKrama = canDeleteKrama(user?.peran);
 
   const [rows, setRows] = useState<KramaListItem[]>([]);
+  const [totalItems, setTotalItems] = useState(0);
+  const [jenisRingkasan, setJenisRingkasan] = useState<[string, number][]>([]);
   const [banjar, setBanjar] = useState<Banjar[]>([]);
   const [jenisKt, setJenisKt] = useState<JenisKramaTamiuRow[]>([]);
   const [jenisT, setJenisT] = useState<JenisTamiuRow[]>([]);
@@ -106,35 +109,15 @@ export function KramaPemasihListPage() {
   const jenisTamiuId = jenisFilter.startsWith("t:") ? jenisFilter.slice(2) : undefined;
 
   const { sortKey, sortDir, toggleSort } = useTableSort();
-  const sortedRows = useMemo(
-    () => sortTableRows(rows, sortKey, sortDir, KRAMA_PEMASIH_SORT),
-    [rows, sortKey, sortDir]
-  );
   const safePage = useMemo(
-    () => clampPage(page, sortedRows.length, pageSize),
-    [page, sortedRows.length, pageSize]
+    () => clampPage(page, totalItems, pageSize),
+    [page, totalItems, pageSize]
   );
-  const pagedRows = useMemo(
-    () => paginateSlice(sortedRows, safePage, pageSize),
-    [sortedRows, safePage, pageSize]
-  );
+  const pagedRows = rows;
 
   useEffect(() => {
     setPage(1);
-  }, [sortKey, sortDir]);
-
-  const jenisRingkasan = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const r of rows) {
-      const label = r.jenis_nama?.trim()
-        ? `${r.klasifikasi_nama}: ${r.jenis_nama.trim()}`
-        : r.klasifikasi_nama;
-      map.set(label, (map.get(label) ?? 0) + 1);
-    }
-    return [...map.entries()].sort(
-      (a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "id")
-    );
-  }, [rows]);
+  }, [sortKey, sortDir, debouncedQ, banjarId, jenisFilter, tempekId, rtBtn, listTab]);
 
   useEffect(() => {
     if (page !== safePage) setPage(safePage);
@@ -165,25 +148,55 @@ export function KramaPemasihListPage() {
     listRtBtnPemasih({ banjarId: banjarId || undefined, statusKrama: listTab }).then(setRtBtnOptions);
   }, [banjarId, listTab]);
 
-  const load = useCallback(async () => {
-    setPage(1);
-    setRows(
-      await listKrama({
-        klasifikasiIn: ["KRAMA_TAMIU", "TAMIU"],
-        q: debouncedQ || undefined,
-        banjarId: banjarId || undefined,
-        jenisKramaTamiuId,
-        jenisTamiuId,
-        tempekId: tempekId || undefined,
-        rtBtn: rtBtn || undefined,
-        statusKrama: listTab,
+  const listFilter = useMemo(
+    () => ({
+      klasifikasiIn: ["KRAMA_TAMIU", "TAMIU"] as const,
+      q: debouncedQ || undefined,
+      banjarId: banjarId || undefined,
+      jenisKramaTamiuId,
+      jenisTamiuId,
+      tempekId: tempekId || undefined,
+      rtBtn: rtBtn || undefined,
+      statusKrama: listTab,
+    }),
+    [debouncedQ, banjarId, jenisKramaTamiuId, jenisTamiuId, tempekId, rtBtn, listTab]
+  );
+
+  const reloadList = useCallback(async () => {
+    const offset = (Math.max(1, page) - 1) * pageSize;
+    const filter = { ...listFilter, klasifikasiIn: [...listFilter.klasifikasiIn] };
+    const [pageRows, total, summary] = await Promise.all([
+      listKrama({
+        ...filter,
+        limit: pageSize,
+        offset,
+        orderBy: sortKey && sortKey in KRAMA_PEMASIH_SORT ? sortKey : undefined,
+        orderDir: sortKey ? sortDir : undefined,
+      }),
+      countKrama(filter),
+      summarizeKramaByJenis(filter),
+    ]);
+    setRows(pageRows);
+    setTotalItems(total);
+    setJenisRingkasan(
+      summary.map((s) => {
+        const label = s.jenis_nama?.trim()
+          ? `${s.klasifikasi_nama}: ${s.jenis_nama.trim()}`
+          : s.klasifikasi_nama;
+        return [label, Number(s.count)] as [string, number];
       })
     );
-  }, [debouncedQ, banjarId, jenisKramaTamiuId, jenisTamiuId, tempekId, rtBtn, listTab]);
+  }, [listFilter, page, pageSize, sortKey, sortDir]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    let cancelled = false;
+    void reloadList().catch((e) => {
+      if (!cancelled) console.error(e);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadList]);
 
   function resetFilters() {
     clearPagePersistedState(PAGE_ID);
@@ -203,12 +216,16 @@ export function KramaPemasihListPage() {
   async function handleExport() {
     setExportBusy(true);
     try {
-      if (!rows.length) {
+      const allRows = await listKrama({
+        ...listFilter,
+        klasifikasiIn: [...listFilter.klasifikasiIn],
+      });
+      if (!allRows.length) {
         alert("Tidak ada data untuk diekspor");
         return;
       }
       await downloadPemasihExport({
-        kramaIds: rows.map((r) => r.id),
+        kramaIds: allRows.map((r) => r.id),
         statusKrama: listTab,
       });
     } catch (e) {
@@ -229,7 +246,7 @@ export function KramaPemasihListPage() {
     setReactivatingId(r.id);
     try {
       await reaktivasiKrama(r.id);
-      await load();
+      await reloadList();
     } catch (e) {
       alert(e instanceof Error ? e.message : "Gagal mengaktifkan kembali");
     } finally {
@@ -243,7 +260,7 @@ export function KramaPemasihListPage() {
     try {
       await deleteKrama(deleteTarget.id);
       setDeleteTarget(null);
-      await load();
+      await reloadList();
     } catch (e) {
       alert(e instanceof Error ? e.message : "Gagal menghapus krama");
     } finally {
@@ -313,7 +330,7 @@ export function KramaPemasihListPage() {
           <PemasihImportExportPanel
             canEdit={canEdit}
             alwaysOpen
-            onRefresh={load}
+            onRefresh={reloadList}
             onSaved={(msg) => {
               setImportFlash({ kind: "ok", text: msg });
               setTimeout(() => setImportFlash(null), 4000);
@@ -323,7 +340,7 @@ export function KramaPemasihListPage() {
           <PemasihAnggotaImportExportPanel
             canEdit={canEdit}
             alwaysOpen
-            onRefresh={load}
+            onRefresh={reloadList}
             onSaved={(msg) => {
               setImportFlash({ kind: "ok", text: msg });
               setTimeout(() => setImportFlash(null), 4000);
@@ -445,7 +462,7 @@ export function KramaPemasihListPage() {
               icon={FileSpreadsheet}
               type="button"
               className={cn("text-xs", isPhone ? "h-10 w-full" : "h-8")}
-              disabled={exportBusy || rows.length === 0}
+              disabled={exportBusy || totalItems === 0}
               onClick={() => void handleExport()}
             >
               Ekspor Excel
@@ -453,7 +470,7 @@ export function KramaPemasihListPage() {
           </div>
 
           <div className="mb-2 flex flex-wrap gap-1">
-            <StatChip label="Total" value={String(rows.length)} />
+            <StatChip label="Total" value={String(totalItems)} />
             {jenisRingkasan.map(([nama, count]) => (
               <StatChip key={nama} label={nama} value={String(count)} />
             ))}
@@ -729,7 +746,7 @@ export function KramaPemasihListPage() {
           )}
           <ListPagination
             page={safePage}
-            totalItems={rows.length}
+            totalItems={totalItems}
             pageSize={pageSize}
             onPageChange={setPage}
             onPageSizeChange={setPageSize}

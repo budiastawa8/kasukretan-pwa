@@ -5,6 +5,7 @@
 
 import type { SessionUser } from "./services/auth";
 import { normalizeStaffRole } from "./auth-roles";
+import { clearSelectPersist, readSelectPersist, writeSelectPersist } from "./select-persist";
 
 const API_BASE = "/api";
 const TOKEN_KEY = "kasukretan_token";
@@ -197,34 +198,136 @@ export async function lanSqlSelect<T>(sql: string, bind: unknown[] = []): Promis
   });
 }
 
+export async function lanSqlSelectBatch(queries: { sql: string; bind: unknown[] }[]): Promise<unknown[]> {
+  if (queries.length === 0) return [];
+  if (queries.length === 1) {
+    return [await lanSqlSelect(queries[0].sql, queries[0].bind)];
+  }
+  const res = await lanFetch<{ results: unknown[] }>("/sql/select-batch", {
+    method: "POST",
+    body: JSON.stringify({ queries }),
+  });
+  return res.results;
+}
+
 /**
- * Satu halaman (mis. Dashboard) memanggil query besar yang sama berkali-kali; lewat
- * internet seluler itu berarti megabita yang sama diunduh ulang. Query identik dalam
- * jendela singkat memakai satu respons; setiap perintah tulis mengosongkan cache.
+ * Query identik dalam jendela singkat memakai satu respons; Promise.all digabung
+ * jadi satu HTTP batch. Hasil disimpan (sessionStorage / IndexedDB) agar buka ulang
+ * cepat (stale-while-revalidate). Setiap perintah tulis mengosongkan cache.
  */
-const SELECT_CACHE_MS = 5_000;
+const SELECT_FRESH_MS = 20_000;
+const SELECT_PERSIST_MS = 5 * 60_000;
+
 const selectCache = new Map<string, { at: number; promise: Promise<unknown> }>();
+
+type PendingSelect = {
+  key: string;
+  sql: string;
+  bind: unknown[];
+  resolve: (rows: unknown) => void;
+  reject: (err: unknown) => void;
+};
+
+let pendingBatch: PendingSelect[] | null = null;
+let batchFlushScheduled = false;
+
+function selectCacheKey(sql: string, bind: unknown[]): string {
+  return `${sql}\u0000${JSON.stringify(bind)}`;
+}
 
 export function clearSelectCache(): void {
   selectCache.clear();
+  clearSelectPersist();
+  if (pendingBatch?.length) {
+    const abandoned = pendingBatch;
+    pendingBatch = null;
+    batchFlushScheduled = false;
+    for (const item of abandoned) {
+      item.reject(new Error("Cache SELECT dikosongkan"));
+    }
+  } else {
+    pendingBatch = null;
+    batchFlushScheduled = false;
+  }
+}
+
+function pruneFreshCache(now: number): void {
+  for (const [k, v] of selectCache) {
+    if (now - v.at > SELECT_FRESH_MS) selectCache.delete(k);
+  }
+}
+
+async function flushSelectBatch(): Promise<void> {
+  const batch = pendingBatch;
+  pendingBatch = null;
+  batchFlushScheduled = false;
+  if (!batch?.length) return;
+
+  /** Dedup query identik dalam batch yang sama. */
+  const uniqueOrder: { key: string; sql: string; bind: unknown[] }[] = [];
+  const keyToIndex = new Map<string, number>();
+  for (const item of batch) {
+    if (!keyToIndex.has(item.key)) {
+      keyToIndex.set(item.key, uniqueOrder.length);
+      uniqueOrder.push({ key: item.key, sql: item.sql, bind: item.bind });
+    }
+  }
+
+  try {
+    const results = await lanSqlSelectBatch(
+      uniqueOrder.map((q) => ({ sql: q.sql, bind: q.bind }))
+    );
+    await Promise.all(
+      uniqueOrder.map((q, i) => writeSelectPersist(q.key, results[i]))
+    );
+    for (const item of batch) {
+      const idx = keyToIndex.get(item.key)!;
+      item.resolve(results[idx]);
+    }
+  } catch (err) {
+    for (const item of batch) item.reject(err);
+  }
+}
+
+function scheduleSelectNetwork(key: string, sql: string, bind: unknown[]): Promise<unknown> {
+  const promise = new Promise<unknown>((resolve, reject) => {
+    if (!pendingBatch) pendingBatch = [];
+    pendingBatch.push({ key, sql, bind, resolve, reject });
+    if (!batchFlushScheduled) {
+      batchFlushScheduled = true;
+      queueMicrotask(() => {
+        void flushSelectBatch();
+      });
+    }
+  });
+  const entry = { at: Date.now(), promise };
+  selectCache.set(key, entry);
+  promise.catch(() => {
+    if (selectCache.get(key)?.promise === promise) selectCache.delete(key);
+  });
+  return promise;
 }
 
 function cachedSelect<T>(sql: string, bind: unknown[]): Promise<T> {
-  const key = `${sql}\u0000${JSON.stringify(bind)}`;
+  const key = selectCacheKey(sql, bind);
   const now = Date.now();
-  for (const [k, v] of selectCache) {
-    if (now - v.at > SELECT_CACHE_MS) selectCache.delete(k);
+  pruneFreshCache(now);
+
+  const hit = selectCache.get(key);
+  if (hit && now - hit.at <= SELECT_FRESH_MS) {
+    return hit.promise.then((rows) => structuredClone(rows) as T);
   }
-  let entry = selectCache.get(key);
-  if (!entry) {
-    const promise = lanSqlSelect<T>(sql, bind);
-    entry = { at: now, promise };
-    selectCache.set(key, entry);
-    promise.catch(() => {
-      if (selectCache.get(key)?.promise === promise) selectCache.delete(key);
-    });
-  }
-  return entry.promise.then((rows) => structuredClone(rows) as T);
+
+  const network = scheduleSelectNetwork(key, sql, bind);
+
+  return (async () => {
+    const persisted = await readSelectPersist(key);
+    if (persisted && Date.now() - persisted.at <= SELECT_PERSIST_MS) {
+      /* Tampilkan cache dulu; network memperbarui untuk kunjungan berikutnya. */
+      return structuredClone(persisted.rows) as T;
+    }
+    return structuredClone(await network) as T;
+  })();
 }
 
 /** Database adapter HTTP — bentuk sama dengan desktop SQL IPC. */

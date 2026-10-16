@@ -52,7 +52,7 @@ export async function listRtBtnPemasih(params?: {
   return rows.map((r) => r.rt_btn.trim()).filter(Boolean);
 }
 
-export async function listKrama(params?: {
+export type KramaListFilter = {
   klasifikasi?: KlasifikasiKode;
   klasifikasiIn?: KlasifikasiKode[];
   banjarId?: string;
@@ -66,23 +66,17 @@ export async function listKrama(params?: {
   /** Default: hanya krama aktif. */
   statusKrama?: "aktif" | "nonaktif";
   alasanTidakAktif?: "meninggal" | "pindah";
-}) {
-  const db = await getDb();
-  const statusFilter = params?.statusKrama ?? "aktif";
-  let sql = `
-    SELECT k.id, k.nomor_kartu, k.nomor_kontak, k.jenis_kartu, k.status_krama, k.status_pipil, k.status_pemasih,
-           k.tanggal_terdaftar, k.tanggal_berlaku_mulai_pemasih,
-           k.alasan_tidak_aktif, k.tanggal_tidak_aktif, k.keterangan_tidak_aktif,
-           kk.kode as klasifikasi_kode, kk.nama_tampilan as klasifikasi_nama,
-           p.nama_lengkap as kepala_nama, p.tanggal_lahir as kepala_tanggal_lahir,
-           k.jenis_krama_mipil_id, k.alasan_nyada,
-           COALESCE(jm.nama, jkt.nama, jt.nama) as jenis_nama,
-           COALESCE(jm.masa_berlaku_tahun, jkt.masa_berlaku_tahun, jt.masa_berlaku_tahun) as masa_berlaku_tahun,
-           COALESCE(jkt.auto_perpanjang, jt.auto_perpanjang) as auto_perpanjang_pemasih,
-           k.alamat, k.rt_btn,
-           b.nama as banjar_nama, b.kode as banjar_kode,
-           t.nama as tempek_nama, t.created_at as tempek_created_at,
-           a.nama as arahan_nama, a.created_at as arahan_created_at
+};
+
+export type KramaListParams = KramaListFilter & {
+  /** Pagination server — tanpa limit mengembalikan semua baris (ekspor/laporan). */
+  limit?: number;
+  offset?: number;
+  orderBy?: string;
+  orderDir?: "asc" | "desc";
+};
+
+const KRAMA_LIST_FROM = `
     FROM krama k
     JOIN klasifikasi_krama kk ON kk.id = k.klasifikasi_krama_id
     JOIN penduduk p ON p.id = k.kepala_penduduk_id
@@ -92,53 +86,77 @@ export async function listKrama(params?: {
     JOIN banjar b ON b.id = k.banjar_id
     LEFT JOIN tempek t ON t.id = k.tempek_id
     LEFT JOIN arahan a ON a.id = k.arahan_id
-    WHERE k.status_krama = $1
-  `;
+`;
+
+const KRAMA_LIST_ORDER_SQL: Record<string, string> = {
+  nomor_kartu: "k.nomor_kartu",
+  kepala_nama: "p.nama_lengkap COLLATE NOCASE",
+  kepala_tanggal_lahir: "p.tanggal_lahir",
+  jenis_nama: "COALESCE(jm.nama, jkt.nama, jt.nama) COLLATE NOCASE",
+  banjar_nama: "b.nama COLLATE NOCASE",
+  tempek_nama: "t.nama COLLATE NOCASE",
+  arahan_nama: "a.nama COLLATE NOCASE",
+  alasan_tidak_aktif: "k.alasan_tidak_aktif",
+  tanggal_tidak_aktif: "k.tanggal_tidak_aktif",
+  status_pipil: "k.status_pipil",
+  tanggal_terdaftar: "k.tanggal_terdaftar",
+  alamat: "k.alamat COLLATE NOCASE",
+  rt_btn: "k.rt_btn COLLATE NOCASE",
+  klasifikasi_nama: "kk.nama_tampilan COLLATE NOCASE",
+};
+
+function buildKramaListWhere(params?: KramaListFilter): {
+  where: string;
+  args: unknown[];
+  statusFilter: "aktif" | "nonaktif";
+} {
+  const statusFilter = params?.statusKrama ?? "aktif";
+  let where = `WHERE k.status_krama = $1`;
   const args: unknown[] = [statusFilter];
   let n = 2;
   if (params?.alasanTidakAktif) {
-    sql += ` AND k.alasan_tidak_aktif = $${n++}`;
+    where += ` AND k.alasan_tidak_aktif = $${n++}`;
     args.push(params.alasanTidakAktif);
   }
   if (params?.klasifikasiIn?.length) {
     const ph = params.klasifikasiIn.map(() => `$${n++}`).join(", ");
-    sql += ` AND kk.kode IN (${ph})`;
+    where += ` AND kk.kode IN (${ph})`;
     args.push(...params.klasifikasiIn);
   } else if (params?.klasifikasi) {
-    sql += ` AND kk.kode = $${n++}`;
+    where += ` AND kk.kode = $${n++}`;
     args.push(params.klasifikasi);
   }
   if (params?.banjarId) {
-    sql += ` AND k.banjar_id = $${n++}`;
+    where += ` AND k.banjar_id = $${n++}`;
     args.push(params.banjarId);
   }
   if (params?.jenisKramaMipilId) {
-    sql += ` AND k.jenis_krama_mipil_id = $${n++}`;
+    where += ` AND k.jenis_krama_mipil_id = $${n++}`;
     args.push(params.jenisKramaMipilId);
   }
   if (params?.jenisKramaTamiuId) {
-    sql += ` AND k.jenis_krama_tamiu_id = $${n++}`;
+    where += ` AND k.jenis_krama_tamiu_id = $${n++}`;
     args.push(params.jenisKramaTamiuId);
   }
   if (params?.jenisTamiuId) {
-    sql += ` AND k.jenis_tamiu_id = $${n++}`;
+    where += ` AND k.jenis_tamiu_id = $${n++}`;
     args.push(params.jenisTamiuId);
   }
   if (params?.rtBtn?.trim()) {
-    sql += ` AND TRIM(k.rt_btn) = $${n++}`;
+    where += ` AND TRIM(k.rt_btn) = $${n++}`;
     args.push(params.rtBtn.trim());
   }
   if (params?.tempekId) {
-    sql += ` AND k.tempek_id = $${n++}`;
+    where += ` AND k.tempek_id = $${n++}`;
     args.push(params.tempekId);
   }
   if (params?.arahanId) {
-    sql += ` AND k.arahan_id = $${n++}`;
+    where += ` AND k.arahan_id = $${n++}`;
     args.push(params.arahanId);
   }
   if (params?.q) {
     const q = `%${params.q}%`;
-    sql += ` AND (
+    where += ` AND (
       k.nomor_kartu LIKE $${n}
       OR COALESCE(k.alamat, '') LIKE $${n + 1}
       OR p.nama_lengkap LIKE $${n + 2}
@@ -161,45 +179,116 @@ export async function listKrama(params?: {
       )
     )`;
     args.push(q, q, q, q, q, q, q, q, q, q, q);
-    n += 11;
   }
-  sql += ` ORDER BY b.kode ASC, COALESCE(t.created_at, '') ASC, COALESCE(a.created_at, '') ASC, k.nomor_kartu ASC`;
-  const rows = await db.select<KramaListItem[]>(sql, args);
+  return { where, args, statusFilter };
+}
+
+function kramaListOrderSql(orderBy?: string, orderDir?: "asc" | "desc"): string {
+  const col = orderBy ? KRAMA_LIST_ORDER_SQL[orderBy] : undefined;
+  if (!col) {
+    return `ORDER BY b.kode ASC, COALESCE(t.created_at, '') ASC, COALESCE(a.created_at, '') ASC, k.nomor_kartu ASC`;
+  }
+  const dir = orderDir === "desc" ? "DESC" : "ASC";
+  return `ORDER BY ${col} ${dir}, k.nomor_kartu ASC`;
+}
+
+function applyIlikitaPreview(rows: KramaListItem[], desa: Awaited<ReturnType<typeof getDesaAdat>>): void {
+  for (const row of rows) {
+    const kode = row.klasifikasi_kode as KlasifikasiKode;
+    const col = statusIlikitaColumn(kode);
+    if (!col) continue;
+    const stub: KramaDetail = {
+      id: row.id,
+      nomor_kartu: row.nomor_kartu,
+      jenis_kartu: row.jenis_kartu as KramaDetail["jenis_kartu"],
+      klasifikasi_kode: kode,
+      klasifikasi_nama: row.klasifikasi_nama,
+      gelar_kepala: "",
+      banjar_id: "",
+      banjar_nama: row.banjar_nama,
+      banjar_kode: "",
+      masa_berlaku_tahun: row.masa_berlaku_tahun,
+      auto_perpanjang_pemasih: row.auto_perpanjang_pemasih,
+      tanggal_terdaftar: row.tanggal_terdaftar,
+      tanggal_berlaku_mulai_pemasih: row.tanggal_berlaku_mulai_pemasih,
+      status_krama: row.status_krama,
+      status_pipil: row.status_pipil,
+      status_pemasih: row.status_pemasih,
+      kepala: { id: "", nama_lengkap: row.kepala_nama, jenis_kelamin: "" },
+      anggota_aktif: [],
+    };
+    previewStatusIlikita(stub, desa);
+    row.status_pipil = stub.status_pipil;
+    row.status_pemasih = stub.status_pemasih;
+  }
+}
+
+export async function countKrama(params?: KramaListFilter): Promise<number> {
+  const db = await getDb();
+  const { where, args } = buildKramaListWhere(params);
+  const rows = await db.select<{ c: number }[]>(
+    `SELECT COUNT(*) as c ${KRAMA_LIST_FROM} ${where}`,
+    args
+  );
+  return Number(rows[0]?.c ?? 0);
+}
+
+/** Ringkasan chip filter — tanpa mengunduh seluruh daftar. */
+export async function summarizeKramaByJenis(
+  params?: KramaListFilter
+): Promise<{ klasifikasi_nama: string; jenis_nama: string | null; count: number }[]> {
+  const db = await getDb();
+  const { where, args } = buildKramaListWhere(params);
+  return db.select(
+    `SELECT kk.nama_tampilan as klasifikasi_nama,
+            COALESCE(jm.nama, jkt.nama, jt.nama) as jenis_nama,
+            COUNT(*) as count
+     ${KRAMA_LIST_FROM}
+     ${where}
+     GROUP BY kk.nama_tampilan, COALESCE(jm.nama, jkt.nama, jt.nama)
+     ORDER BY count DESC, klasifikasi_nama ASC, jenis_nama ASC`,
+    args
+  );
+}
+
+export async function listKrama(params?: KramaListParams): Promise<KramaListItem[]> {
+  const db = await getDb();
+  const { where, args, statusFilter } = buildKramaListWhere(params);
+  let sql = `
+    SELECT k.id, k.nomor_kartu, k.nomor_kontak, k.jenis_kartu, k.status_krama, k.status_pipil, k.status_pemasih,
+           k.tanggal_terdaftar, k.tanggal_berlaku_mulai_pemasih,
+           k.alasan_tidak_aktif, k.tanggal_tidak_aktif, k.keterangan_tidak_aktif,
+           kk.kode as klasifikasi_kode, kk.nama_tampilan as klasifikasi_nama,
+           p.nama_lengkap as kepala_nama, p.tanggal_lahir as kepala_tanggal_lahir,
+           k.jenis_krama_mipil_id, k.alasan_nyada,
+           COALESCE(jm.nama, jkt.nama, jt.nama) as jenis_nama,
+           COALESCE(jm.masa_berlaku_tahun, jkt.masa_berlaku_tahun, jt.masa_berlaku_tahun) as masa_berlaku_tahun,
+           COALESCE(jkt.auto_perpanjang, jt.auto_perpanjang) as auto_perpanjang_pemasih,
+           k.alamat, k.rt_btn,
+           b.nama as banjar_nama, b.kode as banjar_kode,
+           t.nama as tempek_nama, t.created_at as tempek_created_at,
+           a.nama as arahan_nama, a.created_at as arahan_created_at
+    ${KRAMA_LIST_FROM}
+    ${where}
+    ${kramaListOrderSql(params?.orderBy, params?.orderDir)}
+  `;
+  const bind = [...args];
+  if (params?.limit != null && Number.isFinite(params.limit)) {
+    sql += ` LIMIT $${bind.length + 1}`;
+    bind.push(Math.max(1, Math.floor(params.limit)));
+    if (params.offset != null && Number.isFinite(params.offset) && params.offset > 0) {
+      sql += ` OFFSET $${bind.length + 1}`;
+      bind.push(Math.max(0, Math.floor(params.offset)));
+    }
+  }
+  const rows = await db.select<KramaListItem[]>(sql, bind);
 
   for (const row of rows) {
     row.nomor_kontak = row.nomor_kontak?.trim() || null;
   }
 
   if (statusFilter === "aktif") {
-    const desa = await getDesaAdat();
-    for (const row of rows) {
-      const kode = row.klasifikasi_kode as KlasifikasiKode;
-      const col = statusIlikitaColumn(kode);
-      if (!col) continue;
-      const stub: KramaDetail = {
-        id: row.id,
-        nomor_kartu: row.nomor_kartu,
-        jenis_kartu: row.jenis_kartu as KramaDetail["jenis_kartu"],
-        klasifikasi_kode: kode,
-        klasifikasi_nama: row.klasifikasi_nama,
-        gelar_kepala: "",
-        banjar_id: "",
-        banjar_nama: row.banjar_nama,
-        banjar_kode: "",
-        masa_berlaku_tahun: row.masa_berlaku_tahun,
-        auto_perpanjang_pemasih: row.auto_perpanjang_pemasih,
-        tanggal_terdaftar: row.tanggal_terdaftar,
-        tanggal_berlaku_mulai_pemasih: row.tanggal_berlaku_mulai_pemasih,
-        status_krama: row.status_krama,
-        status_pipil: row.status_pipil,
-        status_pemasih: row.status_pemasih,
-        kepala: { id: "", nama_lengkap: row.kepala_nama, jenis_kelamin: "" },
-        anggota_aktif: [],
-      };
-      previewStatusIlikita(stub, desa);
-      row.status_pipil = stub.status_pipil;
-      row.status_pemasih = stub.status_pemasih;
-    }
+    applyIlikitaPreview(rows, await getDesaAdat());
   }
 
   return rows;

@@ -191,19 +191,9 @@ export async function getDibayarPeriodeMapForKrama(
 
 export type DibayarPeriodeByKrama = Map<string, Map<string, number>>;
 
-/** Pembayaran dudukan per periode, diindeks per krama pemasih aktif (satu query). */
-export async function getDibayarPeriodeMapsForPemasihAktif(): Promise<DibayarPeriodeByKrama> {
-  const db = await getDb();
-  const rows = await db.select<
-    { krama_id: string; tahun: number; bulan: number; total: number }[]
-  >(
-    `SELECT p.krama_id, p.tahun, p.bulan, COALESCE(SUM(p.jumlah), 0) as total
-     FROM dudukan_pembayaran p
-     JOIN krama k ON k.id = p.krama_id
-     JOIN klasifikasi_krama kk ON kk.id = k.klasifikasi_krama_id
-     WHERE kk.kode IN ('KRAMA_TAMIU', 'TAMIU') AND k.status_krama = 'aktif'
-     GROUP BY p.krama_id, p.tahun, p.bulan`
-  );
+function buildDibayarPeriodeMaps(
+  rows: { krama_id: string; tahun: number; bulan: number; total: number }[]
+): DibayarPeriodeByKrama {
   const result: DibayarPeriodeByKrama = new Map();
   for (const row of rows) {
     let map = result.get(row.krama_id);
@@ -217,6 +207,63 @@ export async function getDibayarPeriodeMapsForPemasihAktif(): Promise<DibayarPer
     );
   }
   return result;
+}
+
+/** Pembayaran dudukan per periode, diindeks per krama pemasih aktif (satu query). */
+export async function getDibayarPeriodeMapsForPemasihAktif(): Promise<DibayarPeriodeByKrama> {
+  const db = await getDb();
+  const rows = await db.select<
+    { krama_id: string; tahun: number; bulan: number; total: number }[]
+  >(
+    `SELECT p.krama_id, p.tahun, p.bulan, COALESCE(SUM(p.jumlah), 0) as total
+     FROM dudukan_pembayaran p
+     JOIN krama k ON k.id = p.krama_id
+     JOIN klasifikasi_krama kk ON kk.id = k.klasifikasi_krama_id
+     WHERE kk.kode IN ('KRAMA_TAMIU', 'TAMIU') AND k.status_krama = 'aktif'
+     GROUP BY p.krama_id, p.tahun, p.bulan`
+  );
+  return buildDibayarPeriodeMaps(rows);
+}
+
+/** Sama seperti di atas, tetapi hanya untuk id krama tertentu (filter daftar). */
+export async function getDibayarPeriodeMapsForKramaIds(
+  kramaIds: string[]
+): Promise<DibayarPeriodeByKrama> {
+  if (kramaIds.length === 0) return new Map();
+  const db = await getDb();
+  const ph = kramaIds.map((_, i) => `$${i + 1}`).join(", ");
+  const rows = await db.select<
+    { krama_id: string; tahun: number; bulan: number; total: number }[]
+  >(
+    `SELECT p.krama_id, p.tahun, p.bulan, COALESCE(SUM(p.jumlah), 0) as total
+     FROM dudukan_pembayaran p
+     WHERE p.krama_id IN (${ph})
+     GROUP BY p.krama_id, p.tahun, p.bulan`,
+    kramaIds
+  );
+  return buildDibayarPeriodeMaps(rows);
+}
+
+export async function getTotalDibayarMapForKramaIds(
+  tahun: number,
+  bulan: number,
+  kramaIds: string[]
+): Promise<Map<string, number>> {
+  if (kramaIds.length === 0) return new Map();
+  const db = await getDb();
+  const ph = kramaIds.map((_, i) => `$${i + 3}`).join(", ");
+  const rows = await db.select<{ krama_id: string; total: number }[]>(
+    `SELECT krama_id, COALESCE(SUM(jumlah), 0) as total
+     FROM dudukan_pembayaran
+     WHERE tahun = $1 AND bulan = $2 AND krama_id IN (${ph})
+     GROUP BY krama_id`,
+    [parseTahun(tahun), parseBulan(bulan), ...kramaIds]
+  );
+  const map = new Map<string, number>();
+  for (const row of rows) {
+    map.set(row.krama_id, Math.round(Number(row.total) || 0));
+  }
+  return map;
 }
 
 export type LastPembayaranTanggalByKrama = Map<string, Map<string, string>>;

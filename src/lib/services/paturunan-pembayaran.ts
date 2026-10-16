@@ -50,17 +50,9 @@ async function assertPetugasForKrama(petugasId: string, kramaId: string): Promis
   throw new Error("Petugas harus dari banjar krama yang sama");
 }
 
-export async function getPembayaranTotalsMap(
-  iuranId: string
-): Promise<Map<string, PembayaranTotals>> {
-  const db = await getDb();
-  const rows = await db.select<{ krama_id: string; jenis: string; total: number }[]>(
-    `SELECT krama_id, COALESCE(jenis, 'wajib') as jenis, COALESCE(SUM(jumlah), 0) as total
-     FROM paturunan_pembayaran
-     WHERE iuran_id = $1
-     GROUP BY krama_id, jenis`,
-    [iuranId]
-  );
+function buildPembayaranTotalsMap(
+  rows: { krama_id: string; jenis: string; total: number }[]
+): Map<string, PembayaranTotals> {
   const map = new Map<string, PembayaranTotals>();
   for (const row of rows) {
     const cur = map.get(row.krama_id) ?? emptyTotals();
@@ -73,6 +65,33 @@ export async function getPembayaranTotalsMap(
     map.set(row.krama_id, cur);
   }
   return map;
+}
+
+export async function getPembayaranTotalsMap(
+  iuranId: string,
+  kramaIds?: string[]
+): Promise<Map<string, PembayaranTotals>> {
+  const db = await getDb();
+  if (kramaIds && kramaIds.length === 0) return new Map();
+  if (kramaIds?.length) {
+    const ph = kramaIds.map((_, i) => `$${i + 2}`).join(", ");
+    const rows = await db.select<{ krama_id: string; jenis: string; total: number }[]>(
+      `SELECT krama_id, COALESCE(jenis, 'wajib') as jenis, COALESCE(SUM(jumlah), 0) as total
+       FROM paturunan_pembayaran
+       WHERE iuran_id = $1 AND krama_id IN (${ph})
+       GROUP BY krama_id, jenis`,
+      [iuranId, ...kramaIds]
+    );
+    return buildPembayaranTotalsMap(rows);
+  }
+  const rows = await db.select<{ krama_id: string; jenis: string; total: number }[]>(
+    `SELECT krama_id, COALESCE(jenis, 'wajib') as jenis, COALESCE(SUM(jumlah), 0) as total
+     FROM paturunan_pembayaran
+     WHERE iuran_id = $1
+     GROUP BY krama_id, jenis`,
+    [iuranId]
+  );
+  return buildPembayaranTotalsMap(rows);
 }
 
 export async function getPembayaranTotals(

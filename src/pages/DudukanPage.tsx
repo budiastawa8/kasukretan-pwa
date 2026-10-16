@@ -100,6 +100,7 @@ export function DudukanPage() {
   const [jenisT, setJenisT] = useState<JenisTamiuRow[]>([]);
 
   const [q, setQ] = usePersistedScalar(PAGE_ID, "q", "");
+  const [debouncedQ, setDebouncedQ] = useState("");
   const [banjarId, setBanjarId] = usePersistedScalar(PAGE_ID, "banjarId", "");
   const [rtBtn, setRtBtn] = usePersistedScalar(PAGE_ID, "rtBtn", "");
   const [rtBtnOptions, setRtBtnOptions] = useState<string[]>([]);
@@ -151,6 +152,11 @@ export function DudukanPage() {
     if (page !== safePage) setPage(safePage);
   }, [page, safePage]);
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedQ(q.trim()), 250);
+    return () => window.clearTimeout(timer);
+  }, [q]);
+
   const jenisKramaTamiuId = jenisFilter.startsWith("kt:") ? jenisFilter.slice(3) : undefined;
   const jenisTamiuId = jenisFilter.startsWith("t:") ? jenisFilter.slice(2) : undefined;
 
@@ -195,7 +201,7 @@ export function DudukanPage() {
         getDudukanRingkasan(),
         loadDudukanListAndRingkasanBulan(
           {
-            q: q || undefined,
+            q: debouncedQ || undefined,
             banjarId: banjarId || undefined,
             klasifikasi: filterKlas,
             jenisKramaTamiuId,
@@ -221,7 +227,7 @@ export function DudukanPage() {
     } finally {
       setLoading(false);
     }
-  }, [q, banjarId, rtBtn, klasifikasi, jenisFilter, punyaTunggakan, jenisKramaTamiuId, jenisTamiuId, tahunIni, bulanIni]);
+  }, [debouncedQ, banjarId, rtBtn, klasifikasi, jenisFilter, punyaTunggakan, jenisKramaTamiuId, jenisTamiuId, tahunIni, bulanIni]);
 
   useEffect(() => {
     load();

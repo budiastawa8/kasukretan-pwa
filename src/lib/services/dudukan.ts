@@ -1,4 +1,5 @@
 import { getDb } from "../db/client";
+import { cachedQuery } from "../query-cache";
 import { compareBanjarRow } from "../wilayah-order";
 import {
   hitungSisaDudukan,
@@ -19,17 +20,22 @@ import type { DudukanKeringananRow, KlasifikasiKode } from "../types";
 import { listBanjar } from "./master";
 import {
   getDibayarPeriodeMapForKrama,
+  getDibayarPeriodeMapsForKramaIds,
   getDibayarPeriodeMapsForPemasihAktif,
   getLastPembayaranTanggalMapsForPemasihAktif,
   getTotalDibayarMap,
+  getTotalDibayarMapForKramaIds,
   type DibayarPeriodeByKrama,
   type LastPembayaranTanggalByKrama,
 } from "./dudukan-pembayaran";
 import {
   getKeringananDetailMapForKrama,
+  getKeringananDetailMapsForKramaIds,
   getKeringananDetailMapsForPemasihAktif,
   getKeringananMapForBulan,
+  getKeringananMapForBulanForKramaIds,
   getKeringananPeriodeMapForKrama,
+  getKeringananPeriodeMapsForKramaIds,
   getKeringananPeriodeMapsForPemasihAktif,
   type KeringananDetailByKrama,
   type KeringananPeriodeByKrama,
@@ -515,6 +521,42 @@ async function loadTunggakanBatchData(
   };
 }
 
+/** Batch pembayaran/keringanan hanya untuk krama terfilter — jauh lebih ringan saat filter banjar/cari. */
+async function loadTunggakanBatchDataForKramaIds(kramaIds: string[]): Promise<TunggakanBatchData> {
+  if (kramaIds.length === 0) {
+    return {
+      dibayarByKrama: new Map(),
+      keringananByKrama: new Map(),
+      keringananDetailByKrama: new Map(),
+    };
+  }
+  const [dibayarByKrama, keringananByKrama, keringananDetailByKrama] = await Promise.all([
+    getDibayarPeriodeMapsForKramaIds(kramaIds),
+    getKeringananPeriodeMapsForKramaIds(kramaIds),
+    getKeringananDetailMapsForKramaIds(kramaIds),
+  ]);
+  return { dibayarByKrama, keringananByKrama, keringananDetailByKrama };
+}
+
+function hasDudukanListFilter(params: {
+  q?: string;
+  banjarId?: string;
+  klasifikasi?: KlasifikasiKode;
+  jenisKramaTamiuId?: string;
+  jenisTamiuId?: string;
+  rtBtn?: string;
+  punyaTunggakan?: boolean;
+}): boolean {
+  return Boolean(
+    params.q?.trim() ||
+      params.banjarId ||
+      params.klasifikasi ||
+      params.jenisKramaTamiuId ||
+      params.jenisTamiuId ||
+      params.rtBtn?.trim()
+  );
+}
+
 function hitungTunggakanForBaseRow(row: KramaDudukanBase, batch: TunggakanBatchData) {
   return hitungTunggakanDariPembayaran(
     Number(row.tarif_nominal) || 0,
@@ -692,18 +734,24 @@ export async function loadDudukanListAndRingkasanBulan(
 ): Promise<{ list: DudukanKramaSearchRow[]; ringkasanBulan: RingkasanBulanDudukan }> {
   const t = parseTahun(tahun);
   const b = parseBulan(bulan);
-  const [rows, batch, dibayarBulan, keringananBulan] = await Promise.all([
-    queryKramaDudukanBase(searchParams),
-    loadTunggakanBatchData(),
-    getTotalDibayarMap(t, b),
-    getKeringananMapForBulan(t, b),
-  ]);
+  const cacheKey = `dudukan:list+ringkasan:${t}-${b}:${JSON.stringify(searchParams)}`;
+  return cachedQuery(cacheKey, async () => {
+    const rows = await queryKramaDudukanBase(searchParams);
+    const scoped = hasDudukanListFilter(searchParams);
+    const ids = scoped ? rows.map((r) => r.id) : null;
 
-  const list = buildKramaDudukanSearchFromBase(rows, batch, searchParams.punyaTunggakan);
-  const dudukanBulan = buildDudukanRowsForBulan(rows, t, b, dibayarBulan, keringananBulan);
-  const ringkasanBulan = buildRingkasanBulanFromDudukanRows(dudukanBulan, t, b);
+    const [batch, dibayarBulan, keringananBulan] = await Promise.all([
+      ids ? loadTunggakanBatchDataForKramaIds(ids) : loadTunggakanBatchData(),
+      ids ? getTotalDibayarMapForKramaIds(t, b, ids) : getTotalDibayarMap(t, b),
+      ids ? getKeringananMapForBulanForKramaIds(t, b, ids) : getKeringananMapForBulan(t, b),
+    ]);
 
-  return { list, ringkasanBulan };
+    const list = buildKramaDudukanSearchFromBase(rows, batch, searchParams.punyaTunggakan);
+    const dudukanBulan = buildDudukanRowsForBulan(rows, t, b, dibayarBulan, keringananBulan);
+    const ringkasanBulan = buildRingkasanBulanFromDudukanRows(dudukanBulan, t, b);
+
+    return { list, ringkasanBulan };
+  });
 }
 
 export type DudukanEksekutif = {
@@ -882,10 +930,11 @@ export async function listKramaDudukanSearch(params?: {
   jenisTamiuId?: string;
   punyaTunggakan?: boolean;
 }): Promise<DudukanKramaSearchRow[]> {
-  const [rows, batch] = await Promise.all([
-    queryKramaDudukanBase(params),
-    loadTunggakanBatchData(),
-  ]);
+  const rows = await queryKramaDudukanBase(params);
+  const scoped = hasDudukanListFilter(params ?? {});
+  const batch = scoped
+    ? await loadTunggakanBatchDataForKramaIds(rows.map((r) => r.id))
+    : await loadTunggakanBatchData();
   return buildKramaDudukanSearchFromBase(rows, batch, params?.punyaTunggakan);
 }
 
@@ -901,54 +950,58 @@ export async function listDudukanTunggakanLaporan(params?: {
   tahun?: number;
   bulan?: number;
 }): Promise<DudukanTunggakanLaporanRow[]> {
-  const [rows, batch] = await Promise.all([
-    queryKramaDudukanBase(params),
-    loadTunggakanBatchData(),
-  ]);
-  const result: DudukanTunggakanLaporanRow[] = [];
-  const minBulan = Math.max(1, params?.minBulanTunggakan ?? 1);
-  const filterPeriode =
-    params?.tahun != null &&
-    params?.bulan != null &&
-    params.tahun > 0 &&
-    params.bulan >= 1 &&
-    params.bulan <= 12;
+  const cacheKey = `dudukan:tunggakan:${JSON.stringify(params ?? {})}`;
+  return cachedQuery(cacheKey, async () => {
+    const rows = await queryKramaDudukanBase(params);
+    const scoped = hasDudukanListFilter(params ?? {});
+    const batch = scoped
+      ? await loadTunggakanBatchDataForKramaIds(rows.map((r) => r.id))
+      : await loadTunggakanBatchData();
+    const result: DudukanTunggakanLaporanRow[] = [];
+    const minBulan = Math.max(1, params?.minBulanTunggakan ?? 1);
+    const filterPeriode =
+      params?.tahun != null &&
+      params?.bulan != null &&
+      params.tahun > 0 &&
+      params.bulan >= 1 &&
+      params.bulan <= 12;
 
-  for (const row of rows) {
-    const detail = mapKramaBase(row);
-    if (detail.tarif_bulanan <= 0) continue;
+    for (const row of rows) {
+      const detail = mapKramaBase(row);
+      if (detail.tarif_bulanan <= 0) continue;
 
-    const tunggakan = hitungTunggakanForBaseRow(row, batch);
-    let bulan_tunggakan = tunggakan.bulan.filter((b) => b.sisa > 0 && !b.di_muka);
-    if (bulan_tunggakan.length < minBulan) continue;
+      const tunggakan = hitungTunggakanForBaseRow(row, batch);
+      let bulan_tunggakan = tunggakan.bulan.filter((b) => b.sisa > 0 && !b.di_muka);
+      if (bulan_tunggakan.length < minBulan) continue;
 
-    if (filterPeriode) {
-      bulan_tunggakan = bulan_tunggakan.filter(
-        (b) => b.tahun === params!.tahun && b.bulan === params!.bulan
-      );
-      if (bulan_tunggakan.length === 0) continue;
+      if (filterPeriode) {
+        bulan_tunggakan = bulan_tunggakan.filter(
+          (b) => b.tahun === params!.tahun && b.bulan === params!.bulan
+        );
+        if (bulan_tunggakan.length === 0) continue;
+      }
+
+      const total_sisa = bulan_tunggakan.reduce((s, b) => s + b.sisa, 0);
+
+      result.push({
+        ...detail,
+        tunggakan_bulan: bulan_tunggakan.length,
+        total_sisa,
+        total_sisa_dimuka: tunggakan.total_sisa_dimuka,
+        lunas_keringanan_bulan: tunggakan.lunas_keringanan_bulan,
+        bulan_tunggakan_aktif: bulan_tunggakan,
+        bulan_tunggakan,
+      });
     }
 
-    const total_sisa = bulan_tunggakan.reduce((s, b) => s + b.sisa, 0);
-
-    result.push({
-      ...detail,
-      tunggakan_bulan: bulan_tunggakan.length,
-      total_sisa,
-      total_sisa_dimuka: tunggakan.total_sisa_dimuka,
-      lunas_keringanan_bulan: tunggakan.lunas_keringanan_bulan,
-      bulan_tunggakan_aktif: bulan_tunggakan,
-      bulan_tunggakan,
+    result.sort((a, b) => {
+      const alamat = (a.alamat ?? "").localeCompare(b.alamat ?? "", "id", { sensitivity: "base" });
+      if (alamat !== 0) return alamat;
+      return (a.kepala_nama ?? "").localeCompare(b.kepala_nama ?? "", "id");
     });
-  }
 
-  result.sort((a, b) => {
-    const alamat = (a.alamat ?? "").localeCompare(b.alamat ?? "", "id", { sensitivity: "base" });
-    if (alamat !== 0) return alamat;
-    return (a.kepala_nama ?? "").localeCompare(b.kepala_nama ?? "", "id");
+    return result;
   });
-
-  return result;
 }
 
 export async function listDudukanPertimbanganKeringananLaporan(params?: {

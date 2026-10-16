@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { clampPage, LIST_PAGE_SIZE, paginateSlice } from "../lib/pagination";
+import { clampPage, LIST_PAGE_SIZE } from "../lib/pagination";
 import { Eye, FileSpreadsheet, List, Pencil, RotateCcw, Trash2, UserCheck, UserX } from "lucide-react";
 import { isKramaNyada } from "../lib/nyada-ketentuan";
 import {
@@ -8,7 +8,7 @@ import {
   type AlasanTidakAktifKode,
 } from "../lib/krama-status";
 import { getDesaAdat } from "../lib/services/desa";
-import { deleteKrama, listKrama, reaktivasiKrama } from "../lib/services/krama";
+import { countKrama, deleteKrama, listKrama, reaktivasiKrama } from "../lib/services/krama";
 import { listBanjar } from "../lib/services/master";
 import { kramaEditPath } from "../lib/krama-routes";
 import type { Banjar, DesaAdat, KlasifikasiKode, KramaListItem } from "../lib/types";
@@ -56,6 +56,12 @@ export function KramaListPage({
   newActions: ReactNode;
 }) {
   const [rows, setRows] = useState<KramaListItem[]>([]);
+  const [totalItems, setTotalItems] = useState(0);
+  const [nonaktifRingkasan, setNonaktifRingkasan] = useState({
+    meninggal: 0,
+    pindah: 0,
+    total: 0,
+  });
   const [banjar, setBanjar] = useState<Banjar[]>([]);
   const [desa, setDesa] = useState<DesaAdat | null>(null);
   const [q, setQ] = useState("");
@@ -81,24 +87,11 @@ export function KramaListPage({
   const isPemasihList = !fixedKlasifikasi && Boolean(klasifikasiIn?.length);
   const isNonaktifTab = listTab === "nonaktif";
 
-  const nonaktifRingkasan = useMemo(() => {
-    let meninggal = 0;
-    let pindah = 0;
-    for (const r of rows) {
-      if (r.alasan_tidak_aktif === "meninggal") meninggal++;
-      else if (r.alasan_tidak_aktif === "pindah") pindah++;
-    }
-    return { meninggal, pindah, total: rows.length };
-  }, [rows]);
-
   const safePage = useMemo(
-    () => clampPage(page, rows.length, pageSize),
-    [page, rows.length, pageSize]
+    () => clampPage(page, totalItems, pageSize),
+    [page, totalItems, pageSize]
   );
-  const pagedRows = useMemo(
-    () => paginateSlice(rows, safePage, pageSize),
-    [rows, safePage, pageSize]
-  );
+  const pagedRows = rows;
 
   useEffect(() => {
     if (page !== safePage) setPage(safePage);
@@ -109,23 +102,24 @@ export function KramaListPage({
     return () => window.clearTimeout(timer);
   }, [q]);
 
-  const load = useCallback(async () => {
+  useEffect(() => {
     setPage(1);
+  }, [debouncedQ, klasifikasi, banjarId, alasanFilter, listTab]);
+
+  const listFilter = useMemo(() => {
     const filterKode = klasifikasi ? (klasifikasi as KlasifikasiKode) : undefined;
     const alasan =
       isNonaktifTab && alasanFilter
         ? (alasanFilter as AlasanTidakAktifKode)
         : undefined;
-    setRows(
-      await listKrama({
-        q: debouncedQ || undefined,
-        klasifikasi: fixedKlasifikasi ?? filterKode,
-        klasifikasiIn: fixedKlasifikasi || filterKode ? undefined : klasifikasiIn,
-        banjarId: banjarId || undefined,
-        statusKrama: listTab,
-        alasanTidakAktif: alasan,
-      })
-    );
+    return {
+      q: debouncedQ || undefined,
+      klasifikasi: fixedKlasifikasi ?? filterKode,
+      klasifikasiIn: fixedKlasifikasi || filterKode ? undefined : klasifikasiIn,
+      banjarId: banjarId || undefined,
+      statusKrama: listTab,
+      alasanTidakAktif: alasan,
+    };
   }, [
     debouncedQ,
     klasifikasi,
@@ -137,8 +131,43 @@ export function KramaListPage({
     klasifikasiIn,
   ]);
 
+  const load = useCallback(async () => {
+    const offset = (Math.max(1, page) - 1) * pageSize;
+    const [pageRows, total] = await Promise.all([
+      listKrama({
+        ...listFilter,
+        limit: pageSize,
+        offset,
+      }),
+      countKrama(listFilter),
+    ]);
+    setRows(pageRows);
+    setTotalItems(total);
+
+    if (isNonaktifTab && !alasanFilter) {
+      const base = { ...listFilter, alasanTidakAktif: undefined };
+      const [meninggal, pindah] = await Promise.all([
+        countKrama({ ...base, alasanTidakAktif: "meninggal" }),
+        countKrama({ ...base, alasanTidakAktif: "pindah" }),
+      ]);
+      setNonaktifRingkasan({ meninggal, pindah, total });
+    } else if (isNonaktifTab) {
+      setNonaktifRingkasan({
+        meninggal: alasanFilter === "meninggal" ? total : 0,
+        pindah: alasanFilter === "pindah" ? total : 0,
+        total,
+      });
+    }
+  }, [listFilter, page, pageSize, isNonaktifTab, alasanFilter]);
+
   useEffect(() => {
-    void load();
+    let cancelled = false;
+    void load().catch((e) => {
+      if (!cancelled) console.error(e);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [load]);
 
   useEffect(() => {
@@ -352,7 +381,7 @@ export function KramaListPage({
             icon={FileSpreadsheet}
             type="button"
             className="h-9 text-xs"
-            disabled={exportBusy || rows.length === 0}
+            disabled={exportBusy || totalItems === 0}
             onClick={() => void handleExportPemasih()}
           >
             Ekspor Excel
@@ -436,7 +465,7 @@ export function KramaListPage({
         <div className="flex flex-wrap gap-2 mb-2 mt-2">
           <span className="inline-flex items-center gap-1 rounded-md border border-copper-200 bg-copper-50/80 px-2 py-0.5 text-xs text-copper-900">
             <span className="text-muted">Krama:</span>
-            <span className="font-semibold tabular-nums">{rows.length}</span>
+            <span className="font-semibold tabular-nums">{totalItems}</span>
           </span>
         </div>
 
@@ -638,7 +667,7 @@ export function KramaListPage({
               })}
             </tbody>
           </table>
-          {!rows.length && (
+          {totalItems === 0 && (
             <p className="text-center text-muted py-3 leading-snug text-xs">
               {isNonaktifTab
                 ? "Belum ada krama nonaktif"
@@ -647,7 +676,7 @@ export function KramaListPage({
           )}
           <ListPagination
             page={safePage}
-            totalItems={rows.length}
+            totalItems={totalItems}
             pageSize={pageSize}
             onPageChange={setPage}
             onPageSizeChange={setPageSize}

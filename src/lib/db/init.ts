@@ -55,6 +55,12 @@ export async function initLanClientDatabase(): Promise<void> {
   const db = await Database.load("sqlite:kasukretan.db");
   setDbInstance(db);
   markMigrationsApplied();
+  /* Prefetch master agar filter halaman pertama tidak menunggu round-trip baru. */
+  void import("../services/master")
+    .then((m) => m.prefetchMasterLists())
+    .catch(() => {
+      /* login belum / RBAC — halaman akan memuat ulang sendiri */
+    });
 }
 
 export function resetDatabaseInit(): void {

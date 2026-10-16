@@ -125,17 +125,9 @@ export async function getKeringananPeriodeMapForKrama(
 
 export type KeringananPeriodeByKrama = Map<string, Map<string, number>>;
 
-export async function getKeringananPeriodeMapsForPemasihAktif(): Promise<KeringananPeriodeByKrama> {
-  const db = await getDb();
-  const rows = await db.select<
-    { krama_id: string; tahun: number; bulan: number; jumlah: number }[]
-  >(
-    `SELECT k.krama_id, k.tahun, k.bulan, k.jumlah
-     FROM dudukan_keringanan k
-     JOIN krama kr ON kr.id = k.krama_id
-     JOIN klasifikasi_krama kk ON kk.id = kr.klasifikasi_krama_id
-     WHERE kk.kode IN ('KRAMA_TAMIU', 'TAMIU') AND kr.status_krama = 'aktif'`
-  );
+function buildKeringananPeriodeMaps(
+  rows: { krama_id: string; tahun: number; bulan: number; jumlah: number }[]
+): KeringananPeriodeByKrama {
   const result: KeringananPeriodeByKrama = new Map();
   for (const row of rows) {
     let map = result.get(row.krama_id);
@@ -151,18 +143,40 @@ export async function getKeringananPeriodeMapsForPemasihAktif(): Promise<Keringa
   return result;
 }
 
-export type KeringananDetailByKrama = Map<string, Map<string, DudukanKeringananRow>>;
-
-export async function getKeringananDetailMapsForPemasihAktif(): Promise<KeringananDetailByKrama> {
+export async function getKeringananPeriodeMapsForPemasihAktif(): Promise<KeringananPeriodeByKrama> {
   const db = await getDb();
-  const rows = await db.select<DudukanKeringananRow[]>(
-    `SELECT k.*, t.nama as petugas_nama, t.jabatan as petugas_jabatan
+  const rows = await db.select<
+    { krama_id: string; tahun: number; bulan: number; jumlah: number }[]
+  >(
+    `SELECT k.krama_id, k.tahun, k.bulan, k.jumlah
      FROM dudukan_keringanan k
      JOIN krama kr ON kr.id = k.krama_id
      JOIN klasifikasi_krama kk ON kk.id = kr.klasifikasi_krama_id
-     LEFT JOIN tim_kasukretan t ON t.id = k.petugas_id
      WHERE kk.kode IN ('KRAMA_TAMIU', 'TAMIU') AND kr.status_krama = 'aktif'`
   );
+  return buildKeringananPeriodeMaps(rows);
+}
+
+export async function getKeringananPeriodeMapsForKramaIds(
+  kramaIds: string[]
+): Promise<KeringananPeriodeByKrama> {
+  if (kramaIds.length === 0) return new Map();
+  const db = await getDb();
+  const ph = kramaIds.map((_, i) => `$${i + 1}`).join(", ");
+  const rows = await db.select<
+    { krama_id: string; tahun: number; bulan: number; jumlah: number }[]
+  >(
+    `SELECT krama_id, tahun, bulan, jumlah
+     FROM dudukan_keringanan
+     WHERE krama_id IN (${ph})`,
+    kramaIds
+  );
+  return buildKeringananPeriodeMaps(rows);
+}
+
+export type KeringananDetailByKrama = Map<string, Map<string, DudukanKeringananRow>>;
+
+function buildKeringananDetailMaps(rows: DudukanKeringananRow[]): KeringananDetailByKrama {
   const result: KeringananDetailByKrama = new Map();
   for (const row of rows) {
     let map = result.get(row.krama_id);
@@ -178,6 +192,57 @@ export async function getKeringananDetailMapsForPemasihAktif(): Promise<Keringan
     });
   }
   return result;
+}
+
+export async function getKeringananDetailMapsForPemasihAktif(): Promise<KeringananDetailByKrama> {
+  const db = await getDb();
+  const rows = await db.select<DudukanKeringananRow[]>(
+    `SELECT k.*, t.nama as petugas_nama, t.jabatan as petugas_jabatan
+     FROM dudukan_keringanan k
+     JOIN krama kr ON kr.id = k.krama_id
+     JOIN klasifikasi_krama kk ON kk.id = kr.klasifikasi_krama_id
+     LEFT JOIN tim_kasukretan t ON t.id = k.petugas_id
+     WHERE kk.kode IN ('KRAMA_TAMIU', 'TAMIU') AND kr.status_krama = 'aktif'`
+  );
+  return buildKeringananDetailMaps(rows);
+}
+
+export async function getKeringananDetailMapsForKramaIds(
+  kramaIds: string[]
+): Promise<KeringananDetailByKrama> {
+  if (kramaIds.length === 0) return new Map();
+  const db = await getDb();
+  const ph = kramaIds.map((_, i) => `$${i + 1}`).join(", ");
+  const rows = await db.select<DudukanKeringananRow[]>(
+    `SELECT k.*, t.nama as petugas_nama, t.jabatan as petugas_jabatan
+     FROM dudukan_keringanan k
+     LEFT JOIN tim_kasukretan t ON t.id = k.petugas_id
+     WHERE k.krama_id IN (${ph})`,
+    kramaIds
+  );
+  return buildKeringananDetailMaps(rows);
+}
+
+export async function getKeringananMapForBulanForKramaIds(
+  tahun: number,
+  bulan: number,
+  kramaIds: string[]
+): Promise<Map<string, number>> {
+  if (kramaIds.length === 0) return new Map();
+  const db = await getDb();
+  const ph = kramaIds.map((_, i) => `$${i + 3}`).join(", ");
+  const rows = await db.select<{ krama_id: string; total: number }[]>(
+    `SELECT krama_id, COALESCE(SUM(jumlah), 0) as total
+     FROM dudukan_keringanan
+     WHERE tahun = $1 AND bulan = $2 AND krama_id IN (${ph})
+     GROUP BY krama_id`,
+    [parseTahun(tahun), parseBulan(bulan), ...kramaIds]
+  );
+  const map = new Map<string, number>();
+  for (const row of rows) {
+    map.set(String(row.krama_id), Math.round(Number(row.total) || 0));
+  }
+  return map;
 }
 
 export async function getKeringananDetailMapForKrama(
