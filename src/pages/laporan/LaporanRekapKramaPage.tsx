@@ -26,9 +26,11 @@ import {
 import { useIsPhoneClient } from "../../hooks/useClientFormFactor";
 import { ArrowLeft, RefreshCw, TableProperties, Users } from "lucide-react";
 
+const COL_NO = "2.25rem";
 const COL_KLASIFIKASI = "6.5rem";
 const COL_JENIS = "13rem";
-const STICKY_JENIS_LEFT = COL_KLASIFIKASI;
+const STICKY_KLASIFIKASI_LEFT = COL_NO;
+const STICKY_JENIS_LEFT = `calc(${COL_NO} + ${COL_KLASIFIKASI})`;
 
 function tableRowKey(row: RekapKramaTableRow, idx: number): string {
   if (row.kind === "data") {
@@ -46,6 +48,7 @@ function buildExportRows(data: RekapKrama, formatted = false): (string | number)
     if (row.kind === "data") {
       return [
         [
+          row.nomor ?? "",
           row.showKlasifikasi ? row.baris.klasifikasi_nama : "",
           row.baris.jenis_nama,
           ...data.banjar.map((b) => fmt(row.baris.per_banjar[b.id] ?? 0)),
@@ -56,6 +59,7 @@ function buildExportRows(data: RekapKrama, formatted = false): (string | number)
     if (row.kind === "subtotal") {
       return [
         [
+          "",
           `Subtotal ${row.klasifikasi_nama}`,
           "",
           ...data.banjar.map((b) => fmt(row.per_banjar[b.id] ?? 0, true)),
@@ -65,6 +69,7 @@ function buildExportRows(data: RekapKrama, formatted = false): (string | number)
     }
     return [
       [
+        "",
         "Total Keseluruhan",
         "",
         ...data.banjar.map((b) => fmt(row.per_banjar[b.id] ?? 0, true)),
@@ -112,8 +117,8 @@ export function LaporanRekapKramaPage() {
   );
 
   const exportHeaders = useMemo(() => {
-    if (!data) return ["Klasifikasi", "Jenis"];
-    return ["Klasifikasi Krama", "Jenis", ...data.banjar.map((b) => b.nama), "Total"];
+    if (!data) return ["No", "Klasifikasi", "Jenis"];
+    return ["No", "Klasifikasi Krama", "Jenis", ...data.banjar.map((b) => b.nama), "Total"];
   }, [data]);
 
   function exportExcel() {
@@ -122,6 +127,7 @@ export function LaporanRekapKramaPage() {
       name: "Rekap Krama",
       headers: exportHeaders,
       rows: buildExportRows(data, true),
+      landscape: true,
     });
   }
 
@@ -129,6 +135,7 @@ export function LaporanRekapKramaPage() {
     if (!data) return;
     const rows = buildExportRows(data, true);
     const boldRows = buildExportBoldRows(data);
+    const banjarStartCol = 3;
     openPdfPreview({
       filename: "rekap-krama",
       judul: "Rekap Krama",
@@ -136,13 +143,17 @@ export function LaporanRekapKramaPage() {
       headers: exportHeaders,
       rows,
       pageSize: "F4",
-      orientation: "portrait",
+      orientation: "landscape",
       rowFontSize: 10,
       headerFontSize: 10.5,
       summaryFontSize: 11.5,
       columnFractions: buildRekapKramaPdfColumnFractions(data.banjar.length),
-      wrapColumns: [1],
-      alignRight: [...data.banjar.map((_, i) => i + 2), data.banjar.length + 2],
+      wrapColumns: [2],
+      alignRight: [
+        0,
+        ...data.banjar.map((_, i) => banjarStartCol + i),
+        banjarStartCol + data.banjar.length,
+      ],
       boldRows,
       highlightRows: boldRows.filter((i) => tableRows[i]?.kind === "subtotal"),
       thickBorderBeforeRows: boldRows,
@@ -203,11 +214,15 @@ export function LaporanRekapKramaPage() {
               </strong>
             </span>
             <span className="text-muted">{data.banjar.length} banjar</span>
+            <span className="text-muted">
+              No: 1 Krama Mipil · 2 Krama Tamiu · 3 Tamiu
+            </span>
           </div>
 
           <div className="overflow-x-auto -mx-1">
             <table className={cn(LAPORAN_TABLE_ELEMENT, "min-w-max table-fixed w-full")}>
               <colgroup>
+                <col style={{ width: COL_NO }} />
                 <col style={{ width: COL_KLASIFIKASI }} />
                 <col style={{ width: COL_JENIS }} />
                 {data.banjar.map((b) => (
@@ -218,8 +233,14 @@ export function LaporanRekapKramaPage() {
               <thead>
                 <tr className={LAPORAN_HEAD_ROW}>
                   <th
-                    className="sticky left-0 z-20 bg-copper-100/95"
-                    style={{ width: COL_KLASIFIKASI }}
+                    className="sticky left-0 z-20 bg-copper-100/95 text-center"
+                    style={{ width: COL_NO }}
+                  >
+                    No
+                  </th>
+                  <th
+                    className="sticky z-20 bg-copper-100/95"
+                    style={{ left: STICKY_KLASIFIKASI_LEFT, width: COL_KLASIFIKASI }}
                   >
                     Klasifikasi
                   </th>
@@ -243,8 +264,14 @@ export function LaporanRekapKramaPage() {
                     return (
                       <tr key={tableRowKey(row, idx)} className={LAPORAN_BODY_ROW}>
                         <td
-                          className="sticky left-0 z-10 bg-white align-top font-medium text-copper-900 border-r border-copper-100"
-                          style={{ width: COL_KLASIFIKASI }}
+                          className="sticky left-0 z-10 bg-white align-top text-center tabular-nums text-copper-800 border-r border-copper-100"
+                          style={{ width: COL_NO }}
+                        >
+                          {row.nomor ?? ""}
+                        </td>
+                        <td
+                          className="sticky z-10 bg-white align-top font-medium text-copper-900 border-r border-copper-100"
+                          style={{ left: STICKY_KLASIFIKASI_LEFT, width: COL_KLASIFIKASI }}
                         >
                           {row.showKlasifikasi ? row.baris.klasifikasi_nama : ""}
                         </td>
@@ -273,7 +300,7 @@ export function LaporanRekapKramaPage() {
                         className="border-t border-copper-200 bg-copper-50/70 font-bold text-copper-950"
                       >
                         <td
-                          colSpan={2}
+                          colSpan={3}
                           className="sticky left-0 z-10 bg-copper-50/95 border-r border-copper-200"
                         >
                           Subtotal {row.klasifikasi_nama}
@@ -296,7 +323,7 @@ export function LaporanRekapKramaPage() {
                       className="border-t-2 border-copper-300 bg-copper-50/80 font-bold text-copper-950"
                     >
                       <td
-                        colSpan={2}
+                        colSpan={3}
                         className="sticky left-0 z-10 bg-copper-50/95 border-r border-copper-200"
                       >
                         Total Keseluruhan

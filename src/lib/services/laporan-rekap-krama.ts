@@ -1,7 +1,8 @@
 import { getDb } from "../db/client";
 import type { KlasifikasiKode } from "../types";
 
-export type RekapKramaBanjar = {  id: string;
+export type RekapKramaBanjar = {
+  id: string;
   kode: string;
   nama: string;
 };
@@ -26,8 +27,21 @@ export type RekapKrama = {
   total_keseluruhan: RekapKramaTotal;
 };
 
+/** Nomor urut klasifikasi di kolom pertama: 1 Mipil, 2 Krama Tamiu, 3 Tamiu. */
+export const REKAP_KRAMA_KLASIFIKASI_NO: Record<KlasifikasiKode, number> = {
+  MIPIL: 1,
+  KRAMA_TAMIU: 2,
+  TAMIU: 3,
+};
+
 export type RekapKramaTableRow =
-  | { kind: "data"; baris: RekapKramaBaris; showKlasifikasi: boolean }
+  | {
+      kind: "data";
+      baris: RekapKramaBaris;
+      showKlasifikasi: boolean;
+      /** Nomor klasifikasi (hanya di baris pertama grup). */
+      nomor: number | null;
+    }
   | {
       kind: "subtotal";
       klasifikasi_kode: KlasifikasiKode;
@@ -45,13 +59,20 @@ export function buildRekapKramaTableRows(data: RekapKrama): RekapKramaTableRow[]
     const kode = data.baris[i]!.klasifikasi_kode;
     const nama = data.baris[i]!.klasifikasi_nama;
     const groupStart = i;
+    const nomor = REKAP_KRAMA_KLASIFIKASI_NO[kode] ?? null;
     const per_banjar: Record<string, number> = {};
     for (const b of data.banjar) per_banjar[b.id] = 0;
     let total = 0;
 
     while (i < data.baris.length && data.baris[i]!.klasifikasi_kode === kode) {
       const row = data.baris[i]!;
-      out.push({ kind: "data", baris: row, showKlasifikasi: i === groupStart });
+      const isFirst = i === groupStart;
+      out.push({
+        kind: "data",
+        baris: row,
+        showKlasifikasi: isFirst,
+        nomor: isFirst ? nomor : null,
+      });
       total += row.total;
       for (const b of data.banjar) {
         per_banjar[b.id] += row.per_banjar[b.id] ?? 0;
@@ -141,13 +162,14 @@ export function formatRekapKramaAngka(n: number, showZero = false): string {
   return Math.round(n).toLocaleString("id-ID");
 }
 
-/** Lebar kolom relatif PDF: Jenis lega, banjar & total sempit. */
+/** Lebar kolom relatif PDF: No + Klasifikasi + Jenis + banjar + total. */
 export function buildRekapKramaPdfColumnFractions(banjarCount: number): number[] {
+  const no = 0.35;
   const klasifikasi = 1.05;
-  const jenis = 3.8;
+  const jenis = 3.5;
   const perBanjar = 0.55;
   const total = 0.65;
-  return [klasifikasi, jenis, ...Array(banjarCount).fill(perBanjar), total];
+  return [no, klasifikasi, jenis, ...Array(banjarCount).fill(perBanjar), total];
 }
 
 const KLASIFIKASI_SECTIONS: {  kode: KlasifikasiKode;
