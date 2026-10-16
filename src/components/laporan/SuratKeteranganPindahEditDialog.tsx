@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Modal } from "../ui/Modal";
 import { Button } from "../ui/Button";
 import { Input, Label } from "../ui/Input";
-import { getDesaAdat } from "../../lib/services/desa";
+import { getDesaAdatWithMedia } from "../../lib/services/desa";
 import {
   parseSkpSnapshot,
   updateSuratKeteranganPindah,
@@ -46,7 +46,7 @@ export function SuratKeteranganPindahEditDialog({ open, row, onClose, onSaved }:
     });
     setTampilkanTtdBandesa(snap.tampilkan_ttd_bandesa !== false);
     setError("");
-    void getDesaAdat().then((desa) => {
+    void getDesaAdatWithMedia().then((desa) => {
       const has = !!desa?.bandesa_ttd_url?.trim();
       setHasTtdImage(has);
       if (!has) setTampilkanTtdBandesa(false);

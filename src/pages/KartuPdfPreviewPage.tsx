@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { getKramaDetail } from "../lib/services/krama";
-import { getDesaAdat } from "../lib/services/desa";
+import { getDesaAdatWithMedia } from "../lib/services/desa";
 import type { DesaAdat, KramaDetail } from "../lib/types";
 import { PdfPreviewView } from "../components/pdf/PdfPreviewView";
 import { kartuA4PageCount, KARTU_A4_GRID } from "../lib/kartu-a4-grid";
@@ -32,7 +32,7 @@ export function KartuPdfPreviewPage({ kind }: { kind: KartuPdfKind }) {
 
   const load = useCallback(() => {
     if (!id) return;
-    Promise.all([getKramaDetail(id), getDesaAdat()])
+    Promise.all([getKramaDetail(id), getDesaAdatWithMedia()])
       .then(([k, d]) => {
         if (!k) {
           setLoadError("Data krama tidak ditemukan.");

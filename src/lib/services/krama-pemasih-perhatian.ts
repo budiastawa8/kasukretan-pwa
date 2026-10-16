@@ -26,6 +26,18 @@ type PemasihPerhatianRow = {
   status_pemasih?: string | null;
 };
 
+/** Kolom minimal untuk hitung ringkasan (tanpa join nama kepala/banjar). */
+type PemasihRingkasanSlimRow = {
+  id: string;
+  jenis_kartu: string;
+  klasifikasi_kode: string;
+  tanggal_terdaftar: string;
+  tanggal_berlaku_mulai_pemasih?: string | null;
+  masa_berlaku_tahun?: number | null;
+  status_pemasih?: string | null;
+  auto_perpanjang_pemasih?: number | null;
+};
+
 async function fetchPemasihUntukPerhatian(): Promise<PemasihPerhatianItem[]> {
   const db = await getDb();
   const rows = await db.select<PemasihPerhatianRow[]>(
@@ -80,11 +92,51 @@ export async function getPemasihPerhatianRingkasan(): Promise<{
   tidakAktif: number;
   akanHabis: number;
 }> {
-  const items = await fetchPemasihUntukPerhatian();
-  return {
-    tidakAktif: items.filter((i) => i.alasan === "tidak_aktif").length,
-    akanHabis: items.filter((i) => i.alasan === "akan_habis").length,
-  };
+  const db = await getDb();
+  const [rows, desa] = await Promise.all([
+    db.select<PemasihRingkasanSlimRow[]>(
+      `SELECT k.id, k.jenis_kartu, k.tanggal_terdaftar, k.tanggal_berlaku_mulai_pemasih, k.status_pemasih,
+              kk.kode as klasifikasi_kode,
+              COALESCE(jkt.masa_berlaku_tahun, jt.masa_berlaku_tahun) as masa_berlaku_tahun,
+              COALESCE(jkt.auto_perpanjang, jt.auto_perpanjang) as auto_perpanjang_pemasih
+       FROM krama k
+       JOIN klasifikasi_krama kk ON kk.id = k.klasifikasi_krama_id
+       LEFT JOIN jenis_krama_tamiu jkt ON jkt.id = k.jenis_krama_tamiu_id
+       LEFT JOIN jenis_tamiu jt ON jt.id = k.jenis_tamiu_id
+       WHERE k.status_krama = 'aktif' AND kk.kode IN ('KRAMA_TAMIU', 'TAMIU')`
+    ),
+    getDesaAdat(),
+  ]);
+
+  let tidakAktif = 0;
+  let akanHabis = 0;
+  for (const row of rows) {
+    const kode = row.klasifikasi_kode as KlasifikasiKode;
+    const stub: KramaDetail = {
+      id: row.id,
+      nomor_kartu: "",
+      jenis_kartu: row.jenis_kartu as KramaDetail["jenis_kartu"],
+      klasifikasi_kode: kode,
+      klasifikasi_nama: "",
+      gelar_kepala: "",
+      banjar_id: "",
+      banjar_nama: "",
+      banjar_kode: "",
+      masa_berlaku_tahun: row.masa_berlaku_tahun,
+      tanggal_terdaftar: row.tanggal_terdaftar,
+      tanggal_berlaku_mulai_pemasih: row.tanggal_berlaku_mulai_pemasih,
+      status_krama: "aktif",
+      status_pemasih: row.status_pemasih,
+      auto_perpanjang_pemasih: row.auto_perpanjang_pemasih,
+      kepala: { id: "", nama_lengkap: "", jenis_kelamin: "" },
+      anggota_aktif: [],
+    };
+    previewStatusIlikita(stub, desa);
+    const kat = kategoriPemasihPerhatian(stub);
+    if (kat.tidakAktif) tidakAktif += 1;
+    else if (kat.akanHabis) akanHabis += 1;
+  }
+  return { tidakAktif, akanHabis };
 }
 
 export async function listPemasihPerhatian(

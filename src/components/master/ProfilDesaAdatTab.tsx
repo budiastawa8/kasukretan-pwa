@@ -1,8 +1,8 @@
-import { useEffect, useState, type ReactNode } from "react";
+﻿import { useEffect, useState, type ReactNode } from "react";
 import { Check } from "lucide-react";
 import {
   DESA_ADAT_UPDATED_EVENT,
-  getDesaAdat,
+  getDesaAdatWithMedia,
   updateProfilDesaAdat,
 } from "../../lib/services/desa";
 import { listJenisMipil } from "../../lib/services/master";
@@ -260,7 +260,7 @@ export function ProfilDesaAdatTab({
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([getDesaAdat(), listJenisMipil()])
+    Promise.all([getDesaAdatWithMedia(), listJenisMipil()])
       .then(([d, jenis]) => {
         setNoDesa(!d);
         setDesaTersimpan(d);
@@ -332,7 +332,7 @@ export function ProfilDesaAdatTab({
       });
       const jumlahSelesaiDapukan = akhiriDapukan ? await akhiriKramaDapukan(desaTersimpan) : 0;
       const jumlahBerubah = await syncNyadaOtomatis();
-      setDesaTersimpan(await getDesaAdat());
+      setDesaTersimpan(await getDesaAdatWithMedia());
       setMatikanDapukan(null);
       window.dispatchEvent(new CustomEvent(DESA_ADAT_UPDATED_EVENT));
       const catatan = [

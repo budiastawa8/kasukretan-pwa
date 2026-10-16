@@ -63,7 +63,7 @@ describe("LanDatabase select cache", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
-  it("hasil kecil di sessionStorage dipakai ulang tanpa menunggu network", async () => {
+  it("hasil kecil di sessionStorage dipakai ulang tanpa hit Turso jika masih segar", async () => {
     const store = new Map<string, string>();
     vi.stubGlobal("sessionStorage", {
       getItem: (k: string) => store.get(k) ?? null,
@@ -89,15 +89,12 @@ describe("LanDatabase select cache", () => {
     const key = `SELECT * FROM y\u0000[]`;
     sessionStorage.setItem(
       `kasukretan_sel:${key}`,
-      JSON.stringify({ at: Date.now(), rows: [{ id: "stale" }] })
+      JSON.stringify({ at: Date.now(), rows: [{ id: "cached" }] })
     );
 
-    fetchMock.mockImplementation(async () => {
-      await new Promise((r) => setTimeout(r, 50));
-      return jsonResponse([{ id: "fresh" }]);
-    });
-
+    fetchMock.mockClear();
     const rows = await d.select<{ id: string }[]>("SELECT * FROM y");
-    expect(rows[0].id).toBe("stale");
+    expect(rows[0].id).toBe("cached");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

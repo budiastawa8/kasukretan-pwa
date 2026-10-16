@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePageBackTo } from "../../lib/page-filter-state";
 import { FileText } from "lucide-react";
@@ -6,7 +6,7 @@ import { Modal } from "../ui/Modal";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { Button } from "../ui/Button";
 import { Input, Label } from "../ui/Input";
-import { getDesaAdat } from "../../lib/services/desa";
+import { getDesaAdatWithMedia } from "../../lib/services/desa";
 import { deleteAnggota, nonaktifkanKramaPindah } from "../../lib/services/krama";
 import {
   issueSkpAnggota,
@@ -77,7 +77,7 @@ export function SuratKeteranganPindahDialog({
     setPostStep("form");
     setIssuedSurat(null);
     setConfirmHapusAnggota(false);
-    void getDesaAdat().then((desa) => {
+    void getDesaAdatWithMedia().then((desa) => {
       const has = !!desa?.bandesa_ttd_url?.trim();
       setHasTtdImage(has);
       setTampilkanTtdBandesa(has);
@@ -89,7 +89,7 @@ export function SuratKeteranganPindahDialog({
   }
 
   async function stashPreview(surat: SuratKeteranganPindahRow) {
-    const desa = await getDesaAdat();
+    const desa = await getDesaAdatWithMedia();
     if (!desa) throw new Error("Data desa adat belum ada.");
     const payload = buildSuratKeteranganPindahPdfPayload(desa, surat);
     stashSuratKeteranganPindahPreview([payload], backTo, "Kembali ke detail krama");

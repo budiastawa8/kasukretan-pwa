@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import { useIsPhoneClient } from "../../hooks/useClientFormFactor";
 import { useLaporanPdfNavigate } from "../../hooks/useLaporanPdfNavigate";
 import { ArrowLeft, Printer, Receipt, Trash2 } from "lucide-react";
 import { clampPage, LIST_PAGE_SIZE, paginateSlice } from "../../lib/pagination";
-import { getDesaAdat } from "../../lib/services/desa";
+import { getDesaAdatWithMedia } from "../../lib/services/desa";
 import {
   deleteSuratMautsahaAdat,
   listSuratMautsahaAdat,
@@ -87,7 +87,7 @@ export function SuratMautsahaAdatPage() {
     setPrinting(true);
     setError("");
     try {
-      const desa = await getDesaAdat();
+      const desa = await getDesaAdatWithMedia();
       if (!desa) throw new Error("Data desa adat belum ada.");
       const row = rows.find((r) => r.id === suratId);
       if (!row) throw new Error("Surat tidak ditemukan.");
@@ -109,7 +109,7 @@ export function SuratMautsahaAdatPage() {
     setPrinting(true);
     setError("");
     try {
-      const desa = await getDesaAdat();
+      const desa = await getDesaAdatWithMedia();
       if (!desa) throw new Error("Data desa adat belum ada.");
       const row = rows.find((r) => r.id === suratId);
       if (!row) throw new Error("Surat tidak ditemukan.");

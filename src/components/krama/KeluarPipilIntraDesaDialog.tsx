@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePageBackTo } from "../../lib/page-filter-state";
 import { FileText, Search } from "lucide-react";
@@ -6,7 +6,7 @@ import { Modal } from "../ui/Modal";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { Button } from "../ui/Button";
 import { Input, Label, Select } from "../ui/Input";
-import { getDesaAdat } from "../../lib/services/desa";
+import { getDesaAdatWithMedia } from "../../lib/services/desa";
 import { deleteAnggota, getKramaDetail, listKrama } from "../../lib/services/krama";
 import {
   issueSkpAnggota,
@@ -139,7 +139,7 @@ export function KeluarPipilIntraDesaDialog({
     setHapusSetelahSkp(true);
     setSubmitConfirmOpen(false);
 
-    void Promise.all([getDesaAdat(), listBanjar(), listJenisMipil(), loadPipilOptions("")]).then(
+    void Promise.all([getDesaAdatWithMedia(), listBanjar(), listJenisMipil(), loadPipilOptions("")]).then(
       ([d, b, jm]) => {
         setDesa(d);
         const has = !!d?.bandesa_ttd_url?.trim();

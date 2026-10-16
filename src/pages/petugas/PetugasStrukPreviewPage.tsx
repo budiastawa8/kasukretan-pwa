@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { Bluetooth, FileDown, Printer } from "lucide-react";
 import { BackLink } from "../../components/ui/BackLink";
@@ -27,7 +27,7 @@ import {
   printEscPosViaBluetooth,
   warmUpSavedPrinter,
 } from "../../lib/thermal-bluetooth-print";
-import { getDesaAdat } from "../../lib/services/desa";
+import { getDesaAdatWithMedia } from "../../lib/services/desa";
 import type { DesaAdat } from "../../lib/types";
 
 const PRINT_PAGE_STYLE_ID = "struk-thermal-print-page";
@@ -62,7 +62,7 @@ export function PetugasStrukPreviewPage() {
   useEffect(() => {
     let cancelled = false;
     setLoadingDesa(true);
-    getDesaAdat()
+    getDesaAdatWithMedia()
       .then((d) => {
         if (cancelled) return;
         if (d) {

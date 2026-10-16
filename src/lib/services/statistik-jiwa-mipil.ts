@@ -304,7 +304,6 @@ async function loadActiveMipilJiwaAtribut(): Promise<JiwaAtribut[]> {
      JOIN penduduk p ON p.id = ak.penduduk_id
      JOIN krama k ON k.id = ak.krama_id
      JOIN klasifikasi_krama kk ON kk.id = k.klasifikasi_krama_id AND kk.kode = 'MIPIL'
-     JOIN banjar b ON b.id = k.banjar_id
      WHERE ak.status = 'aktif' AND k.status_krama = 'aktif'`
   );
 }

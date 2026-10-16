@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 
 import { useLaporanPdfNavigate } from "../../hooks/useLaporanPdfNavigate";
 
@@ -10,7 +10,7 @@ import { Button } from "../ui/Button";
 
 import { Input, Label, Select } from "../ui/Input";
 
-import { getDesaAdat } from "../../lib/services/desa";
+import { getDesaAdatWithMedia } from "../../lib/services/desa";
 
 import {
 
@@ -74,7 +74,7 @@ export function SuratKeteranganKramaDialog({ open, onClose, krama }: Props) {
 
     setError("");
 
-    void getDesaAdat().then((desa) => {
+    void getDesaAdatWithMedia().then((desa) => {
 
       const has = !!desa?.bandesa_ttd_url?.trim();
 
@@ -98,7 +98,7 @@ export function SuratKeteranganKramaDialog({ open, onClose, krama }: Props) {
 
     try {
 
-      const desa = await getDesaAdat();
+      const desa = await getDesaAdatWithMedia();
 
       if (!desa) throw new Error("Data desa adat belum ada.");
 

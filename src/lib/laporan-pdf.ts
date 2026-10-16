@@ -1,4 +1,4 @@
-import { PDFDocument, type PDFPage } from "pdf-lib";
+﻿import { PDFDocument, type PDFPage } from "pdf-lib";
 import type { DesaAdat } from "./types";
 import {
   COLOR_TEXT,
@@ -779,7 +779,7 @@ export async function generateLaporanPdfBytes(
 
 /** Muat profil desa lalu buat byte PDF laporan tabel (A4 portrait). */
 export async function buildLaporanPdfBytes(input: LaporanPdfInput): Promise<Uint8Array | null> {
-  const { getDesaAdat } = await import("./services/desa");
-  const desa = await getDesaAdat();
+  const { getDesaAdatWithMedia } = await import("./services/desa");
+  const desa = await getDesaAdatWithMedia();
   return generateLaporanPdfBytes(desa, input);
 }

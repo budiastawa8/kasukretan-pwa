@@ -2,7 +2,7 @@
  * Cache singkat untuk hasil ringkasan (dashboard/laporan). Dikosongkan setiap ada penulisan DB
  * dari klien ini; TTL menutup perubahan yang dilakukan klien LAN lain.
  */
-const DEFAULT_TTL_MS = 30_000;
+const DEFAULT_TTL_MS = 90_000;
 
 type Entry = { at: number; promise: Promise<unknown> };
 const entries = new Map<string, Entry>();

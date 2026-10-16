@@ -5,33 +5,94 @@ import { uuid } from "../utils";
 
 export const DESA_ADAT_UPDATED_EVENT = "desa-adat-updated";
 
-/** Baris desa_adat memuat logo & TTD (gambar base64, ratusan KB) dan dibaca di banyak tempat. */
-const DESA_CACHE_TTL_MS = 5 * 60 * 1000;
-let desaCache: { at: number; promise: Promise<DesaAdat | null> } | null = null;
+/**
+ * Baris desa_adat memuat logo & TTD (base64, ratusan KB). Jalur default hanya kolom inti;
+ * pakai getDesaAdatWithMedia() untuk cetak/kartu/profil.
+ */
+const DESA_CACHE_TTL_MS = 10 * 60 * 1000;
+
+/** Kolom tanpa blob gambar — hemat rows read Turso. */
+const DESA_CORE_COLUMNS = `
+  id, kode_kabupaten, nama_kabupaten, kode_kecamatan, nama_kecamatan,
+  kode_desa_adat, nama_desa_adat, alamat_desa_adat,
+  jenis_umur_nyada, nyada_berlaku_mulai, jenis_krama_mipil_id,
+  jenis_cerai_mati_mipil_id, jenis_cerai_hidup_mipil_id,
+  krama_dapukan_aktif, krama_dapukan_berlaku_mulai, batas_umur_dapukan,
+  jenis_dapukan_mipil_id, jenis_balu_dapukan_mipil_id, jenis_balu_nglintik_mipil_id,
+  yowana_umur_min, yowana_umur_max,
+  bandesa_nama, bandesa_jabatan, bandesa_nik, call_center,
+  panyarikan_nama, panyarikan_jabatan, patengen_nama, patengen_jabatan,
+  pararem_nomor, pararem_tahun, pararem_judul,
+  auto_perpanjang_pemasih, auto_perpanjang_pemasih_tamiu,
+  enforce_masa_berlaku_pipil, charge_biaya_admin_pemasih
+`.replace(/\s+/g, " ").trim();
+
+type DesaCacheSlot = { at: number; promise: Promise<DesaAdat | null> };
+let desaCoreCache: DesaCacheSlot | null = null;
+let desaMediaCache: DesaCacheSlot | null = null;
 
 export function invalidateDesaAdatCache(): void {
-  desaCache = null;
+  desaCoreCache = null;
+  desaMediaCache = null;
 }
 
 if (typeof window !== "undefined") {
   window.addEventListener(DESA_ADAT_UPDATED_EVENT, invalidateDesaAdatCache);
 }
 
-async function loadDesaAdat(): Promise<DesaAdat | null> {
+function emptyMediaFields(): Pick<
+  DesaAdat,
+  "logo_url" | "logo_mda_url" | "bandesa_ttd_url" | "panyarikan_ttd_url"
+> {
+  return {
+    logo_url: null,
+    logo_mda_url: null,
+    bandesa_ttd_url: null,
+    panyarikan_ttd_url: null,
+  };
+}
+
+async function loadDesaAdatCore(): Promise<DesaAdat | null> {
+  const db = await getDb();
+  const rows = await db.select<DesaAdat[]>(
+    `SELECT ${DESA_CORE_COLUMNS} FROM desa_adat LIMIT 1`
+  );
+  const row = rows[0];
+  if (!row) return null;
+  return { ...row, ...emptyMediaFields() };
+}
+
+async function loadDesaAdatWithMedia(): Promise<DesaAdat | null> {
   const db = await getDb();
   const rows = await db.select<DesaAdat[]>(`SELECT * FROM desa_adat LIMIT 1`);
   return rows[0] ?? null;
 }
 
+/** Profil desa tanpa logo/TTD — untuk logika bisnis & daftar. */
 export async function getDesaAdat(): Promise<DesaAdat | null> {
-  if (!desaCache || Date.now() - desaCache.at > DESA_CACHE_TTL_MS) {
-    const promise = loadDesaAdat();
-    desaCache = { at: Date.now(), promise };
+  if (!desaCoreCache || Date.now() - desaCoreCache.at > DESA_CACHE_TTL_MS) {
+    const promise = loadDesaAdatCore();
+    const entry: DesaCacheSlot = { at: Date.now(), promise };
+    desaCoreCache = entry;
     promise.catch(() => {
-      if (desaCache?.promise === promise) desaCache = null;
+      if (desaCoreCache === entry) desaCoreCache = null;
     });
   }
-  const desa = await desaCache.promise;
+  const desa = await desaCoreCache.promise;
+  return desa ? { ...desa } : null;
+}
+
+/** Profil desa lengkap termasuk logo & TTD — untuk cetak, kartu, dan pengaturan. */
+export async function getDesaAdatWithMedia(): Promise<DesaAdat | null> {
+  if (!desaMediaCache || Date.now() - desaMediaCache.at > DESA_CACHE_TTL_MS) {
+    const promise = loadDesaAdatWithMedia();
+    const entry: DesaCacheSlot = { at: Date.now(), promise };
+    desaMediaCache = entry;
+    promise.catch(() => {
+      if (desaMediaCache === entry) desaMediaCache = null;
+    });
+  }
+  const desa = await desaMediaCache.promise;
   return desa ? { ...desa } : null;
 }
 
@@ -85,7 +146,7 @@ export async function upsertDesaAdat(
       ]
     );
     invalidateDesaAdatCache();
-  return (await getDesaAdat())!;
+    return (await getDesaAdatWithMedia())!;
   }
 
   const id = existing?.id ?? uuid();
@@ -133,7 +194,7 @@ export async function upsertDesaAdat(
     );
   }
   invalidateDesaAdatCache();
-  return (await getDesaAdat())!;
+  return (await getDesaAdatWithMedia())!;
 }
 
 function trimOrNull(value?: string): string | null {
@@ -171,7 +232,7 @@ export async function updatePrajuruDesaAdat(data: PrajuruDesaAdatInput): Promise
     ]
   );
   invalidateDesaAdatCache();
-  return (await getDesaAdat())!;
+  return (await getDesaAdatWithMedia())!;
 }
 
 export type ProfilDesaAdatInput = PrajuruDesaAdatInput & {
@@ -298,5 +359,5 @@ export async function updateProfilDesaAdat(data: ProfilDesaAdatInput): Promise<D
     ]
   );
   invalidateDesaAdatCache();
-  return (await getDesaAdat())!;
+  return (await getDesaAdatWithMedia())!;
 }

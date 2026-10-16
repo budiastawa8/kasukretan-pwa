@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import { useIsPhoneClient } from "../../hooks/useClientFormFactor";
 import { clearPagePersistedState, usePersistedScalar } from "../../lib/page-filter-state";
 import { useLaporanPdfNavigate } from "../../hooks/useLaporanPdfNavigate";
 import { formatRupiah, formatTunggakanPeriodeRingkas } from "../../lib/dudukan-hitung";
 import { clampPage, LIST_PAGE_SIZE, paginateSlice } from "../../lib/pagination";
-import { getDesaAdat } from "../../lib/services/desa";
+import { getDesaAdatWithMedia } from "../../lib/services/desa";
 import {
   arsipRowToLaporanRow,
   issueSuratPenagihanBatch,
@@ -227,7 +227,7 @@ export function SuratPenagihanDudukanPage() {
     setPrinting(true);
     setError("");
     try {
-      const desa = await getDesaAdat();
+      const desa = await getDesaAdatWithMedia();
       if (!desa) throw new Error("Data desa adat belum ada.");
       const issued = await issueSuratPenagihanBatch(kramaIds);
       const payloads = issued.map(({ surat, row }) =>
@@ -258,7 +258,7 @@ export function SuratPenagihanDudukanPage() {
     setPrinting(true);
     setError("");
     try {
-      const desa = await getDesaAdat();
+      const desa = await getDesaAdatWithMedia();
       if (!desa) throw new Error("Data desa adat belum ada.");
       const arsip = arsipRows.find((r) => r.id === suratId);
       if (!arsip) throw new Error("Surat tidak ditemukan.");

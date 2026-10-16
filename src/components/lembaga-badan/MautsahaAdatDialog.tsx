@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useLaporanPdfNavigate } from "../../hooks/useLaporanPdfNavigate";
-import { getDesaAdat } from "../../lib/services/desa";
+import { getDesaAdatWithMedia } from "../../lib/services/desa";
 import {
   perpanjangSuratMautsahaAdat,
   terbitSuratMautsahaAdat,
@@ -47,7 +47,7 @@ export function MautsahaAdatDialog({
     setError("");
 
     void (async () => {
-      const desa = await getDesaAdat();
+      const desa = await getDesaAdatWithMedia();
       setHasTtdImage(!!desa?.bandesa_ttd_url?.trim());
       const jenis = isPerpanjang ? "ipma_perpanjangan" : "ipma_terbit_baru";
       const { charge, nominal } = await shouldChargeBiayaAdmin(jenis);
@@ -60,7 +60,7 @@ export function MautsahaAdatDialog({
     setBusy(true);
     setError("");
     try {
-      const desa = await getDesaAdat();
+      const desa = await getDesaAdatWithMedia();
       if (!desa) throw new Error("Data desa adat belum ada.");
 
       const result =

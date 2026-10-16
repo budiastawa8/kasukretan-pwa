@@ -72,6 +72,8 @@ export type RingkasanIuran = {
   nominal: number;
   tanggal_target?: string | null;
   lewat_target: boolean;
+  /** Krama dengan sisa tagihan > 0. */
+  jumlah_tunggakan: number;
   jumlah_belum_lunas_telat: number;
   total_krama: number;
   total_tagihan: number;
@@ -250,6 +252,7 @@ export async function getRingkasanIuran(iuranId: string): Promise<RingkasanIuran
         total_dibayar_wajib: number;
         total_punia: number;
         total_sisa: number;
+        jumlah_tunggakan: number;
         jumlah_belum_lunas_telat: number;
       }[]>(
         `SELECT
@@ -261,6 +264,11 @@ export async function getRingkasanIuran(iuranId: string): Promise<RingkasanIuran
              THEN (${tagihanExpr}) - COALESCE(pay.wajib, 0)
              ELSE 0
            END), 0) AS total_sisa,
+           COALESCE(SUM(CASE
+             WHEN (${tagihanExpr}) > 0
+              AND COALESCE(pay.wajib, 0) < (${tagihanExpr})
+             THEN 1 ELSE 0
+           END), 0) AS jumlah_tunggakan,
            COALESCE(SUM(CASE
              WHEN ${lewat_target ? 1 : 0} = 1
               AND (${tagihanExpr}) > 0
@@ -300,6 +308,7 @@ export async function getRingkasanIuran(iuranId: string): Promise<RingkasanIuran
       nominal,
       tanggal_target: iuran.tanggal_target,
       lewat_target,
+      jumlah_tunggakan: Number(agg?.jumlah_tunggakan ?? 0),
       jumlah_belum_lunas_telat: Number(agg?.jumlah_belum_lunas_telat ?? 0),
       total_krama: ringkasan.totalMipilAktif,
       total_tagihan: Number(agg?.total_tagihan ?? 0),

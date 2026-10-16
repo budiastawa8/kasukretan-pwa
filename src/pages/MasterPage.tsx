@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { getDesaAdat } from "../lib/services/desa";
+﻿import { useCallback, useEffect, useState } from "react";
+import { getDesaAdatWithMedia } from "../lib/services/desa";
 import {
   listBanjar,
   createBanjar,
@@ -232,7 +232,7 @@ export function MasterPage() {
   async function addBanjar(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    const desa = await getDesaAdat();
+    const desa = await getDesaAdatWithMedia();
     if (!desa) return alert("Set desa adat dulu");
     await runAction(async () => {
       await createBanjar(desa.id, String(fd.get("nama")), String(fd.get("kode")));

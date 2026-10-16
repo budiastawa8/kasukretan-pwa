@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { FileText, ScrollText, LogOut } from "lucide-react";
-import { getDesaAdat } from "../../lib/services/desa";
+import { getDesaAdatWithMedia } from "../../lib/services/desa";
 import { listJenisMipil } from "../../lib/services/master";
 import { isPemasihPrintKlasifikasi, pemasihPrintMeta } from "../../lib/pemasih-print";
 import { normalizeKramaStatus } from "../../lib/krama-status";
@@ -34,7 +34,7 @@ export function KramaPrintPreviewView({ krama }: { krama: KramaDetail }) {
   const [hasTtdImage, setHasTtdImage] = useState(false);
 
   useEffect(() => {
-    void getDesaAdat().then((d) => {
+    void getDesaAdatWithMedia().then((d) => {
       setDesa(d);
       const has = !!d?.bandesa_ttd_url?.trim()?.startsWith("data:image/");
       setHasTtdImage(has);

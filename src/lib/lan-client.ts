@@ -237,10 +237,13 @@ export async function lanSqlSelectBatch(queries: { sql: string; bind: unknown[] 
 
 /**
  * Query identik dalam jendela singkat memakai satu respons; Promise.all digabung
- * jadi satu HTTP batch. Hasil disimpan (sessionStorage / IndexedDB) agar buka ulang
- * cepat (stale-while-revalidate). Setiap perintah tulis mengosongkan cache.
+ * jadi satu HTTP batch. Hasil disimpan (sessionStorage / IndexedDB).
+ * Persist yang masih “segar” tidak memicu revalidate ke Turso (hemat rows read);
+ * setelah itu stale-while-revalidate. Setiap perintah tulis mengosongkan cache.
  */
-const SELECT_FRESH_MS = 20_000;
+const SELECT_FRESH_MS = 60_000;
+/** Jangan hit Turso lagi jika persist lebih muda dari ini. */
+const SELECT_SKIP_REVALIDATE_MS = 2 * 60_000;
 const SELECT_PERSIST_MS = 5 * 60_000;
 
 const selectCache = new Map<string, { at: number; promise: Promise<unknown> }>();
@@ -343,15 +346,23 @@ function cachedSelect<T>(sql: string, bind: unknown[]): Promise<T> {
     return hit.promise.then((rows) => structuredClone(rows) as T);
   }
 
-  const network = scheduleSelectNetwork(key, sql, bind);
-
   return (async () => {
     const persisted = await readSelectPersist(key);
-    if (persisted && Date.now() - persisted.at <= SELECT_PERSIST_MS) {
-      /* Tampilkan cache dulu; network memperbarui untuk kunjungan berikutnya. */
-      return structuredClone(persisted.rows) as T;
+    if (persisted) {
+      const age = Date.now() - persisted.at;
+      if (age <= SELECT_SKIP_REVALIDATE_MS) {
+        /* Masih segar — jangan konsumsi kuota Turso. */
+        const entry = { at: Date.now(), promise: Promise.resolve(persisted.rows) };
+        selectCache.set(key, entry);
+        return structuredClone(persisted.rows) as T;
+      }
+      if (age <= SELECT_PERSIST_MS) {
+        /* Stale-while-revalidate: tampilkan cache, perbarui di belakang. */
+        void scheduleSelectNetwork(key, sql, bind);
+        return structuredClone(persisted.rows) as T;
+      }
     }
-    return structuredClone(await network) as T;
+    return structuredClone(await scheduleSelectNetwork(key, sql, bind)) as T;
   })();
 }
 

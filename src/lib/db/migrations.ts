@@ -604,6 +604,7 @@ export async function runMasterDataMigrations(db: Database): Promise<void> {
   await migrateSetoranPetugas(db);
   await migrateUserTimKasukretan(db);
   await ensureRingkasanIndexes(db);
+  await ensureRingkasanCacheTable(db);
 }
 
 /** Index untuk query ringkasan dashboard/laporan (aman dijalankan ulang). */
@@ -623,6 +624,17 @@ async function ensureRingkasanIndexes(db: Database): Promise<void> {
   await db.execute(
     `CREATE INDEX IF NOT EXISTS idx_dudukan_pembayaran_krama_periode ON dudukan_pembayaran (krama_id, tahun, bulan)`
   );
+}
+
+/** Snapshot ringkasan lintas sesi (TTL di lapisan layanan). */
+async function ensureRingkasanCacheTable(db: Database): Promise<void> {
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS ringkasan_cache (
+      kunci TEXT PRIMARY KEY,
+      payload TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
 }
 
 /** Akun peran petugas terikat ke satu nama di Tim Kasukretan. */

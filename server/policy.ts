@@ -66,7 +66,7 @@ const KEUANGAN_TABLES = new Set([
 ]);
 
 /** Penanda internal aplikasi (status migrasi/sinkron) — boleh ditulis peran apa pun yang bisa menulis. */
-const SHARED_TABLES = new Set(["app_sync_meta"]);
+const SHARED_TABLES = new Set(["app_sync_meta", "ringkasan_cache"]);
 
 /** Hapus permanen krama (operator) ikut membersihkan riwayat pembayarannya. */
 const KRAMA_CASCADE_TABLES = new Set([
@@ -162,6 +162,8 @@ export function findWrites(stripped: string): { verb: WriteVerb; table: string }
 
 function canWrite(role: Role, verb: WriteVerb, table: string, stripped: string): boolean {
   if (role === "admin") return true;
+  /** Snapshot dashboard — semua peran yang bisa melihat ringkasan boleh menyegarkan cache. */
+  if (table === "ringkasan_cache") return true;
   if (role === "prajuru") return false;
   if (SHARED_TABLES.has(table)) return true;
   if (role === "petugas") return false;

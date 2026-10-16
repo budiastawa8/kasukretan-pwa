@@ -13,7 +13,7 @@ import { parsePaturunanPersen } from "../paturunan-hitung";
 import { uuid } from "../utils";
 
 /** Master jarang berubah — cache memori agar filter/dropdown tidak round-trip ulang. */
-const MASTER_LIST_TTL_MS = 5 * 60_000;
+const MASTER_LIST_TTL_MS = 15 * 60_000;
 type MasterListEntry<T> = { at: number; rows: T };
 let banjarListCache: MasterListEntry<Banjar[]> | null = null;
 let jenisMipilListCache: MasterListEntry<JenisKramaMipilRow[]> | null = null;

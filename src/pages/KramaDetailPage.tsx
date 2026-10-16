@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+﻿import { useCallback, useEffect, useState } from "react";
 import { RefreshCw, SquarePen } from "lucide-react";
 import { useParams, useLocation } from "react-router-dom";
 import { getKramaDetail } from "../lib/services/krama";
-import { DESA_ADAT_UPDATED_EVENT, getDesaAdat } from "../lib/services/desa";
+import { DESA_ADAT_UPDATED_EVENT, getDesaAdatWithMedia } from "../lib/services/desa";
 import { kramaEditPath, kramaListPath } from "../lib/krama-routes";
 import type { DesaAdat, KramaDetail } from "../lib/types";
 import { isAutoPerpanjangPemasihUntuk } from "../lib/ilikita-kebijakan";
@@ -65,8 +65,8 @@ export function KramaDetailPage() {
   }, [load, location.key]);
 
   useEffect(() => {
-    void getDesaAdat().then(setDesa);
-    const onDesaUpdated = () => void getDesaAdat().then(setDesa);
+    void getDesaAdatWithMedia().then(setDesa);
+    const onDesaUpdated = () => void getDesaAdatWithMedia().then(setDesa);
     window.addEventListener(DESA_ADAT_UPDATED_EVENT, onDesaUpdated);
     return () => window.removeEventListener(DESA_ADAT_UPDATED_EVENT, onDesaUpdated);
   }, []);

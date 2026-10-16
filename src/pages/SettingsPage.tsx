@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { Check } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
-  getDesaAdat,
+  getDesaAdatWithMedia,
   upsertDesaAdat,
   isDesaConfigured,
   hasAnyKrama,
@@ -99,7 +99,7 @@ export function SettingsPage() {
   }, [tab, admin, setSearchParams]);
 
   useEffect(() => {
-    getDesaAdat().then((d) => {
+    getDesaAdatWithMedia().then((d) => {
       if (d) setForm(desaToForm(d));
     });
     hasAnyKrama().then(setHasKrama);
@@ -123,7 +123,7 @@ export function SettingsPage() {
   async function save(e: React.FormEvent) {
     e.preventDefault();
     if (!canEdit) return;
-    const existing = await getDesaAdat();
+    const existing = await getDesaAdatWithMedia();
     await upsertDesaAdat({
       kode_kabupaten: form.kode_kabupaten,
       nama_kabupaten: form.nama_kabupaten,

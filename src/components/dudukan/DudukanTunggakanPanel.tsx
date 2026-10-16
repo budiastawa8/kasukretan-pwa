@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import { clearPagePersistedState, usePersistedScalar } from "../../lib/page-filter-state";
 import { downloadExcel } from "../../lib/excel-export";
 import { useLaporanPdfNavigate } from "../../hooks/useLaporanPdfNavigate";
@@ -17,7 +17,7 @@ import {
   type DudukanTunggakanBulan,
   type DudukanTunggakanLaporanRow,
 } from "../../lib/services/dudukan";
-import { getDesaAdat } from "../../lib/services/desa";
+import { getDesaAdatWithMedia } from "../../lib/services/desa";
 import {
   issueSuratPenagihanBatch,
   MIN_BULAN_SURAT_PENAGIHAN,
@@ -253,7 +253,7 @@ export function DudukanTunggakanPanel() {
     setPrintingId(kramaId);
     setError("");
     try {
-      const desa = await getDesaAdat();
+      const desa = await getDesaAdatWithMedia();
       if (!desa) throw new Error("Data desa adat belum ada.");
       const issued = await issueSuratPenagihanBatch([kramaId]);
       const { surat, row } = issued[0]!;

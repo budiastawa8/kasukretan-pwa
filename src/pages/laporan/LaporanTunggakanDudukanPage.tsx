@@ -149,6 +149,14 @@ export function LaporanTunggakanDudukanPage() {
 
   const load = useCallback(async () => {
     setPage(1);
+    /** Tanpa filter: jangan scan seluruh pemasih (hemat kuota Turso). */
+    if (!banjarId && !debouncedQ && !klasifikasi && !jenisKramaTamiuId && !jenisTamiuId && !rtBtn) {
+      setRingkasan(null);
+      setRows([]);
+      setLoading(false);
+      setError("");
+      return;
+    }
     setLoading(true);
     setError("");
     try {
@@ -448,7 +456,9 @@ export function LaporanTunggakanDudukanPage() {
               ) : pagedRows.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-3 text-center text-muted text-xs">
-                    Tidak ada tunggakan.
+                    {!banjarId && !debouncedQ && !klasifikasi && !jenisKramaTamiuId && !jenisTamiuId && !rtBtn
+                      ? "Pilih banjar, klasifikasi, atau kata kunci untuk memuat laporan."
+                      : "Tidak ada tunggakan."}
                   </td>
                 </tr>
               ) : (

@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { getKramaDetail } from "../lib/services/krama";
-import { getDesaAdat } from "../lib/services/desa";
+import { getDesaAdatWithMedia } from "../lib/services/desa";
 import type { DesaAdat, KramaDetail } from "../lib/types";
 import { PdfPreviewView } from "../components/pdf/PdfPreviewView";
 import {
@@ -34,7 +34,7 @@ export function IlikitaPdfPreviewPage({ doc }: { doc: IlikitaPdfDoc }) {
 
   const load = useCallback(() => {
     if (!id) return;
-    Promise.all([getKramaDetail(id), getDesaAdat()])
+    Promise.all([getKramaDetail(id), getDesaAdatWithMedia()])
       .then(([k, d]) => {
         if (!k) {
           setLoadError("Data krama tidak ditemukan.");

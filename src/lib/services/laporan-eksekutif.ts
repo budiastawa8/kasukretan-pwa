@@ -10,7 +10,8 @@ import { cachedQuery } from "../query-cache";
 import { getPemasihPerhatianRingkasan } from "./krama";
 import { listIuranPaturunan } from "./iuran-paturunan";
 import { getDudukanEksekutif, type RingkasanBulanDudukan } from "./dudukan";
-import { listKramaPaturunan } from "./paturunan";
+import { getRingkasanIuran } from "./paturunan";
+import { readRingkasanCache, writeRingkasanCache } from "./ringkasan-cache";
 export type PeriodeBulanTahun = { tahun: number; bulan: number };
 
 export function iterBulanTerakhir(jumlah: number): PeriodeBulanTahun[] {
@@ -170,33 +171,31 @@ async function getDudukanBagian(jumlahBulan: number): Promise<DudukanEksekutifBa
   };
 }
 
+/** Agregasi SQL per iuran — tanpa load daftar krama penuh. */
 async function getPaturunanPerIuran(): Promise<LaporanEksekutifPaturunanIuran[]> {
   const iuranList = await listIuranPaturunan();
   return Promise.all(
     iuranList.map(async (iuran) => {
-      const rows = await listKramaPaturunan({ iuranId: iuran.id });
-      let total_dibayar_wajib = 0;
-      let total_punia = 0;
-      let total_sisa = 0;
-      let jumlah_tunggakan = 0;
-      let jumlah_telat = 0;
-      for (const r of rows) {
-        total_dibayar_wajib += r.dibayar ?? 0;
-        total_punia += r.punia ?? 0;
-        total_sisa += r.sisa ?? 0;
-        if ((r.sisa ?? 0) > 0) {
-          jumlah_tunggakan += 1;
-          if (r.peringatan_telat) jumlah_telat += 1;
-        }
+      const r = await getRingkasanIuran(iuran.id);
+      if (!r) {
+        return {
+          iuran_id: iuran.id,
+          iuran_nama: iuran.nama,
+          total_dibayar_wajib: 0,
+          total_punia: 0,
+          total_sisa: 0,
+          jumlah_tunggakan: 0,
+          jumlah_telat: 0,
+        };
       }
       return {
-        iuran_id: iuran.id,
-        iuran_nama: iuran.nama,
-        total_dibayar_wajib,
-        total_punia,
-        total_sisa,
-        jumlah_tunggakan,
-        jumlah_telat,
+        iuran_id: r.iuran_id,
+        iuran_nama: r.iuran_nama,
+        total_dibayar_wajib: r.total_dibayar_wajib,
+        total_punia: r.total_punia,
+        total_sisa: r.total_sisa,
+        jumlah_tunggakan: r.jumlah_tunggakan,
+        jumlah_telat: r.jumlah_belum_lunas_telat,
       };
     })
   );
@@ -310,6 +309,12 @@ export async function getLaporanEksekutif(
 ): Promise<LaporanEksekutif> {
   const bulanTren = Math.max(6, Math.min(12, Math.round(jumlahBulanTren)));
   const ttl = opts?.paksaMuatUlang ? 0 : undefined;
+  const snapshotKey = `laporan-eksekutif:v2:${bulanTren}`;
+
+  if (!opts?.paksaMuatUlang) {
+    const snap = await readRingkasanCache<LaporanEksekutif>(snapshotKey);
+    if (snap) return snap;
+  }
 
   const [inti, dudukan, trenPaturunan] = await Promise.all([
     cachedQuery("eksekutif:inti", getIntiEksekutif, ttl),
@@ -322,7 +327,7 @@ export async function getLaporanEksekutif(
   ]);
   const { demografi, perIuran, pemasihAlert } = inti;
 
-  return {
+  const result: LaporanEksekutif = {
     demografi,
     paturunan: {
       per_iuran: perIuran,
@@ -341,4 +346,9 @@ export async function getLaporanEksekutif(
     tren_dudukan: dudukan.tren,
     tren_paturunan: trenPaturunan,
   };
+
+  if (!opts?.paksaMuatUlang) {
+    void writeRingkasanCache(snapshotKey, result);
+  }
+  return result;
 }

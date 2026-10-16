@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+﻿import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getPemasihPerBanjar, type PemasihPerBanjarRow } from "../lib/services/krama";
-import { DESA_ADAT_UPDATED_EVENT, getDesaAdat, isDesaConfigured } from "../lib/services/desa";
+import { DESA_ADAT_UPDATED_EVENT, getDesaAdatWithMedia, isDesaConfigured } from "../lib/services/desa";
 import { getLaporanEksekutif, type LaporanEksekutif } from "../lib/services/laporan-eksekutif";
 import { listRingkasanSaldoDisplay, type RingkasanSaldoAkun } from "../lib/services/buku-kas";
 import {
@@ -128,7 +128,7 @@ export function DashboardPage() {
           ? Promise.resolve<PemasihPerBanjarRow[]>([])
           : cachedQuery("dashboard:pemasih-per-banjar", getPemasihPerBanjar),
         cachedQuery("dashboard:saldo-ringkasan", listRingkasanSaldoDisplay),
-        getDesaAdat(),
+        getDesaAdatWithMedia(),
       ]);
       setData(eksekutif);
       setPemasihPerBanjar(pemasihBanjar);

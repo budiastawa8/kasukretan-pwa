@@ -126,22 +126,25 @@ export function DudukanPage() {
   );
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(LIST_PAGE_SIZE);
+  const [totalItems, setTotalItems] = useState(0);
   const [riwayatRefresh, setRiwayatRefresh] = useState(0);
   const [printingKartu, setPrintingKartu] = useState(false);
   const { okFlashMessage, showOkFlash } = usePageOkFlash();
 
   const { sortKey, sortDir, toggleSort } = useTableSort();
+  /** Tanpa sort: pagination di server (hemat batch tunggakan). Dengan sort: muat semua lalu potong di klien. */
+  const useServerPage = !sortKey && !punyaTunggakan;
   const sortedRows = useMemo(
     () => sortTableRows(rows, sortKey, sortDir, DUDUKAN_SORT),
     [rows, sortKey, sortDir]
   );
   const safePage = useMemo(
-    () => clampPage(page, sortedRows.length, pageSize),
-    [page, sortedRows.length, pageSize]
+    () => clampPage(page, totalItems, pageSize),
+    [page, totalItems, pageSize]
   );
   const pagedRows = useMemo(
-    () => paginateSlice(sortedRows, safePage, pageSize),
-    [sortedRows, safePage, pageSize]
+    () => (useServerPage ? sortedRows : paginateSlice(sortedRows, safePage, pageSize)),
+    [useServerPage, sortedRows, safePage, pageSize]
   );
 
   useEffect(() => {
@@ -191,13 +194,14 @@ export function DudukanPage() {
   }
 
   const load = useCallback(async () => {
-    setPage(1);
     setLoading(true);
     setError("");
     try {
       const filterKlas = klasifikasi ? (klasifikasi as KlasifikasiKode) : undefined;
+      const serverPage = !sortKey && !punyaTunggakan;
+      const offset = (Math.max(1, page) - 1) * pageSize;
 
-      const [r, { list, ringkasanBulan: ringkasanB }, b, jkt, jt] = await Promise.all([
+      const [r, { list, ringkasanBulan: ringkasanB, totalCount }, b, jkt, jt] = await Promise.all([
         getDudukanRingkasan(),
         loadDudukanListAndRingkasanBulan(
           {
@@ -210,7 +214,10 @@ export function DudukanPage() {
             punyaTunggakan: punyaTunggakan || undefined,
           },
           tahunIni,
-          bulanIni
+          bulanIni,
+          serverPage
+            ? { limit: pageSize, offset, fullTunggakanBatch: false }
+            : undefined
         ),
         listBanjar(),
         listJenisKramaTamiu(),
@@ -218,6 +225,7 @@ export function DudukanPage() {
       ]);
       setRingkasan(r);
       setRows(list);
+      setTotalItems(totalCount);
       setBanjar(b);
       setJenisKt(jkt);
       setJenisT(jt);
@@ -227,11 +235,29 @@ export function DudukanPage() {
     } finally {
       setLoading(false);
     }
-  }, [debouncedQ, banjarId, rtBtn, klasifikasi, jenisFilter, punyaTunggakan, jenisKramaTamiuId, jenisTamiuId, tahunIni, bulanIni]);
+  }, [
+    debouncedQ,
+    banjarId,
+    rtBtn,
+    klasifikasi,
+    jenisFilter,
+    punyaTunggakan,
+    jenisKramaTamiuId,
+    jenisTamiuId,
+    tahunIni,
+    bulanIni,
+    page,
+    pageSize,
+    sortKey,
+  ]);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedQ, banjarId, rtBtn, klasifikasi, jenisFilter, punyaTunggakan, pageSize]);
 
   useEffect(() => {
     listRtBtnPemasih({ banjarId: banjarId || undefined, statusKrama: "aktif" }).then(
@@ -259,26 +285,43 @@ export function DudukanPage() {
   }
 
   async function cetakKartuHasilFilter() {
-    const count = rows.length;
-    if (!count) return;
-    if (count > KARTU_DUDUKAN_BATCH_MAX) {
-      window.alert(
-        `Maksimal ${KARTU_DUDUKAN_BATCH_MAX} kartu sekaligus. Persempit filter (saat ini ${count} pemasih).`
-      );
-      return;
-    }
-    if (count > 50) {
-      const ok = window.confirm(
-        `Cetak ${count} Kartu Dudukan sesuai filter aktif?\n\nProses bisa memakan waktu beberapa menit.`
-      );
-      if (!ok) return;
-    }
-
     setPrintingKartu(true);
     setError("");
     try {
+      const filterKlas = klasifikasi ? (klasifikasi as KlasifikasiKode) : undefined;
+      const { list: allRows } = await loadDudukanListAndRingkasanBulan(
+        {
+          q: debouncedQ || undefined,
+          banjarId: banjarId || undefined,
+          klasifikasi: filterKlas,
+          jenisKramaTamiuId,
+          jenisTamiuId,
+          rtBtn: rtBtn || undefined,
+          punyaTunggakan: punyaTunggakan || undefined,
+        },
+        tahunIni,
+        bulanIni
+      );
+      const count = allRows.length;
+      if (!count) return;
+      if (count > KARTU_DUDUKAN_BATCH_MAX) {
+        window.alert(
+          `Maksimal ${KARTU_DUDUKAN_BATCH_MAX} kartu sekaligus. Persempit filter (saat ini ${count} pemasih).`
+        );
+        return;
+      }
+      if (count > 50) {
+        const ok = window.confirm(
+          `Cetak ${count} Kartu Dudukan sesuai filter aktif?\n\nProses bisa memakan waktu beberapa menit.`
+        );
+        if (!ok) return;
+      }
       openPdf((backTo) =>
-        stashKartuDudukanBulkPreview(rows.map((r) => r.id), backTo, "Kembali ke Dudukan")
+        stashKartuDudukanBulkPreview(
+          allRows.map((r) => r.id),
+          backTo,
+          "Kembali ke Dudukan"
+        )
       );
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -840,7 +883,7 @@ export function DudukanPage() {
         {!loading && (
           <ListPagination
             page={safePage}
-            totalItems={rows.length}
+            totalItems={totalItems}
             pageSize={pageSize}
             onPageChange={setPage}
             onPageSizeChange={setPageSize}

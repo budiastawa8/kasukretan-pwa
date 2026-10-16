@@ -719,6 +719,17 @@ function buildKramaDudukanSearchFromBase(
   return result;
 }
 
+export type DudukanListPageOpts = {
+  /** Batas baris daftar (pagination server). */
+  limit: number;
+  offset: number;
+  /**
+   * true = muat riwayat pembayaran semua baris (untuk filter tunggakan / sort kolom hitung).
+   * false = hanya batch untuk halaman saat ini (hemat Turso).
+   */
+  fullTunggakanBatch?: boolean;
+};
+
 export async function loadDudukanListAndRingkasanBulan(
   searchParams: {
     q?: string;
@@ -730,27 +741,58 @@ export async function loadDudukanListAndRingkasanBulan(
     punyaTunggakan?: boolean;
   } = {},
   tahun: number,
-  bulan: number
-): Promise<{ list: DudukanKramaSearchRow[]; ringkasanBulan: RingkasanBulanDudukan }> {
+  bulan: number,
+  page?: DudukanListPageOpts
+): Promise<{
+  list: DudukanKramaSearchRow[];
+  ringkasanBulan: RingkasanBulanDudukan;
+  totalCount: number;
+}> {
   const t = parseTahun(tahun);
   const b = parseBulan(bulan);
-  const cacheKey = `dudukan:list+ringkasan:${t}-${b}:${JSON.stringify(searchParams)}`;
+  const cacheKey = `dudukan:list+ringkasan:${t}-${b}:${JSON.stringify(searchParams)}:${page?.limit ?? "all"}:${page?.offset ?? 0}:${page?.fullTunggakanBatch ? 1 : 0}`;
   return cachedQuery(cacheKey, async () => {
     const rows = await queryKramaDudukanBase(searchParams);
     const scoped = hasDudukanListFilter(searchParams);
-    const ids = scoped ? rows.map((r) => r.id) : null;
+    const allIds = scoped ? rows.map((r) => r.id) : null;
+
+    const needFullBatch =
+      Boolean(searchParams.punyaTunggakan) || Boolean(page?.fullTunggakanBatch) || !page;
+
+    const pageRows =
+      page && !needFullBatch
+        ? rows.slice(page.offset, page.offset + page.limit)
+        : page && needFullBatch
+          ? rows
+          : rows;
+    const batchIds = needFullBatch
+      ? allIds ?? rows.map((r) => r.id)
+      : pageRows.map((r) => r.id);
 
     const [batch, dibayarBulan, keringananBulan] = await Promise.all([
-      ids ? loadTunggakanBatchDataForKramaIds(ids) : loadTunggakanBatchData(),
-      ids ? getTotalDibayarMapForKramaIds(t, b, ids) : getTotalDibayarMap(t, b),
-      ids ? getKeringananMapForBulanForKramaIds(t, b, ids) : getKeringananMapForBulan(t, b),
+      needFullBatch && !allIds
+        ? loadTunggakanBatchData()
+        : loadTunggakanBatchDataForKramaIds(batchIds),
+      allIds ? getTotalDibayarMapForKramaIds(t, b, allIds) : getTotalDibayarMap(t, b),
+      allIds
+        ? getKeringananMapForBulanForKramaIds(t, b, allIds)
+        : getKeringananMapForBulan(t, b),
     ]);
 
-    const list = buildKramaDudukanSearchFromBase(rows, batch, searchParams.punyaTunggakan);
+    let list = buildKramaDudukanSearchFromBase(pageRows, batch, searchParams.punyaTunggakan);
+    let totalCount = needFullBatch && searchParams.punyaTunggakan ? list.length : rows.length;
+
+    if (needFullBatch && page) {
+      totalCount = list.length;
+      list = list.slice(page.offset, page.offset + page.limit);
+    } else if (!needFullBatch && page) {
+      totalCount = rows.length;
+    }
+
     const dudukanBulan = buildDudukanRowsForBulan(rows, t, b, dibayarBulan, keringananBulan);
     const ringkasanBulan = buildRingkasanBulanFromDudukanRows(dudukanBulan, t, b);
 
-    return { list, ringkasanBulan };
+    return { list, ringkasanBulan, totalCount };
   });
 }
 

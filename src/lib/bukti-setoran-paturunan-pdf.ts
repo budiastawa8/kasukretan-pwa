@@ -1,4 +1,4 @@
-import { PDFDocument, type PDFPage } from "pdf-lib";
+﻿import { PDFDocument, type PDFPage } from "pdf-lib";
 import type { DesaAdat } from "./types";
 import type { PaturunanRiwayatRow } from "./services/paturunan-pembayaran";
 import { paymentDayKey, resolveBendaharaTimNama } from "./bukti-setoran-dudukan-pdf";
@@ -534,7 +534,7 @@ export async function generateBuktiSetoranPaturunanPdfBytes(
 export async function buildBuktiSetoranPaturunanPdfBytes(
   payload: BuktiSetoranPaturunanPdfPayload
 ): Promise<Uint8Array | null> {
-  const { getDesaAdat } = await import("./services/desa");
-  const desa = await getDesaAdat();
+  const { getDesaAdatWithMedia } = await import("./services/desa");
+  const desa = await getDesaAdatWithMedia();
   return generateBuktiSetoranPaturunanPdfBytes(desa, payload);
 }
