@@ -17,10 +17,23 @@ export type LanHealth = {
   service?: string;
   bridge?: string;
   dbReady?: boolean;
+  dbError?: string;
+};
+
+export type LanProbeResult = {
+  available: boolean;
+  /** True jika HTTP /api/health merespons, meski DB belum siap. */
+  reachable: boolean;
+  dbError?: string;
 };
 
 let lanAvailable: boolean | null = null;
 let probePromise: Promise<boolean> | null = null;
+let lastProbe: LanProbeResult | null = null;
+
+export function getLastLanProbe(): LanProbeResult | null {
+  return lastProbe;
+}
 
 export function getLanToken(): string | null {
   if (typeof localStorage === "undefined") return null;
@@ -43,6 +56,14 @@ export function isLanClientMode(): boolean {
   return lanAvailable === true;
 }
 
+export async function probeLanHealth(force = false): Promise<LanProbeResult> {
+  if (!force && lastProbe && lanAvailable != null) {
+    return lastProbe;
+  }
+  const available = await probeLanBridge(force);
+  return lastProbe ?? { available, reachable: false };
+}
+
 export async function probeLanBridge(force = false): Promise<boolean> {
   if (!force && lanAvailable != null) return lanAvailable;
   if (!force && probePromise) return probePromise;
@@ -59,13 +80,17 @@ export async function probeLanBridge(force = false): Promise<boolean> {
       window.clearTimeout(t);
       if (!res.ok) {
         lanAvailable = false;
+        lastProbe = { available: false, reachable: false };
         return false;
       }
       const data = (await res.json()) as LanHealth;
+      const dbError = typeof data.dbError === "string" && data.dbError.trim() ? data.dbError.trim() : undefined;
       lanAvailable = Boolean(data.ok && data.bridge === "sqlite" && data.dbReady !== false);
+      lastProbe = { available: lanAvailable, reachable: true, dbError };
       return lanAvailable;
     } catch {
       lanAvailable = false;
+      lastProbe = { available: false, reachable: false };
       return false;
     } finally {
       probePromise = null;

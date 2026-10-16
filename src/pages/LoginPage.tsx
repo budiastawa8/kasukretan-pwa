@@ -3,7 +3,7 @@ import { CloudOff, LogIn, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { login } from "../lib/services/auth";
 import { useAuth } from "../context/AuthContext";
-import { probeLanBridge } from "../lib/lan-client";
+import { getLastLanProbe, probeLanBridge } from "../lib/lan-client";
 import { initLanClientDatabase } from "../lib/db/init";
 import { defaultHomePath } from "../lib/auth-roles";
 import { Button } from "../components/ui/Button";
@@ -12,6 +12,28 @@ import { Card } from "../components/ui/Card";
 import { AppLogo } from "../components/ui/AppLogo";
 import { InstallAppButton } from "../components/pwa/InstallAppButton";
 import { UkuranTulisanControl } from "../components/ui/UkuranTulisanControl";
+
+function offlineMessage(): { subtitle: string; body: string } {
+  const probe = getLastLanProbe();
+  const err = probe?.dbError ?? "";
+  if (probe?.reachable && /BLOCKED|upgrade your plan|forbidden/i.test(err)) {
+    return {
+      subtitle: "Database sementara diblokir",
+      body:
+        "Kuota baca Turso habis (plan gratis). Upgrade plan di app.turso.tech atau tunggu reset kuota bulanan, lalu coba lagi. Backup lokal di komputer desa tetap aman.",
+    };
+  }
+  if (probe?.reachable && err) {
+    return {
+      subtitle: "Database belum siap",
+      body: `Server aplikasi merespons, tetapi database gagal: ${err}`,
+    };
+  }
+  return {
+    subtitle: "Server belum dapat dijangkau",
+    body: "Aplikasi membutuhkan koneksi internet. Periksa data seluler atau WiFi, lalu coba lagi. Gunakan https://kasukretan-pwa.vercel.app (bukan kretan-pwa).",
+  };
+}
 
 function LoginShell({ children }: { children: React.ReactNode }) {
   return (
@@ -38,15 +60,14 @@ function Brand({ subtitle }: { subtitle: string }) {
 }
 
 function OfflinePage({ onRetry, retrying }: { onRetry: () => void; retrying: boolean }) {
+  const { subtitle, body } = offlineMessage();
   return (
     <LoginShell>
       <Card className="w-full ring-1 ring-copper-300/30 sm:shadow-md">
-        <Brand subtitle="Server belum dapat dijangkau" />
+        <Brand subtitle={subtitle} />
         <div className="mb-4 flex gap-2 rounded-lg border border-copper-200 bg-copper-50/90 px-3 py-2.5 text-sm leading-snug text-copper-900">
           <CloudOff size={18} className="mt-0.5 shrink-0 text-copper-700" aria-hidden />
-          <span>
-            Aplikasi membutuhkan koneksi internet. Periksa data seluler atau WiFi, lalu coba lagi.
-          </span>
+          <span>{body}</span>
         </div>
         <Button
           type="button"
