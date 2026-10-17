@@ -5,8 +5,9 @@ import {
 } from "../../lib/krama-form-snapshot";
 import { useNavigate } from "react-router-dom";
 import { useGuardedNavigate, useKramaFormGuard } from "../../context/KramaFormGuardContext";
-import { Check, UserPlus, X } from "lucide-react";
+import { Check, ScanLine, UserPlus, X } from "lucide-react";
 import { useIsPhoneClient } from "../../hooks/useClientFormFactor";
+import { isDesktopApp } from "../../lib/runtime";
 import {
   listBanjar,
   listTempek,
@@ -95,6 +96,8 @@ import { Card } from "../ui/Card";
 import { AnggotaFormDialog, type AnggotaFormValues } from "./AnggotaFormDialog";
 import { AnggotaKeluargaTable, type AnggotaTableRow } from "./AnggotaKeluargaTable";
 import { KeluarPipilIntraDesaDialog } from "./KeluarPipilIntraDesaDialog";
+import { ScanKkDialog } from "./ScanKkDialog";
+import type { AnggotaFromKk } from "../../lib/kk-scan/map-anggota";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
 
 type DeleteAnggotaTarget = {
@@ -223,6 +226,7 @@ export function KramaWizardForm({
   const navigateAfterSave = useNavigate();
   const { register, setSuppressUnsavedDialog } = useKramaFormGuard();
   const isPhone = useIsPhoneClient();
+  const canScanKk = isPhone && !isDesktopApp();
   const basePath = kramaListPath(klasifikasi);
   const isEdit = Boolean(kramaId);
   const [error, setError] = useState("");
@@ -283,6 +287,7 @@ export function KramaWizardForm({
   const [kepalaAnggotaKey, setKepalaAnggotaKey] = useState("");
   const [dialogMode, setDialogMode] = useState<"add" | "edit" | null>(null);
   const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [scanKkOpen, setScanKkOpen] = useState(false);
   const [anggotaNotice, setAnggotaNotice] = useState("");
   const [anggotaNoticeWarning, setAnggotaNoticeWarning] = useState(false);
   /** Edit Pipil: perubahan anggota menunggu simpan kartu keseluruhan */
@@ -625,7 +630,7 @@ export function KramaWizardForm({
               tempat_lahir: a.tempat_lahir,
               tanggal_lahir: a.tanggal_lahir,
               pekerjaan: a.pekerjaan,
-              nik_atau_nika: a.nik_atau_nika,
+              nik_atau_nika: a.nik_atau_nika?.trim() || a.nik_kependudukan?.trim() || undefined,
               nika: a.nika,
               nrkt: a.nrkt,
               nrt: a.nrt,
@@ -647,7 +652,7 @@ export function KramaWizardForm({
           tempat_lahir: a.tempat_lahir,
           tanggal_lahir: a.tanggal_lahir,
           pekerjaan: a.pekerjaan,
-          nik_atau_nika: a.nik_atau_nika,
+          nik_atau_nika: a.nik_atau_nika?.trim() || a.nik_kependudukan?.trim() || undefined,
           nika: a.nika,
           nrkt: a.nrkt,
           nrt: a.nrt,
@@ -820,6 +825,75 @@ export function KramaWizardForm({
     }
     setDialogMode(null);
     setEditingKey(null);
+  }
+
+  async function importAnggotaFromKk(members: AnggotaFromKk[]) {
+    if (members.length === 0) return;
+
+    if (!isEdit) {
+      let nextKepala = kepalaAnggotaKey;
+      const additions: AnggotaDraft[] = members.map((m) => {
+        const clientId = uuid();
+        if (usesKepalaSelect && !nextKepala) nextKepala = clientId;
+        return { ...m, clientId };
+      });
+      setAnggotaDraft((prev) => [...prev, ...additions]);
+      if (nextKepala) setKepalaAnggotaKey(nextKepala);
+      setAnggotaNotice(
+        `${members.length} anggota dari scan KK ditambahkan ke draf. Periksa data, tetapkan ${gelarLabel}, lalu simpan kartu.`
+      );
+      setAnggotaNoticeWarning(true);
+      return;
+    }
+
+    if (!kramaId) throw new Error("Data krama tidak lengkap.");
+
+    if (deferMipilAnggotaSave) {
+      let nextKepala = kepalaAnggotaKey;
+      const additions: AnggotaDraft[] = members.map((m) => {
+        const clientId = uuid();
+        if (usesKepalaSelect && !nextKepala) nextKepala = clientId;
+        const statusAwal =
+          isGelarKepalaStatus(m.status_keluarga, klasifikasi) && isPipil
+            ? "Istri"
+            : m.status_keluarga;
+        return { ...m, clientId, status_keluarga: statusAwal };
+      });
+      setAnggotaPendingAdd((prev) => [...prev, ...additions]);
+      if (nextKepala) setKepalaAnggotaKey(nextKepala);
+      notifyAnggotaPendingMipil();
+      setAnggotaNotice(
+        `${members.length} anggota dari scan KK menunggu penyimpanan kartu.`
+      );
+      setAnggotaNoticeWarning(true);
+      return;
+    }
+
+    for (const m of members) {
+      const statusAwal =
+        isGelarKepalaStatus(m.status_keluarga, klasifikasi) && isPipil
+          ? "Istri"
+          : m.status_keluarga;
+      await addAnggota({
+        kramaId,
+        statusKeluarga: statusAwal,
+        penduduk: {
+          nama_lengkap: m.nama_lengkap,
+          jenis_kelamin: m.jenis_kelamin,
+          tempat_lahir: m.tempat_lahir,
+          tanggal_lahir: m.tanggal_lahir,
+          status_kawin: m.status_kawin,
+          pekerjaan: m.pekerjaan,
+          nama_ibu: m.nama_ibu,
+          nama_ayah: m.nama_ayah,
+          nik_atau_nika: m.nik_atau_nika,
+          agama: m.agama,
+        },
+      });
+    }
+    await loadKrama();
+    setAnggotaNotice(`${members.length} anggota dari scan KK berhasil ditambahkan.`);
+    setAnggotaNoticeWarning(false);
   }
 
   async function saveAnggotaEdit(values: AnggotaFormValues) {
@@ -1055,7 +1129,7 @@ export function KramaWizardForm({
       pekerjaan: a.pekerjaan ?? undefined,
       nama_ibu: a.nama_ibu ?? undefined,
       nama_ayah: a.nama_ayah ?? undefined,
-      nik_atau_nika: a.nik_atau_nika ?? undefined,
+      nik_atau_nika: a.nik_atau_nika?.trim() || a.nik_kependudukan?.trim() || undefined,
       agama: a.agama ?? undefined,
       foto_url: a.foto_url ?? undefined,
     };
@@ -1537,7 +1611,27 @@ export function KramaWizardForm({
     <Card compact className={KRAMA_FORM_SHELL}>
       <div className="flex flex-col gap-2 mb-1.5 sm:flex-row sm:items-center sm:justify-between">
         <h3 className="text-sm font-semibold text-copper-950">Anggota Keluarga</h3>
-        <div className="grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap sm:shrink-0">
+        <div
+          className={cn(
+            "gap-1.5 sm:flex sm:flex-wrap sm:shrink-0",
+            canScanKk ? "grid grid-cols-2" : "grid grid-cols-1 sm:grid-cols-none"
+          )}
+        >
+          {canScanKk && (
+            <Button
+              type="button"
+              variant="secondary"
+              icon={ScanLine}
+              className="h-9 sm:h-8 px-2.5 text-xs justify-center"
+              onClick={() => {
+                setAnggotaNotice("");
+                setAnggotaNoticeWarning(false);
+                setScanKkOpen(true);
+              }}
+            >
+              Scan KK
+            </Button>
+          )}
           <Button
             type="button"
             variant={perluPengarepDulu ? "primary" : "secondary"}
@@ -1914,6 +2008,13 @@ export function KramaWizardForm({
       </Card>
 
       {!anggotaDulu && anggotaCard}
+
+      <ScanKkDialog
+        open={scanKkOpen}
+        klasifikasi={klasifikasi}
+        onClose={() => setScanKkOpen(false)}
+        onConfirm={importAnggotaFromKk}
+      />
 
       <AnggotaFormDialog
         key={

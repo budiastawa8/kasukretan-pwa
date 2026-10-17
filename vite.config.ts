@@ -36,6 +36,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,png,svg,ico,woff,woff2,otf,ttf}"],
+        globIgnores: ["**/tesseract/**"],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/api\//],
@@ -53,9 +54,18 @@ export default defineConfig({
             },
           },
           {
+            urlPattern: /\/tesseract\/.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "tesseract-ocr",
+              expiration: { maxEntries: 16, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
             urlPattern: /\.wasm$/,
             handler: "CacheFirst",
-            options: { cacheName: "wasm", expiration: { maxEntries: 4 } },
+            options: { cacheName: "wasm", expiration: { maxEntries: 8 } },
           },
         ],
       },

@@ -52,24 +52,29 @@ export async function addAnggota(input: AddAnggotaInput): Promise<string> {
 
   if (kode === "TAMIU") assertAgamaTamiu(input.penduduk.agama);
 
-  await db.execute(
-    `INSERT INTO penduduk (id, nama_lengkap, jenis_kelamin, tempat_lahir, tanggal_lahir, status_kawin, pekerjaan, nama_ibu, nama_ayah, nik_atau_nika, agama, foto_url)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      pendudukId,
-      input.penduduk.nama_lengkap,
-      input.penduduk.jenis_kelamin,
-      input.penduduk.tempat_lahir ?? null,
-      input.penduduk.tanggal_lahir ?? null,
-      input.penduduk.status_kawin ?? null,
-      input.penduduk.pekerjaan ?? null,
-      input.penduduk.nama_ibu ?? null,
-      input.penduduk.nama_ayah ?? null,
-      input.penduduk.nik_atau_nika ?? null,
-      agamaForPenduduk(kode, input.penduduk.agama),
-      input.penduduk.foto_url?.trim() || null,
-    ]
-  );
+  {
+    const nikTrim = input.penduduk.nik_atau_nika?.trim() || null;
+    const isMipil = kode === "MIPIL";
+    await db.execute(
+      `INSERT INTO penduduk (id, nama_lengkap, jenis_kelamin, tempat_lahir, tanggal_lahir, status_kawin, pekerjaan, nama_ibu, nama_ayah, nik_kependudukan, nik_atau_nika, agama, foto_url)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        pendudukId,
+        input.penduduk.nama_lengkap,
+        input.penduduk.jenis_kelamin,
+        input.penduduk.tempat_lahir ?? null,
+        input.penduduk.tanggal_lahir ?? null,
+        input.penduduk.status_kawin ?? null,
+        input.penduduk.pekerjaan ?? null,
+        input.penduduk.nama_ibu ?? null,
+        input.penduduk.nama_ayah ?? null,
+        isMipil ? nikTrim : null,
+        !isMipil ? nikTrim : null,
+        agamaForPenduduk(kode, input.penduduk.agama),
+        input.penduduk.foto_url?.trim() || null,
+      ]
+    );
+  }
 
   const gelarLabel = gelarKepalaLabel(kode);
 
@@ -278,27 +283,32 @@ export async function updateAnggota(input: UpdateAnggotaInput): Promise<void> {
 
   if (kode === "TAMIU") assertAgamaTamiu(input.penduduk.agama);
 
-  await db.execute(
-    `UPDATE penduduk SET
-      nama_lengkap = $1, jenis_kelamin = $2, tempat_lahir = $3, tanggal_lahir = $4,
-      status_kawin = $5, pekerjaan = $6, nama_ibu = $7, nama_ayah = $8,
-      nik_atau_nika = $9, agama = $10, foto_url = $11, updated_at = datetime('now')
-    WHERE id = $12`,
-    [
-      input.penduduk.nama_lengkap,
-      input.penduduk.jenis_kelamin,
-      input.penduduk.tempat_lahir ?? null,
-      input.penduduk.tanggal_lahir ?? null,
-      input.penduduk.status_kawin ?? null,
-      input.penduduk.pekerjaan ?? null,
-      isMipil ? (input.penduduk.nama_ibu ?? null) : null,
-      isMipil ? (input.penduduk.nama_ayah ?? null) : null,
-      !isMipil ? (input.penduduk.nik_atau_nika ?? null) : null,
-      agamaForPenduduk(kode, input.penduduk.agama),
-      input.penduduk.foto_url?.trim() || null,
-      target.penduduk_id,
-    ]
-  );
+  {
+    const nikTrim = input.penduduk.nik_atau_nika?.trim() || null;
+    await db.execute(
+      `UPDATE penduduk SET
+        nama_lengkap = $1, jenis_kelamin = $2, tempat_lahir = $3, tanggal_lahir = $4,
+        status_kawin = $5, pekerjaan = $6, nama_ibu = $7, nama_ayah = $8,
+        nik_kependudukan = $9, nik_atau_nika = $10, agama = $11, foto_url = $12,
+        updated_at = datetime('now')
+      WHERE id = $13`,
+      [
+        input.penduduk.nama_lengkap,
+        input.penduduk.jenis_kelamin,
+        input.penduduk.tempat_lahir ?? null,
+        input.penduduk.tanggal_lahir ?? null,
+        input.penduduk.status_kawin ?? null,
+        input.penduduk.pekerjaan ?? null,
+        isMipil ? (input.penduduk.nama_ibu ?? null) : null,
+        isMipil ? (input.penduduk.nama_ayah ?? null) : null,
+        isMipil ? nikTrim : null,
+        !isMipil ? nikTrim : null,
+        agamaForPenduduk(kode, input.penduduk.agama),
+        input.penduduk.foto_url?.trim() || null,
+        target.penduduk_id,
+      ]
+    );
+  }
 
   if (input.statusKeluarga !== undefined) {
     const isKepala = isKepalaPenduduk(target.penduduk_id, krama.kepala.id);

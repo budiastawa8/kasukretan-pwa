@@ -104,9 +104,10 @@ export async function createKrama(input: CreateKramaInput): Promise<string> {
   for (const a of members) {
     const pid = uuid();
     pendudukIds.set(a.clientId, pid);
+    const nikTrim = a.nik_atau_nika?.trim() || null;
     await db.execute(
-      `INSERT INTO penduduk (id, nama_lengkap, jenis_kelamin, tempat_lahir, tanggal_lahir, status_kawin, pekerjaan, nama_ibu, nama_ayah, nik_atau_nika, agama, foto_url)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO penduduk (id, nama_lengkap, jenis_kelamin, tempat_lahir, tanggal_lahir, status_kawin, pekerjaan, nama_ibu, nama_ayah, nik_kependudukan, nik_atau_nika, agama, foto_url)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         pid,
         a.nama_lengkap,
@@ -117,7 +118,8 @@ export async function createKrama(input: CreateKramaInput): Promise<string> {
         a.pekerjaan ?? null,
         kode === "MIPIL" ? (a.nama_ibu ?? null) : null,
         kode === "MIPIL" ? (a.nama_ayah ?? null) : null,
-        kode !== "MIPIL" ? (a.nik_atau_nika ?? null) : null,
+        kode === "MIPIL" ? nikTrim : null,
+        kode !== "MIPIL" ? nikTrim : null,
         agamaForPenduduk(kode, a.agama),
         a.foto_url?.trim() || null,
       ]
@@ -400,27 +402,32 @@ export async function updateKrama(input: UpdateKramaInput): Promise<void> {
     );
   }
 
-  await db.execute(
-    `UPDATE penduduk SET
-      nama_lengkap = $1, jenis_kelamin = $2, tempat_lahir = $3, tanggal_lahir = $4,
-      status_kawin = $5, pekerjaan = $6, nama_ibu = $7, nama_ayah = $8,
-      nik_atau_nika = $9, agama = $10, foto_url = $11, updated_at = datetime('now')
-    WHERE id = $12`,
-    [
-      input.kepala.nama_lengkap,
-      input.kepala.jenis_kelamin,
-      input.kepala.tempat_lahir ?? null,
-      input.kepala.tanggal_lahir ?? null,
-      input.kepala.status_kawin ?? null,
-      input.kepala.pekerjaan ?? null,
-      isMipil ? (input.kepala.nama_ibu ?? null) : null,
-      isMipil ? (input.kepala.nama_ayah ?? null) : null,
-      !isMipil ? (input.kepala.nik_atau_nika ?? null) : null,
-      agamaForPenduduk(input.klasifikasiKode, input.kepala.agama),
-      input.kepala.foto_url?.trim() || null,
-      existing.kepala.id,
-    ]
-  );
+  {
+    const nikTrim = input.kepala.nik_atau_nika?.trim() || null;
+    await db.execute(
+      `UPDATE penduduk SET
+        nama_lengkap = $1, jenis_kelamin = $2, tempat_lahir = $3, tanggal_lahir = $4,
+        status_kawin = $5, pekerjaan = $6, nama_ibu = $7, nama_ayah = $8,
+        nik_kependudukan = $9, nik_atau_nika = $10, agama = $11, foto_url = $12,
+        updated_at = datetime('now')
+      WHERE id = $13`,
+      [
+        input.kepala.nama_lengkap,
+        input.kepala.jenis_kelamin,
+        input.kepala.tempat_lahir ?? null,
+        input.kepala.tanggal_lahir ?? null,
+        input.kepala.status_kawin ?? null,
+        input.kepala.pekerjaan ?? null,
+        isMipil ? (input.kepala.nama_ibu ?? null) : null,
+        isMipil ? (input.kepala.nama_ayah ?? null) : null,
+        isMipil ? nikTrim : null,
+        !isMipil ? nikTrim : null,
+        agamaForPenduduk(input.klasifikasiKode, input.kepala.agama),
+        input.kepala.foto_url?.trim() || null,
+        existing.kepala.id,
+      ]
+    );
+  }
 
   if (isMipil && status === "aktif") {
     await syncNyadaOtomatis({ kramaId: input.kramaId });

@@ -328,8 +328,8 @@ export async function getKramaDetail(id: string): Promise<KramaDetail | null> {
     `SELECT ak.id as anggota_id, ak.penduduk_id, ak.status_keluarga, ak.urut_dalam_keluarga,
             ak.nika, ak.nrkt, ak.nrt, ak.tanggal_pencatatan, ak.masuk_pada, ak.keluar_pada, ak.status,
             p.nama_lengkap, p.jenis_kelamin, p.tempat_lahir, p.tanggal_lahir,
-            p.status_kawin, p.pekerjaan, p.nama_ibu, p.nama_ayah, p.nik_atau_nika, p.agama,
-            p.foto_url
+            p.status_kawin, p.pekerjaan, p.nama_ibu, p.nama_ayah,
+            p.nik_kependudukan, p.nik_atau_nika, p.agama, p.foto_url
      FROM anggota_keluarga ak
      JOIN penduduk p ON p.id = ak.penduduk_id
      WHERE ak.krama_id = $1 AND ak.status = 'aktif'
