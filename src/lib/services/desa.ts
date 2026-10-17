@@ -248,7 +248,6 @@ export type ProfilDesaAdatInput = PrajuruDesaAdatInput & {
   krama_dapukan_berlaku_mulai?: string | null;
   batas_umur_dapukan?: number | null;
   jenis_dapukan_mipil_id?: string | null;
-  jenis_balu_dapukan_mipil_id?: string | null;
   jenis_balu_nglintik_mipil_id?: string | null;
   yowana_umur_min?: number | null;
   yowana_umur_max?: number | null;
@@ -287,7 +286,6 @@ export async function updateProfilDesaAdat(data: ProfilDesaAdatInput): Promise<D
   const dapukanMulai = parseIsoDateString(data.krama_dapukan_berlaku_mulai);
   const dapukanUmur = parseOptionalInt(data.batas_umur_dapukan);
   const dapukanJenisId = trimIdOrNull(data.jenis_dapukan_mipil_id);
-  const baluDapukanJenisId = trimIdOrNull(data.jenis_balu_dapukan_mipil_id);
   const nglintikJenisId = trimIdOrNull(data.jenis_balu_nglintik_mipil_id);
   if (dapukanAktif) {
     if (!dapukanMulai) throw new Error("Isi tanggal mulai Krama Dapukan");
@@ -299,15 +297,23 @@ export async function updateProfilDesaAdat(data: ProfilDesaAdatInput): Promise<D
       throw new Error("Batas umur Krama Dapukan harus lebih besar dari batas umur Nyada");
     }
   }
-  const jenisDapukanDipakai = [dapukanJenisId, baluDapukanJenisId, nglintikJenisId].filter(Boolean);
+  const jenisDapukanDipakai = [dapukanJenisId, nglintikJenisId].filter(Boolean);
   if (
     (nyadaJenisId && jenisDapukanDipakai.includes(nyadaJenisId)) ||
     new Set(jenisDapukanDipakai).size !== jenisDapukanDipakai.length
   ) {
-    throw new Error("Jenis Nyada, Dapukan, Balu Dapukan, dan Balu Nglintik harus berbeda");
+    throw new Error("Jenis Nyada, Dapukan, dan Balu Nglintik harus berbeda");
   }
 
   const db = await getDb();
+  const baluDapukanLama = existing.jenis_balu_dapukan_mipil_id?.trim() || null;
+  if (baluDapukanLama && dapukanJenisId && baluDapukanLama !== dapukanJenisId) {
+    await db.execute(
+      `UPDATE krama SET jenis_krama_mipil_id = $1, updated_at = datetime('now')
+       WHERE jenis_krama_mipil_id = $2 AND status_krama = 'aktif'`,
+      [dapukanJenisId, baluDapukanLama]
+    );
+  }
   await db.execute(
     `UPDATE desa_adat SET
       logo_url = ?, logo_mda_url = ?,
@@ -315,7 +321,7 @@ export async function updateProfilDesaAdat(data: ProfilDesaAdatInput): Promise<D
       jenis_umur_nyada = ?, nyada_berlaku_mulai = ?, jenis_krama_mipil_id = ?,
       jenis_cerai_mati_mipil_id = ?, jenis_cerai_hidup_mipil_id = ?,
       krama_dapukan_aktif = ?, krama_dapukan_berlaku_mulai = ?, batas_umur_dapukan = ?,
-      jenis_dapukan_mipil_id = ?, jenis_balu_dapukan_mipil_id = ?, jenis_balu_nglintik_mipil_id = ?,
+      jenis_dapukan_mipil_id = ?, jenis_balu_dapukan_mipil_id = NULL, jenis_balu_nglintik_mipil_id = ?,
       yowana_umur_min = ?, yowana_umur_max = ?,
       pararem_nomor = ?, pararem_tahun = ?, pararem_judul = ?,
       bandesa_nama = ?, bandesa_jabatan = ?,
@@ -338,7 +344,6 @@ export async function updateProfilDesaAdat(data: ProfilDesaAdatInput): Promise<D
       dapukanMulai,
       dapukanUmur,
       dapukanJenisId,
-      baluDapukanJenisId,
       nglintikJenisId,
       yowanaMin,
       yowanaMax,

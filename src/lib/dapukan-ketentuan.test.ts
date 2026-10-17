@@ -21,7 +21,7 @@ const desa: DesaAdat = {
   krama_dapukan_berlaku_mulai: "2026-01-01",
   batas_umur_dapukan: 70,
   jenis_dapukan_mipil_id: "dapukan",
-  jenis_balu_dapukan_mipil_id: "balu-dapukan",
+  jenis_balu_dapukan_mipil_id: null,
   jenis_balu_nglintik_mipil_id: "nglintik",
 };
 
@@ -64,7 +64,22 @@ describe("tentukanNyadaOtomatis", () => {
       jenisId: "dapukan",
       sejak: "2026-03-15",
       dapukanBatas: "2031-03-15",
-      balu: false,
+      tanpaPasangan: false,
+    });
+  });
+
+  it("usia Nyada tanpa pasangan tetap Dapukan (bukan jenis terpisah)", () => {
+    expect(
+      tentukanNyadaOtomatis({
+        ...base,
+        keluarga: keluarga({ adaAnakBelumKawin: true, adaPasangan: false }),
+      })
+    ).toEqual({
+      aksi: "dapukan",
+      jenisId: "dapukan",
+      sejak: "2026-03-15",
+      dapukanBatas: "2031-03-15",
+      tanpaPasangan: true,
     });
   });
 
@@ -113,7 +128,7 @@ describe("tentukanNyadaOtomatis", () => {
     ).toMatchObject({ aksi: "nyada", jenisId: "nyada", sejak: "2026-08-01" });
   });
 
-  it("pasangan Pengarep Dapukan meninggal: Balu Dapukan dengan batas umur semula", () => {
+  it("pasangan Pengarep Dapukan meninggal: tetap Dapukan dengan batas umur semula", () => {
     expect(
       tentukanNyadaOtomatis({
         ...base,
@@ -121,31 +136,43 @@ describe("tentukanNyadaOtomatis", () => {
         dapukanBatas: "2031-03-15",
         keluarga: keluarga({ adaAnakBelumKawin: true, adaPasangan: false }),
       })
-    ).toEqual({
-      aksi: "dapukan",
-      jenisId: "balu-dapukan",
-      sejak: hariIni,
-      dapukanBatas: "2031-03-15",
-      balu: true,
-    });
+    ).toEqual({ aksi: "tetap", dapukanBatas: "2031-03-15", tanpaPasangan: true });
   });
 
-  it("Balu Dapukan sendirian menjadi Balu Nglintik", () => {
+  it("warisan Balu Dapukan disamakan ke Dapukan", () => {
     expect(
       tentukanNyadaOtomatis({
         ...base,
-        jenisId: "balu-dapukan",
+        jenisId: "balu-lama",
+        dapukanBatas: "2031-03-15",
+        desa: { ...desa, jenis_balu_dapukan_mipil_id: "balu-lama" },
+        keluarga: keluarga({ adaAnakBelumKawin: true, adaPasangan: false }),
+      })
+    ).toEqual({
+      aksi: "dapukan",
+      jenisId: "dapukan",
+      sejak: hariIni,
+      dapukanBatas: "2031-03-15",
+      tanpaPasangan: true,
+    });
+  });
+
+  it("Dapukan tanpa pasangan sendirian menjadi Balu Nglintik", () => {
+    expect(
+      tentukanNyadaOtomatis({
+        ...base,
+        jenisId: "dapukan",
         pengarepTanggalLahir: "1980-01-01",
         keluarga: keluarga({ adaPasangan: false, sendirian: true }),
       })
     ).toMatchObject({ aksi: "nyada", jenisId: "nglintik" });
   });
 
-  it("Balu Dapukan tidak sendirian menjadi Nyada, lalu Balu Nglintik saat sendirian", () => {
+  it("Dapukan tanpa pasangan tidak sendirian menjadi Nyada, lalu Balu Nglintik saat sendirian", () => {
     expect(
       tentukanNyadaOtomatis({
         ...base,
-        jenisId: "balu-dapukan",
+        jenisId: "dapukan",
         keluarga: keluarga({ adaPasangan: false }),
       })
     ).toMatchObject({ aksi: "nyada", jenisId: "nyada" });
@@ -159,7 +186,7 @@ describe("tentukanNyadaOtomatis", () => {
     ).toMatchObject({ aksi: "nyada", jenisId: "nglintik" });
   });
 
-  it("Nyada tanpa riwayat Balu Dapukan tidak disentuh", () => {
+  it("Nyada tanpa riwayat Dapukan tanpa pasangan tidak disentuh", () => {
     expect(
       tentukanNyadaOtomatis({
         ...base,

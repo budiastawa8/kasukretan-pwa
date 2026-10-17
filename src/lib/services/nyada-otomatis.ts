@@ -58,7 +58,7 @@ async function loadAnggotaHidupByKrama(
 
 /**
  * Nyada otomatis per umur Pengarep sejak tanggal berlaku, termasuk Krama Dapukan
- * (Anak belum kawin), Balu Dapukan, dan Balu Nglintik. Krama Nyada tidak pernah dikembalikan.
+ * (Anak belum kawin) dan Balu Nglintik. Krama Nyada tidak pernah dikembalikan.
  * @returns jumlah krama yang berubah jenis.
  */
 export async function syncNyadaOtomatis(opts?: { kramaId?: string }): Promise<number> {
@@ -99,11 +99,23 @@ export async function syncNyadaOtomatis(opts?: { kramaId?: string }): Promise<nu
       hariIni,
     });
     if (keputusan.aksi === "tetap") {
-      if (keputusan.dapukanBatas && !row.dapukan_batas) {
-        await db.execute(`UPDATE krama SET dapukan_batas = $1 WHERE id = $2`, [
-          keputusan.dapukanBatas,
-          row.id,
-        ]);
+      const batasBaru = keputusan.dapukanBatas && !row.dapukan_batas ? keputusan.dapukanBatas : null;
+      const catatTanpaPasangan =
+        keputusan.tanpaPasangan === true && !row.balu_dapukan_sejak ? hariIni : null;
+      const hapusTanpaPasangan =
+        keputusan.tanpaPasangan === false && !!row.balu_dapukan_sejak;
+      if (batasBaru || catatTanpaPasangan || hapusTanpaPasangan) {
+        await db.execute(
+          `UPDATE krama SET
+             dapukan_batas = COALESCE($1, dapukan_batas),
+             balu_dapukan_sejak = CASE
+               WHEN $3 = 1 THEN NULL
+               WHEN $2 IS NOT NULL THEN $2
+               ELSE balu_dapukan_sejak
+             END
+           WHERE id = $4`,
+          [batasBaru, catatTanpaPasangan, hapusTanpaPasangan ? 1 : 0, row.id]
+        );
       }
       continue;
     }
@@ -126,7 +138,7 @@ export async function syncNyadaOtomatis(opts?: { kramaId?: string }): Promise<nu
           row.jenis_krama_mipil_id,
           keputusan.sejak,
           keputusan.dapukanBatas,
-          keputusan.balu ? row.balu_dapukan_sejak || keputusan.sejak : null,
+          keputusan.tanpaPasangan ? row.balu_dapukan_sejak || keputusan.sejak : null,
           row.id,
         ]
       );
@@ -143,13 +155,15 @@ export type KramaDapukanRingkas = {
   jenis_nama: string | null;
 };
 
-/** Krama aktif berjenis Dapukan / Balu Dapukan (dampak bila Krama Dapukan dimatikan). */
+/** Krama aktif berjenis Dapukan (dampak bila Krama Dapukan dimatikan; termasuk warisan Balu Dapukan). */
 export async function listKramaDapukanAktif(
   desa: DesaAdat | null | undefined
 ): Promise<KramaDapukanRingkas[]> {
-  const ids = [desa?.jenis_dapukan_mipil_id, desa?.jenis_balu_dapukan_mipil_id]
-    .map((id) => id?.trim())
-    .filter((id): id is string => !!id);
+  const ids = [...new Set(
+    [desa?.jenis_dapukan_mipil_id, desa?.jenis_balu_dapukan_mipil_id]
+      .map((id) => id?.trim())
+      .filter((id): id is string => !!id)
+  )];
   if (ids.length === 0) return [];
   const db = await getDb();
   const placeholders = ids.map((_, i) => `$${i + 1}`).join(", ");
@@ -164,7 +178,7 @@ export async function listKramaDapukanAktif(
   );
 }
 
-/** Krama Dapukan tidak diterapkan lagi: semua krama Dapukan / Balu Dapukan menjadi Nyada hari ini. */
+/** Krama Dapukan tidak diterapkan lagi: semua krama Dapukan menjadi Nyada hari ini. */
 export async function akhiriKramaDapukan(desaSebelum: DesaAdat | null | undefined): Promise<number> {
   const jenisNyadaId = desaSebelum?.jenis_krama_mipil_id?.trim();
   if (!jenisNyadaId) throw new Error("Jenis Krama (nyada) belum diatur di Profil Desa");
@@ -224,15 +238,14 @@ export async function catatPerubahanJenisNyada(params: {
   const db = await getDb();
   if (isKramaNyada(lama, desa) && isKramaNyada(baru, desa)) return;
 
-  const kodeDapukan = jenisDapukanKode(baru, desa);
-  if (kodeDapukan) {
+  if (jenisDapukanKode(baru, desa)) {
     const hariIni = dateToIsoLocal(new Date());
     await db.execute(
       `UPDATE krama SET jenis_sebelum_nyada_id = $1, nyada_sejak = $2, nyada_sampai = NULL,
          alasan_nyada = NULL, keterangan_nyada = NULL, dapukan_batas = NULL,
-         balu_dapukan_sejak = CASE WHEN $3 = 1 THEN COALESCE(balu_dapukan_sejak, $2) ELSE NULL END
-       WHERE id = $4`,
-      [lama, hariIni, kodeDapukan === "balu_dapukan" ? 1 : 0, params.kramaId]
+         balu_dapukan_sejak = NULL
+       WHERE id = $3`,
+      [lama, hariIni, params.kramaId]
     );
     return;
   }

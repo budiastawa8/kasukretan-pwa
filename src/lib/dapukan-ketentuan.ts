@@ -11,7 +11,7 @@ import { STATUS_KAWIN_KODE, normalizeStatusKawinKode } from "./status-kawin";
 import { isStatusKeluargaAnak } from "./status-keluarga";
 import type { DesaAdat } from "./types";
 
-export type JenisDapukanKode = "dapukan" | "balu_dapukan";
+export type JenisDapukanKode = "dapukan";
 
 /** Tanggal mulai Krama Dapukan bila toggle aktif, atau null. */
 export function getDapukanBerlakuMulai(
@@ -36,7 +36,8 @@ export function jenisDapukanKode(
   const cur = jenisMipilId?.trim();
   if (!cur) return null;
   if (cur === desa?.jenis_dapukan_mipil_id?.trim()) return "dapukan";
-  if (cur === desa?.jenis_balu_dapukan_mipil_id?.trim()) return "balu_dapukan";
+  // Warisan: jenis Balu Dapukan lama diperlakukan sebagai Dapukan.
+  if (cur === desa?.jenis_balu_dapukan_mipil_id?.trim()) return "dapukan";
   return null;
 }
 
@@ -52,7 +53,7 @@ export function isStatusPasangan(statusKeluarga: string | null | undefined): boo
   return /^(istri|suami)$/i.test(statusKeluarga?.trim() ?? "");
 }
 
-/** Jenis Dapukan, Balu Dapukan, dan Balu Nglintik yang terisi di Profil Desa. */
+/** Jenis Dapukan dan Balu Nglintik yang terisi di Profil Desa (termasuk warisan Balu Dapukan). */
 export function listJenisDapukanIds(desa: DesaAdat | null | undefined): string[] {
   return [
     desa?.jenis_dapukan_mipil_id,
@@ -104,7 +105,7 @@ export function keadaanKeluargaDapukan(
 }
 
 export type KeputusanNyadaOtomatis =
-  | { aksi: "tetap"; dapukanBatas?: string | null }
+  | { aksi: "tetap"; dapukanBatas?: string | null; tanpaPasangan?: boolean }
   | {
       aksi: "nyada";
       jenisId: string;
@@ -112,15 +113,16 @@ export type KeputusanNyadaOtomatis =
       alasan: AlasanNyada;
       keterangan: string | null;
     }
-  | { aksi: "dapukan"; jenisId: string; sejak: string; dapukanBatas: string | null; balu: boolean };
+  | { aksi: "dapukan"; jenisId: string; sejak: string; dapukanBatas: string | null; tanpaPasangan: boolean };
 
 /**
  * Jenis krama Mipil berikutnya menurut Nyada otomatis dan Krama Dapukan.
- * Krama Nyada tidak pernah dikembalikan; Balu Dapukan yang tinggal sendirian menjadi Balu Nglintik.
+ * Krama Nyada tidak pernah dikembalikan; Dapukan tanpa pasangan yang tinggal sendirian menjadi Balu Nglintik.
  */
 export function tentukanNyadaOtomatis(params: {
   jenisId: string | null | undefined;
   dapukanBatas?: string | null;
+  /** Riwayat Dapukan tanpa pasangan — untuk Balu Nglintik setelah Nyada. */
   baluDapukanSejak?: string | null;
   pengarepTanggalLahir: string | null | undefined;
   keluarga: KeadaanKeluargaDapukan;
@@ -130,6 +132,7 @@ export function tentukanNyadaOtomatis(params: {
   const { desa, keluarga, hariIni } = params;
   const jenisNyada = desa.jenis_krama_mipil_id?.trim() || "";
   const jenisNglintik = desa.jenis_balu_nglintik_mipil_id?.trim() || "";
+  const jenisDapukan = desa.jenis_dapukan_mipil_id?.trim() || "";
   const jenisId = params.jenisId?.trim() || "";
 
   if (isKramaNyada(jenisId, desa)) {
@@ -144,7 +147,7 @@ export function tentukanNyadaOtomatis(params: {
         jenisId: jenisNglintik,
         sejak: hariIni,
         alasan: "dapukan",
-        keterangan: "Balu Dapukan tinggal sendirian di Pipil",
+        keterangan: "Dapukan tanpa pasangan tinggal sendirian di Pipil",
       };
     }
     return { aksi: "tetap" };
@@ -153,11 +156,11 @@ export function tentukanNyadaOtomatis(params: {
   const kode = jenisDapukanKode(jenisId, desa);
   if (kode) {
     const batas = params.dapukanBatas || tanggalBatasDapukan(params.pengarepTanggalLahir, desa);
-    const balu = kode === "balu_dapukan" || !keluarga.adaPasangan;
+    const tanpaPasangan = !keluarga.adaPasangan;
     if (!keluarga.adaAnakBelumKawin) {
       return {
         aksi: "nyada",
-        jenisId: balu && keluarga.sendirian && jenisNglintik ? jenisNglintik : jenisNyada,
+        jenisId: tanpaPasangan && keluarga.sendirian && jenisNglintik ? jenisNglintik : jenisNyada,
         sejak: hariIni,
         alasan: "dapukan",
         keterangan: "Tidak ada lagi Anak belum kawin",
@@ -172,11 +175,17 @@ export function tentukanNyadaOtomatis(params: {
         keterangan: "Mencapai batas umur Krama Dapukan",
       };
     }
-    const jenisBaluDapukan = desa.jenis_balu_dapukan_mipil_id?.trim();
-    if (kode === "dapukan" && !keluarga.adaPasangan && jenisBaluDapukan) {
-      return { aksi: "dapukan", jenisId: jenisBaluDapukan, sejak: hariIni, dapukanBatas: batas, balu: true };
+    // Samakan warisan Balu Dapukan ke jenis Dapukan desa.
+    if (jenisDapukan && jenisId !== jenisDapukan) {
+      return {
+        aksi: "dapukan",
+        jenisId: jenisDapukan,
+        sejak: hariIni,
+        dapukanBatas: batas,
+        tanpaPasangan,
+      };
     }
-    return { aksi: "tetap", dapukanBatas: batas };
+    return { aksi: "tetap", dapukanBatas: batas, tanpaPasangan };
   }
 
   const sejak = hitungNyadaSejak(params.pengarepTanggalLahir, desa);
@@ -194,14 +203,12 @@ export function tentukanNyadaOtomatis(params: {
         keterangan: "Mencapai batas umur Krama Dapukan",
       };
     }
-    const jenisBaluDapukan = desa.jenis_balu_dapukan_mipil_id?.trim();
-    const balu = !keluarga.adaPasangan && !!jenisBaluDapukan;
     return {
       aksi: "dapukan",
-      jenisId: balu ? jenisBaluDapukan! : desa.jenis_dapukan_mipil_id!.trim(),
+      jenisId: jenisDapukan,
       sejak,
       dapukanBatas: batas,
-      balu,
+      tanpaPasangan: !keluarga.adaPasangan,
     };
   }
 

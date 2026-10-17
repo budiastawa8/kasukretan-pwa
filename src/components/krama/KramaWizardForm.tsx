@@ -459,13 +459,13 @@ export function KramaWizardForm({
   const catatanDapukanMeninggal = useMemo(() => {
     if (!pengarepHanyaPasangan) return undefined;
     if (kodeDapukanKrama === "dapukan") {
-      const baluNama = jenisMipil.find((j) => j.id === desa?.jenis_balu_dapukan_mipil_id)?.nama;
+      const dapukanNama = jenisMipil.find((j) => j.id === desa?.jenis_dapukan_mipil_id)?.nama;
       const batas = parseBatasUmurNyada(desa?.batas_umur_dapukan);
-      return `Krama Dapukan: istri/suami melanjutkan sebagai ${baluNama ?? "Krama Balu Dapukan"}${
+      return `Krama Dapukan: istri/suami melanjutkan sebagai ${dapukanNama ?? "Krama Dapukan"}${
         batas != null ? `, atau langsung Nyada bila sudah berumur ${batas} tahun` : ""
       }. Anak tidak menggantikan Pengarep.`;
     }
-    return "Pengarep Krama Balu Dapukan / Balu Nglintik tidak digantikan anak. Bila tidak ada istri/suami, kartu dinonaktifkan.";
+    return "Pengarep Krama Dapukan / Balu Nglintik tidak digantikan anak. Bila tidak ada istri/suami, kartu dinonaktifkan.";
   }, [pengarepHanyaPasangan, kodeDapukanKrama, jenisMipil, desa]);
 
   async function handleGantiPengarepMeninggal(values: {
@@ -1866,7 +1866,7 @@ export function KramaWizardForm({
                 )}
               {isEdit && krama && jenisMipilId === krama.jenis_krama_mipil_id && kodeDapukanKrama && (
                 <FormHint>
-                  {kodeDapukanKrama === "balu_dapukan" ? "Balu Dapukan" : "Dapukan"}
+                  Dapukan
                   {krama.nyada_sejak ? ` sejak ${formatTanggalLahir(krama.nyada_sejak)}` : ""}
                   {" · otomatis Nyada saat tidak ada lagi Anak belum kawin"}
                   {krama.dapukan_batas

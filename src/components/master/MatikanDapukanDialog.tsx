@@ -65,11 +65,11 @@ export function MatikanDapukanDialog({
           {daftar.length > 0 ? (
             <>
               {" "}
-              <strong>{daftar.length} krama</strong> berjenis Dapukan / Balu Dapukan akan menjadi
-              Nyada mulai hari ini. Perubahan ini tidak dapat dibatalkan otomatis.
+              <strong>{daftar.length} krama</strong> berjenis Dapukan akan menjadi Nyada mulai hari
+              ini. Perubahan ini tidak dapat dibatalkan otomatis.
             </>
           ) : (
-            " Saat ini tidak ada krama berjenis Dapukan / Balu Dapukan."
+            " Saat ini tidak ada krama berjenis Dapukan."
           )}
         </p>
         {daftar.length > 0 && (

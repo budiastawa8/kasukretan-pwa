@@ -33,8 +33,9 @@ export interface DesaAdat {
   /** Batas umur Pengarep Dapukan; setelahnya otomatis Nyada. Kosong = tanpa batas. */
   batas_umur_dapukan?: number | null;
   jenis_dapukan_mipil_id?: string | null;
+  /** @deprecated Tidak dipakai lagi; kolom DB dipertahankan untuk migrasi. */
   jenis_balu_dapukan_mipil_id?: string | null;
-  /** Nyada setelah Balu Dapukan tinggal sendirian di Pipil. */
+  /** Nyada setelah Pengarep Dapukan tanpa pasangan tinggal sendirian di Pipil. */
   jenis_balu_nglintik_mipil_id?: string | null;
   /** Usia minimum Yowana (tahun) */
   yowana_umur_min?: number | null;
@@ -182,7 +183,7 @@ export interface KramaDetail {
   keterangan_nyada?: string | null;
   /** Tanggal krama Dapukan otomatis Nyada karena batas umur (ulang tahun Pengarep Dapukan). */
   dapukan_batas?: string | null;
-  /** Tanggal menjadi Krama Balu Dapukan. */
+  /** Tanggal Dapukan tanpa pasangan (untuk jalur Balu Nglintik). */
   balu_dapukan_sejak?: string | null;
   /** Jenis sebelum otomatis menjadi jenis Cerai Mati/Cerai Hidup — dipulihkan saat Pengarep kawin lagi. */
   jenis_sebelum_cerai_id?: string | null;

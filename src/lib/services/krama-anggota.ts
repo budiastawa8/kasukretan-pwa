@@ -240,23 +240,25 @@ export async function gantiPengarepMeninggal(input: GantiPengarepMeninggalInput)
       pengganti.tanggal_lahir,
       desa?.batas_umur_dapukan
     );
-    const jenisBaru = penggantiLewatBatas
-      ? desa?.jenis_krama_mipil_id?.trim()
-      : desa?.jenis_balu_dapukan_mipil_id?.trim();
-    if (jenisBaru) {
+    if (penggantiLewatBatas) {
+      const jenisNyada = desa?.jenis_krama_mipil_id?.trim();
+      if (jenisNyada) {
+        await db.execute(
+          `UPDATE krama SET jenis_sebelum_nyada_id = jenis_krama_mipil_id, jenis_krama_mipil_id = $1,
+             nyada_sejak = $2, nyada_sampai = NULL, alasan_nyada = 'dapukan',
+             keterangan_nyada = 'Pengganti sudah mencapai batas umur Krama Dapukan',
+             balu_dapukan_sejak = NULL, updated_at = datetime('now')
+           WHERE id = $3`,
+          [jenisNyada, tanggal, input.kramaId]
+        );
+      }
+    } else {
+      // Tetap Dapukan; catat tanpa pasangan untuk jalur Balu Nglintik.
       await db.execute(
-        `UPDATE krama SET jenis_sebelum_nyada_id = jenis_krama_mipil_id, jenis_krama_mipil_id = $1,
-           nyada_sejak = $2, nyada_sampai = NULL, alasan_nyada = $3, keterangan_nyada = $4,
-           balu_dapukan_sejak = $5, updated_at = datetime('now')
-         WHERE id = $6`,
-        [
-          jenisBaru,
-          tanggal,
-          penggantiLewatBatas ? "dapukan" : null,
-          penggantiLewatBatas ? "Pengganti sudah mencapai batas umur Krama Dapukan" : null,
-          penggantiLewatBatas ? null : tanggal,
-          input.kramaId,
-        ]
+        `UPDATE krama SET balu_dapukan_sejak = COALESCE(balu_dapukan_sejak, $1),
+           updated_at = datetime('now')
+         WHERE id = $2`,
+        [tanggal, input.kramaId]
       );
     }
   }

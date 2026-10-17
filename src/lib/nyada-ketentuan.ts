@@ -50,7 +50,7 @@ export function resolveJenisSetelahLepasNyada(
   return desa?.jenis_cerai_mati_mipil_id?.trim() || krama?.jenis_sebelum_nyada_id?.trim() || null;
 }
 
-/** Nyada, termasuk Krama Balu Nglintik (Nyada setelah Balu Dapukan tinggal sendirian). */
+/** Nyada, termasuk Krama Balu Nglintik (Nyada setelah Dapukan tanpa pasangan tinggal sendirian). */
 export function isKramaNyada(
   jenisMipilId: string | null | undefined,
   desa: Pick<DesaAdat, "jenis_krama_mipil_id" | "jenis_balu_nglintik_mipil_id"> | null | undefined

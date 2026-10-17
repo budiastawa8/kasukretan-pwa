@@ -10,7 +10,7 @@ export type PengarepDesaKetentuan = {
   jenisNyadaId?: string | null;
   jenisCeraiMatiId?: string | null;
   jenisCeraiHidupId?: string | null;
-  /** Jenis Dapukan / Balu Dapukan / Balu Nglintik — diperlakukan seperti Nyada untuk peringatan. */
+  /** Jenis Dapukan / Balu Nglintik — diperlakukan seperti Nyada untuk peringatan. */
   jenisDapukanIds?: string[];
 };
 

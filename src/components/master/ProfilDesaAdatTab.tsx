@@ -37,7 +37,6 @@ type ProfilForm = {
   krama_dapukan_berlaku_mulai: string;
   batas_umur_dapukan: string;
   jenis_dapukan_mipil_id: string;
-  jenis_balu_dapukan_mipil_id: string;
   jenis_balu_nglintik_mipil_id: string;
   yowana_umur_min: string;
   yowana_umur_max: string;
@@ -69,7 +68,6 @@ const emptyForm = (): ProfilForm => ({
   krama_dapukan_berlaku_mulai: "",
   batas_umur_dapukan: "",
   jenis_dapukan_mipil_id: "",
-  jenis_balu_dapukan_mipil_id: "",
   jenis_balu_nglintik_mipil_id: "",
   yowana_umur_min: "",
   yowana_umur_max: "",
@@ -109,7 +107,6 @@ function formFromDesa(d: DesaAdat | null): ProfilForm {
         ? String(d.batas_umur_dapukan)
         : "",
     jenis_dapukan_mipil_id: d.jenis_dapukan_mipil_id ?? "",
-    jenis_balu_dapukan_mipil_id: d.jenis_balu_dapukan_mipil_id ?? "",
     jenis_balu_nglintik_mipil_id: d.jenis_balu_nglintik_mipil_id ?? "",
     yowana_umur_min:
       d.yowana_umur_min != null && Number.isFinite(d.yowana_umur_min)
@@ -312,7 +309,6 @@ export function ProfilDesaAdatTab({
           ? parseInt(form.batas_umur_dapukan, 10)
           : null,
         jenis_dapukan_mipil_id: form.jenis_dapukan_mipil_id || null,
-        jenis_balu_dapukan_mipil_id: form.jenis_balu_dapukan_mipil_id || null,
         jenis_balu_nglintik_mipil_id: form.jenis_balu_nglintik_mipil_id || null,
         yowana_umur_min: yowanaMin ? parseInt(yowanaMin, 10) : null,
         yowana_umur_max: yowanaMax ? parseInt(yowanaMax, 10) : null,
@@ -590,14 +586,7 @@ export function ProfilDesaAdatTab({
                 onChange={(v) => setField("jenis_dapukan_mipil_id", v)}
                 jenisMipil={jenisMipil}
                 disabled={jenisDisabled}
-              />
-              <JenisMipilSelect
-                label="Jenis Krama Balu Dapukan"
-                value={form.jenis_balu_dapukan_mipil_id}
-                onChange={(v) => setField("jenis_balu_dapukan_mipil_id", v)}
-                jenisMipil={jenisMipil}
-                disabled={jenisDisabled}
-                hint="Suami/istri Pengarep Dapukan meninggal. Batas umur tetap mengikuti ulang tahun Pengarep Dapukan semula."
+                hint="Termasuk bila Pengarep Dapukan tanpa pasangan. Batas umur tetap mengikuti ulang tahun Pengarep Dapukan semula."
               />
               <JenisMipilSelect
                 label="Jenis Krama Balu Nglintik"
@@ -605,7 +594,7 @@ export function ProfilDesaAdatTab({
                 onChange={(v) => setField("jenis_balu_nglintik_mipil_id", v)}
                 jenisMipil={jenisMipil}
                 disabled={jenisDisabled}
-                hint="Nyada untuk Balu Dapukan yang tinggal sendirian di Pipil. Kosongkan untuk memakai jenis Nyada."
+                hint="Nyada untuk Pengarep Dapukan tanpa pasangan yang tinggal sendirian di Pipil. Kosongkan untuk memakai jenis Nyada."
               />
             </div>
           )}
