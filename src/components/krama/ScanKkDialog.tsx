@@ -2,7 +2,12 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Camera, Check, Loader2, ScanLine, X } from "lucide-react";
 import { mapKkMemberToAnggota, type AnggotaFromKk } from "../../lib/kk-scan/map-anggota";
 import { terminateKkOcrWorker } from "../../lib/kk-scan/ocr";
-import { scanKartuKeluarga } from "../../lib/kk-scan/scan-pipeline";
+import {
+  fetchKkScanStatus,
+  isVisionScanError,
+  scanKartuKeluarga,
+  type KkScanStatus,
+} from "../../lib/kk-scan/scan-pipeline";
 import type { KkOcrMember } from "../../lib/kk-scan/types";
 import type { KlasifikasiKode } from "../../lib/types";
 import { Button } from "../ui/Button";
@@ -47,6 +52,9 @@ export function ScanKkDialog({
   const [busyConfirm, setBusyConfirm] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [engineNote, setEngineNote] = useState("");
+  const [scanStatus, setScanStatus] = useState<KkScanStatus | null>(null);
+  const [lastFile, setLastFile] = useState<File | null>(null);
+  const [allowOcrFallback, setAllowOcrFallback] = useState(false);
 
   const isTamiu = klasifikasi === "TAMIU";
   const isPipil = klasifikasi === "MIPIL";
@@ -60,10 +68,14 @@ export function ScanKkDialog({
     setRows([]);
     setBusyConfirm(false);
     setEngineNote("");
+    setLastFile(null);
+    setAllowOcrFallback(false);
+    setScanStatus(null);
     setPreviewUrl((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return null;
     });
+    void fetchKkScanStatus().then(setScanStatus);
   }, [open]);
 
   useEffect(() => {
@@ -72,8 +84,10 @@ export function ScanKkDialog({
     };
   }, [previewUrl]);
 
-  async function runOcr(file: File) {
+  async function runOcr(file: File, forceTesseract = false) {
     setError("");
+    setAllowOcrFallback(false);
+    setLastFile(file);
     setPhase("working");
     setProgressPct(0);
     setProgressMsg("Menyiapkan foto…");
@@ -82,10 +96,14 @@ export function ScanKkDialog({
       return URL.createObjectURL(file);
     });
     try {
-      const result = await scanKartuKeluarga(file, (p) => {
-        setProgressPct(p.percent);
-        setProgressMsg(p.message);
-      });
+      const result = await scanKartuKeluarga(
+        file,
+        (p) => {
+          setProgressPct(p.percent);
+          setProgressMsg(p.message);
+        },
+        { forceTesseract, preferVisionOnly: !forceTesseract }
+      );
       if (result.members.length === 0) {
         setError(
           "Anggota KK tidak terbaca. Foto ulang bagian tabel anggota, cahaya cukup, tulisan jelas."
@@ -93,15 +111,20 @@ export function ScanKkDialog({
         setPhase("error");
         return;
       }
-      setEngineNote(result.note ?? "");
+      setEngineNote(
+        [result.note, result.visionWarning ? `Catatan Vision: ${result.visionWarning}` : ""]
+          .filter(Boolean)
+          .join(" ")
+      );
       setRows(toDraftRows(result.members, klasifikasi));
       setPhase("review");
     } catch (e) {
-      setError(
+      const msg =
         e instanceof Error
           ? e.message
-          : "Gagal membaca KK. Pastikan koneksi atau aset OCR tersedia lalu coba lagi."
-      );
+          : "Gagal membaca KK. Pastikan koneksi atau aset OCR tersedia lalu coba lagi.";
+      setError(msg);
+      setAllowOcrFallback(isVisionScanError(e));
       setPhase("error");
     }
   }
@@ -115,7 +138,7 @@ export function ScanKkDialog({
       setPhase("error");
       return;
     }
-    void runOcr(file);
+    void runOcr(file, false);
   }
 
   function updateRow(key: string, patch: Partial<DraftRow>) {
@@ -208,10 +231,22 @@ export function ScanKkDialog({
     >
       <div className="space-y-3 text-sm leading-snug">
         <p className="text-[11px] text-muted">
-          Scan cepat memakai Vision di server bila dikonfigurasi; jika tidak, OCR di HP.
           Hanya tabel anggota yang dibaca. Baris teratas = calon Pengarep/Pengajeg. Periksa
           NIK dan tanggal lahir sebelum memakai.
         </p>
+        {scanStatus && (
+          <p
+            className={
+              scanStatus.configured
+                ? "text-[11px] rounded border border-green-200 bg-green-50 px-2 py-1.5 text-green-900"
+                : "text-[11px] rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-amber-900"
+            }
+          >
+            {scanStatus.configured
+              ? `Scan cepat (Vision): aktif${scanStatus.model ? ` · ${scanStatus.model}` : ""}`
+              : `Scan cepat: tidak aktif — ${scanStatus.detail ?? "OCR di HP akan dipakai."}`}
+          </p>
+        )}
 
         <input
           ref={cameraInputRef}
@@ -287,18 +322,31 @@ export function ScanKkDialog({
                 className="h-11 justify-center"
                 onClick={() => {
                   setError("");
+                  setAllowOcrFallback(false);
                   setPhase("pick");
                   cameraInputRef.current?.click();
                 }}
               >
                 Foto ulang
               </Button>
+              {allowOcrFallback && lastFile && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  icon={ScanLine}
+                  className="h-11 justify-center"
+                  onClick={() => void runOcr(lastFile, true)}
+                >
+                  Coba OCR di HP
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="secondary"
                 className="h-11 justify-center"
                 onClick={() => {
                   setError("");
+                  setAllowOcrFallback(false);
                   setPhase("pick");
                 }}
               >

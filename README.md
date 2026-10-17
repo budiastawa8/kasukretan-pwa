@@ -86,7 +86,7 @@ npm run db:init -- --env=.env.turso
    - `TURSO_AUTH_TOKEN` — token dari langkah 2
    - `JWT_SECRET` — hasil `npm run jwt:secret` (buat baru, jangan sama dengan lokal)
    - `GEMINI_API_KEY` — (opsional) kunci [Google AI Studio](https://aistudio.google.com/apikey) untuk **scan KK cepat** di HP; tanpa ini aplikasi memakai OCR Tesseract di perangkat
-   - `GEMINI_MODEL` — (opsional, default `gemini-2.0-flash`) model Vision
+   - `GEMINI_MODEL` — (opsional, default `gemini-2.5-flash`) model Vision
 4. **Deploy**. Setelah selesai, buka alamat `https://nama-proyek.vercel.app`.
 
 Setiap `git push` ke GitHub akan otomatis men-deploy versi baru. Pengguna yang sedang membuka

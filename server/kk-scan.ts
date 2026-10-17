@@ -15,7 +15,8 @@ export type KkScanMemberDto = {
   selected: boolean;
 };
 
-const DEFAULT_MODEL = "gemini-2.0-flash";
+/** Model Vision default — bisa diganti lewat GEMINI_MODEL. */
+const DEFAULT_MODEL = "gemini-2.5-flash";
 const MAX_IMAGE_BYTES = 2.5 * 1024 * 1024;
 
 const PROMPT = `Anda membaca foto Kartu Keluarga (KK) Indonesia.
@@ -186,7 +187,8 @@ export async function scanKkWithGemini(imageBase64: string): Promise<KkScanMembe
             role: "user",
             parts: [
               { text: PROMPT },
-              { inline_data: { mime_type: mime, data } },
+              // camelCase — format REST Gemini terkini
+              { inlineData: { mimeType: mime, data } },
             ],
           },
         ],
@@ -205,15 +207,27 @@ export async function scanKkWithGemini(imageBase64: string): Promise<KkScanMembe
     clearTimeout(timer);
   }
 
-  const payload = (await res.json()) as GeminiResponse;
+  const payload = (await res.json()) as GeminiResponse & {
+    promptFeedback?: { blockReason?: string };
+  };
   if (!res.ok) {
     const msg = payload.error?.message || `Vision HTTP ${res.status}`;
     throw new HttpError(502, msg.replace(/key=[^&\s]+/gi, "key=***"));
   }
 
-  const text = payload.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
+  const block = payload.promptFeedback?.blockReason;
+  if (block) {
+    throw new HttpError(502, `Vision menolak gambar (block: ${block}). Coba foto lebih jelas.`);
+  }
+
+  const candidate = payload.candidates?.[0];
+  const text = candidate?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
   if (!text.trim()) {
-    throw new HttpError(502, "Vision tidak mengembalikan teks. Coba foto ulang tabel anggota.");
+    const reason = candidate?.finishReason ?? "unknown";
+    throw new HttpError(
+      502,
+      `Vision tidak mengembalikan teks (finish: ${reason}). Coba foto ulang tabel anggota lebih dekat.`
+    );
   }
 
   let parsed: unknown;
