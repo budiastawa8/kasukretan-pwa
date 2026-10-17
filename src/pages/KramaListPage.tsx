@@ -60,6 +60,7 @@ export function KramaListPage({
   const [nonaktifRingkasan, setNonaktifRingkasan] = useState({
     meninggal: 0,
     pindah: 0,
+    pawanengan_3_bulan: 0,
     total: 0,
   });
   const [banjar, setBanjar] = useState<Banjar[]>([]);
@@ -146,15 +147,22 @@ export function KramaListPage({
 
     if (isNonaktifTab && !alasanFilter) {
       const base = { ...listFilter, alasanTidakAktif: undefined };
-      const [meninggal, pindah] = await Promise.all([
+      const [meninggal, pindah, pawanengan] = await Promise.all([
         countKrama({ ...base, alasanTidakAktif: "meninggal" }),
         countKrama({ ...base, alasanTidakAktif: "pindah" }),
+        countKrama({ ...base, alasanTidakAktif: "pawanengan_3_bulan" }),
       ]);
-      setNonaktifRingkasan({ meninggal, pindah, total });
+      setNonaktifRingkasan({
+        meninggal,
+        pindah,
+        pawanengan_3_bulan: pawanengan,
+        total,
+      });
     } else if (isNonaktifTab) {
       setNonaktifRingkasan({
         meninggal: alasanFilter === "meninggal" ? total : 0,
         pindah: alasanFilter === "pindah" ? total : 0,
+        pawanengan_3_bulan: alasanFilter === "pawanengan_3_bulan" ? total : 0,
         total,
       });
     }
@@ -393,7 +401,8 @@ export function KramaListPage({
         <p className="text-xs text-muted leading-snug">
           Ringkasan (hasil filter):{" "}
           <strong>{nonaktifRingkasan.meninggal}</strong> meninggal,{" "}
-          <strong>{nonaktifRingkasan.pindah}</strong> pindah — total{" "}
+          <strong>{nonaktifRingkasan.pindah}</strong> pindah,{" "}
+          <strong>{nonaktifRingkasan.pawanengan_3_bulan}</strong> pawanengan 3 bulan — total{" "}
           <strong>{nonaktifRingkasan.total}</strong> krama
         </p>
       )}

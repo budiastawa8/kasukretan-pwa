@@ -134,9 +134,17 @@ export function parseImportKramaStatus(
   let statusKrama = normalizeKramaStatus(statusRaw);
   let alasanTidakAktif = normalizeAlasanTidakAktif(alasanRaw);
 
-  if (statusCell === "meninggal" || statusCell === "pindah") {
+  if (
+    statusCell === "meninggal" ||
+    statusCell === "pindah" ||
+    statusCell === "pawanengan_3_bulan" ||
+    statusCell.includes("pawanengan")
+  ) {
     statusKrama = "nonaktif";
-    alasanTidakAktif = statusCell;
+    alasanTidakAktif =
+      statusCell === "meninggal" || statusCell === "pindah"
+        ? statusCell
+        : normalizeAlasanTidakAktif(statusCell) ?? "pawanengan_3_bulan";
   } else if (statusKrama === "aktif" && alasanTidakAktif) {
     statusKrama = "nonaktif";
   }
@@ -151,8 +159,8 @@ export function parseImportKramaStatus(
       excelRow,
       column: "alasan_tidak_aktif",
       message: hasAlasanColumn
-        ? "Wajib diisi (meninggal atau pindah) bila status_krama nonaktif"
-        : "Wajib diisi (meninggal atau pindah) bila status_krama nonaktif. Unduh ulang template impor.",
+        ? "Wajib diisi (meninggal, pindah, atau pawanengan_3_bulan) bila status_krama nonaktif"
+        : "Wajib diisi (meninggal, pindah, atau pawanengan_3_bulan) bila status_krama nonaktif. Unduh ulang template impor.",
     });
     return null;
   }

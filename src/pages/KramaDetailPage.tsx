@@ -113,7 +113,7 @@ export function KramaDetailPage() {
       </div>
       {kramaNonaktifTotal && (
         <div className="rounded-lg border border-copper-300 bg-copper-50 px-4 py-3 text-sm text-copper-900">
-          <p className="font-medium">Krama nonaktif (meninggal/pindah)</p>
+          <p className="font-medium">Krama nonaktif (meninggal/pindah/pawanengan)</p>
           <p className="mt-1">
             Status Pipil dan Status Pemasih tidak aktif total. Peringatan perpanjangan dan
             perpanjangan Pemasih tidak berlaku.

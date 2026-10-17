@@ -13,16 +13,21 @@ export function formatKramaStatus(status?: string | null): string {
   return normalizeKramaStatus(status) === "aktif" ? "Aktif" : "Nonaktif";
 }
 
-export type AlasanTidakAktifKode = "meninggal" | "pindah";
+export type AlasanTidakAktifKode = "meninggal" | "pindah" | "pawanengan_3_bulan";
 
 export const ALASAN_TIDAK_AKTIF_OPTIONS: { value: AlasanTidakAktifKode; label: string }[] = [
   { value: "meninggal", label: "Meninggal" },
   { value: "pindah", label: "Pindah" },
+  { value: "pawanengan_3_bulan", label: "Pawanengan 3 bulan" },
 ];
 
 export function normalizeAlasanTidakAktif(value?: string | null): AlasanTidakAktifKode | null {
-  const v = value?.trim().toLowerCase();
-  if (v === "meninggal" || v === "pindah") return v;
+  const raw = value?.trim().toLowerCase() ?? "";
+  if (!raw) return null;
+  const v = raw.replace(/\s+/g, "_");
+  if (v === "meninggal" || v === "pindah" || v === "pawanengan_3_bulan") return v;
+  // Label impor Excel: "Pawanengan 3 bulan"
+  if (raw.includes("pawanengan")) return "pawanengan_3_bulan";
   return null;
 }
 
@@ -46,7 +51,7 @@ export function assertNonaktifFields(
 ): void {
   if (normalizeKramaStatus(statusKrama) !== "nonaktif") return;
   if (!normalizeAlasanTidakAktif(alasanTidakAktif)) {
-    throw new Error("Alasan tidak aktif wajib diisi (Meninggal atau Pindah)");
+    throw new Error("Alasan tidak aktif wajib diisi (Meninggal, Pindah, atau Pawanengan 3 bulan)");
   }
   if (!tanggalTidakAktif?.trim()) {
     throw new Error("Tanggal mulai tidak aktif wajib diisi");

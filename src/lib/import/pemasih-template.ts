@@ -115,7 +115,7 @@ function petunjukSheet(): ExcelSheetInput {
     "8. Harus tepat satu Pengajeg per kartu di sheet AnggotaPemasih.",
     "9. TAMIU: isi asal_provinsi (kartu) dan agama (anggota Pengajeg).",
     "10. Anggota selain Pengajeg wajib isi nik_atau_nika.",
-    "11. status_krama nonaktif: isi alasan_tidak_aktif (meninggal/pindah) dan tanggal_tidak_aktif.",
+    "11. status_krama nonaktif: isi alasan_tidak_aktif (meninggal/pindah/pawanengan_3_bulan) dan tanggal_tidak_aktif.",
     "12. Maksimal ~500 baris per sheet.",
   ];
   return {

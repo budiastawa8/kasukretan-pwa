@@ -99,7 +99,7 @@ function petunjukSheet(): ExcelSheetInput {
     "4. Harus ada tepat satu anggota Pengarep per kartu.",
     "5. Master (banjar, tempek, arahan, jenis) harus sudah ada — impor lewat Master dulu.",
     "6. tanggal_terdaftar / tanggal_lahir: dd/mm/yyyy atau yyyy-mm-dd.",
-    "7. status_krama nonaktif: isi alasan_tidak_aktif (meninggal/pindah) dan tanggal_tidak_aktif.",
+    "7. status_krama nonaktif: isi alasan_tidak_aktif (meninggal/pindah/pawanengan_3_bulan) dan tanggal_tidak_aktif.",
     "8. Maksimal ~500 baris per sheet.",
   ];
   return {

@@ -177,8 +177,8 @@ function parseImportKramaStatus(
       excelRow,
       column: "alasan_tidak_aktif",
       message: hasAlasanColumn
-        ? "Wajib diisi (meninggal atau pindah) bila status_krama nonaktif"
-        : "Wajib diisi (meninggal atau pindah) bila status_krama nonaktif. Unduh ulang template impor — kolom alasan_tidak_aktif belum ada.",
+        ? "Wajib diisi (meninggal, pindah, atau pawanengan_3_bulan) bila status_krama nonaktif"
+        : "Wajib diisi (meninggal, pindah, atau pawanengan_3_bulan) bila status_krama nonaktif. Unduh ulang template impor — kolom alasan_tidak_aktif belum ada.",
     });
     return null;
   }

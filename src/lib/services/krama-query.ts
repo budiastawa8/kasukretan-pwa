@@ -65,7 +65,7 @@ export type KramaListFilter = {
   q?: string;
   /** Default: hanya krama aktif. */
   statusKrama?: "aktif" | "nonaktif";
-  alasanTidakAktif?: "meninggal" | "pindah";
+  alasanTidakAktif?: "meninggal" | "pindah" | "pawanengan_3_bulan";
 };
 
 export type KramaListParams = KramaListFilter & {
