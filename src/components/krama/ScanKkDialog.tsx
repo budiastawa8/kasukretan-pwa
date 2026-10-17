@@ -208,8 +208,9 @@ export function ScanKkDialog({
     >
       <div className="space-y-3 text-sm leading-snug">
         <p className="text-[11px] text-muted">
-          Foto KK diisi ke draf anggota. Periksa NIK dan tanggal lahir sebelum memakai.
-          Banjar, tempek, jenis krama, dan Pengarep/Pengajeg tetap dipilih manual.
+          Hanya daftar di tabel anggota KK yang dibaca (bukan header Desa/Kelurahan).
+          Baris teratas jadi calon Pengarep/Pengajeg — bisa diganti. Periksa NIK dan tanggal
+          lahir sebelum memakai.
         </p>
 
         <input
@@ -315,8 +316,8 @@ export function ScanKkDialog({
               </p>
             )}
             <p className="text-[11px] text-amber-900 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
-              Centang anggota yang ikut kartu. Kepala Keluarga di KK tidak otomatis jadi
-              Pengarep/Pengajeg — tetapkan di form kartu.
+              Urutan mengikuti tabel KK. Anggota teratas (biasanya Kepala Keluarga) akan
+              dijadikan calon Pengarep/Pengajeg di form — bisa diganti sebelum simpan.
             </p>
             <ul className="space-y-3 max-h-[55vh] overflow-y-auto pr-0.5">
               {rows.map((r) => (

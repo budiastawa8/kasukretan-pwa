@@ -831,16 +831,17 @@ export function KramaWizardForm({
     if (members.length === 0) return;
 
     if (!isEdit) {
-      let nextKepala = kepalaAnggotaKey;
-      const additions: AnggotaDraft[] = members.map((m) => {
+      /** Baris pertama tabel KK = calon Pengarep/Pengajeg (bisa diganti sebelum simpan). */
+      let firstId = "";
+      const additions: AnggotaDraft[] = members.map((m, i) => {
         const clientId = uuid();
-        if (usesKepalaSelect && !nextKepala) nextKepala = clientId;
+        if (i === 0) firstId = clientId;
         return { ...m, clientId };
       });
       setAnggotaDraft((prev) => [...prev, ...additions]);
-      if (nextKepala) setKepalaAnggotaKey(nextKepala);
+      if (usesKepalaSelect && firstId) setKepalaAnggotaKey(firstId);
       setAnggotaNotice(
-        `${members.length} anggota dari scan KK ditambahkan ke draf. Periksa data, tetapkan ${gelarLabel}, lalu simpan kartu.`
+        `${members.length} anggota dari tabel KK ditambahkan. Baris pertama dijadikan calon ${gelarLabel} — periksa lalu simpan kartu.`
       );
       setAnggotaNoticeWarning(true);
       return;
@@ -849,10 +850,10 @@ export function KramaWizardForm({
     if (!kramaId) throw new Error("Data krama tidak lengkap.");
 
     if (deferMipilAnggotaSave) {
-      let nextKepala = kepalaAnggotaKey;
-      const additions: AnggotaDraft[] = members.map((m) => {
+      let firstId = "";
+      const additions: AnggotaDraft[] = members.map((m, i) => {
         const clientId = uuid();
-        if (usesKepalaSelect && !nextKepala) nextKepala = clientId;
+        if (i === 0) firstId = clientId;
         const statusAwal =
           isGelarKepalaStatus(m.status_keluarga, klasifikasi) && isPipil
             ? "Istri"
@@ -860,21 +861,22 @@ export function KramaWizardForm({
         return { ...m, clientId, status_keluarga: statusAwal };
       });
       setAnggotaPendingAdd((prev) => [...prev, ...additions]);
-      if (nextKepala) setKepalaAnggotaKey(nextKepala);
+      if (usesKepalaSelect && firstId && !kepalaAnggotaKey) setKepalaAnggotaKey(firstId);
       notifyAnggotaPendingMipil();
       setAnggotaNotice(
-        `${members.length} anggota dari scan KK menunggu penyimpanan kartu.`
+        `${members.length} anggota dari tabel KK menunggu penyimpanan. Periksa calon ${gelarLabel} bila perlu.`
       );
       setAnggotaNoticeWarning(true);
       return;
     }
 
+    let firstNewId: string | null = null;
     for (const m of members) {
       const statusAwal =
         isGelarKepalaStatus(m.status_keluarga, klasifikasi) && isPipil
           ? "Istri"
           : m.status_keluarga;
-      await addAnggota({
+      const id = await addAnggota({
         kramaId,
         statusKeluarga: statusAwal,
         penduduk: {
@@ -890,9 +892,18 @@ export function KramaWizardForm({
           agama: m.agama,
         },
       });
+      if (!firstNewId) firstNewId = id;
+    }
+    if (usesKepalaSelect && firstNewId && !kepalaAnggotaKey) {
+      await setKramaKepala(kramaId, firstNewId);
     }
     await loadKrama();
-    setAnggotaNotice(`${members.length} anggota dari scan KK berhasil ditambahkan.`);
+    setAnggotaNotice(
+      `${members.length} anggota dari tabel KK berhasil ditambahkan.` +
+        (usesKepalaSelect && firstNewId && !kepalaAnggotaKey
+          ? ` Baris pertama dijadikan calon ${gelarLabel}.`
+          : "")
+    );
     setAnggotaNoticeWarning(false);
   }
 

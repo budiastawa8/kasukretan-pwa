@@ -6,6 +6,8 @@ export {
   parseTempatTanggalLahir,
   parseJenisKelaminKk,
   looksLikeKartuKeluarga,
+  sanitizePersonName,
+  isLikelyPersonName,
 } from "./parse-kk";
 export { recognizeKkImage, terminateKkOcrWorker } from "./ocr";
 export type { KkOcrProgress } from "./ocr";

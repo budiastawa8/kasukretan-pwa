@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  looksLikeKartuKeluarga,
   parseAgamaKk,
   parseJenisKelaminKk,
   parseKkOcrText,
   parseTempatTanggalLahir,
+  sanitizePersonName,
 } from "./parse-kk";
 import { mapStatusHubunganKk, mapKkMemberToAnggota } from "./map-anggota";
 
@@ -28,6 +30,13 @@ describe("parseJenisKelaminKk / parseAgamaKk", () => {
     expect(parseJenisKelaminKk("Perempuan")).toBe("P");
     expect(parseAgamaKk("HINDU")).toBe("Hindu");
     expect(parseAgamaKk("Islam")).toBe("Islam");
+  });
+});
+
+describe("sanitizePersonName", () => {
+  it("memotong Desa/Kelurahan yang menempel", () => {
+    expect(sanitizePersonName("I MADE CONTOH Desa/Kelurahan Ubud")).toBe("I MADE CONTOH");
+    expect(sanitizePersonName("NI KADEK X Kecamatan Gianyar")).toBe("NI KADEK X");
   });
 });
 
@@ -110,11 +119,53 @@ NIK : 5171999999999999
 `;
     expect(parseKkOcrText(text)).toHaveLength(0);
   });
+
+  it("mengabaikan Nama Kepala Keluarga dan Desa/Kelurahan di header", () => {
+    const text = `
+KARTU KELUARGA
+No. KK : 5171999999999999
+Nama Kepala Keluarga : I MADE CONTOH Desa/Kelurahan Ubud
+Alamat : BR. CONTOH
+RT/RW : 001/002
+Desa/Kelurahan : Ubud
+Kecamatan : Ubud
+Kabupaten : Gianyar
+Provinsi : Bali
+
+Nama Lengkap NIK Jenis Kelamin
+Nama Lengkap : I MADE CONTOH
+NIK : 5171031506850001
+Jenis Kelamin : LAKI-LAKI
+Status Hubungan Dalam Keluarga : KEPALA KELUARGA
+
+Nama Lengkap : NI KADEK CONTOH
+NIK : 5171031506850002
+Jenis Kelamin : PEREMPUAN
+Status Hubungan Dalam Keluarga : ISTRI
+`;
+    const members = parseKkOcrText(text);
+    expect(members).toHaveLength(2);
+    expect(members[0]?.nama_lengkap).toBe("I MADE CONTOH");
+    expect(members[0]?.nama_lengkap.toLowerCase()).not.toContain("ubud");
+    expect(members[0]?.nama_lengkap.toLowerCase()).not.toContain("desa");
+    expect(members[1]?.nama_lengkap).toBe("NI KADEK CONTOH");
+  });
+
+  it("membersihkan Desa/Kelurahan yang menempel di Nama Lengkap tabel", () => {
+    const text = `
+Nama Lengkap : I MADE CONTOH Desa/Kelurahan Kedewatan
+NIK : 5171031506850001
+Jenis Kelamin : L
+Status Hubungan Dalam Keluarga : KEPALA KELUARGA
+`;
+    const members = parseKkOcrText(text);
+    expect(members).toHaveLength(1);
+    expect(members[0]?.nama_lengkap).toBe("I MADE CONTOH");
+  });
 });
 
 describe("looksLikeKartuKeluarga", () => {
-  it("mengenali header KK", async () => {
-    const { looksLikeKartuKeluarga } = await import("./parse-kk");
+  it("mengenali header KK", () => {
     expect(looksLikeKartuKeluarga("KARTU KELUARGA\nNo. KK : 5171")).toBe(true);
     expect(looksLikeKartuKeluarga("PROVINSI BALI\nNIK 5171\nNama BUDI")).toBe(false);
   });
