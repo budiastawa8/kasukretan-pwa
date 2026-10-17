@@ -113,7 +113,7 @@ function StaffLoginForm() {
   return (
     <LoginShell>
       <Card className="w-full ring-1 ring-copper-300/30 sm:shadow-md">
-        <Brand subtitle="Masuk sebagai staf desa adat" />
+        <Brand subtitle="Masuk sebagai Staf/Petugas Desa Adat" />
         <form onSubmit={handleSubmit} className="space-y-3.5 sm:space-y-4">
           <div>
             <Label>Username</Label>
