@@ -10,6 +10,7 @@ import { cn } from "../lib/utils";
 import { canUseStaffApp } from "../lib/runtime";
 import { useIsPhoneClient } from "../hooks/useClientFormFactor";
 import { DashboardMetricCard } from "../components/dashboard/DashboardMetricCard";
+import { DashboardKomposisiBanjarChart } from "../components/dashboard/DashboardKomposisiBanjarChart";
 import { JenisKramaBreakdownTable } from "../components/laporan/JenisKramaBreakdownTable";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -216,6 +217,8 @@ export function DashboardPage() {
               href="/krama-pemasih"
             />
           </div>
+
+          <DashboardKomposisiBanjarChart items={data.per_banjar ?? []} />
 
           <div className="grid gap-3 lg:grid-cols-3">
             <JenisKramaBreakdownTable
