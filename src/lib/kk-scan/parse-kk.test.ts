@@ -81,6 +81,43 @@ Status Hubungan Dalam Keluarga : PEMBANTU RUMAH TANGGA
     expect(members).toHaveLength(1);
     expect(members[0]?.selected).toBe(false);
   });
+
+  it("mengabaikan No. KK agar tidak jadi Nama/NIK anggota", () => {
+    const text = `
+KARTU KELUARGA
+No. KK : 5171999999999999
+5171999999999999
+NIK : 5171031506850001
+Nama Lengkap : I MADE CONTOH
+Jenis Kelamin : LAKI-LAKI
+Tempat/Tgl Lahir : DENPASAR, 15-06-1985
+Status Hubungan Dalam Keluarga : KEPALA KELUARGA
+`;
+    const members = parseKkOcrText(text);
+    expect(members).toHaveLength(1);
+    expect(members[0]?.nama_lengkap).toBe("I MADE CONTOH");
+    expect(members[0]?.nik).toBe("5171031506850001");
+    expect(members.map((m) => m.nik)).not.toContain("5171999999999999");
+    expect(members.some((m) => m.nama_lengkap.includes("5171999999999999"))).toBe(
+      false
+    );
+  });
+
+  it("menolak nama yang hanya nomor 16 digit", () => {
+    const text = `
+Nama Lengkap : 5171999999999999
+NIK : 5171999999999999
+`;
+    expect(parseKkOcrText(text)).toHaveLength(0);
+  });
+});
+
+describe("looksLikeKartuKeluarga", () => {
+  it("mengenali header KK", async () => {
+    const { looksLikeKartuKeluarga } = await import("./parse-kk");
+    expect(looksLikeKartuKeluarga("KARTU KELUARGA\nNo. KK : 5171")).toBe(true);
+    expect(looksLikeKartuKeluarga("PROVINSI BALI\nNIK 5171\nNama BUDI")).toBe(false);
+  });
 });
 
 describe("mapStatusHubunganKk", () => {

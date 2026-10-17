@@ -43,6 +43,10 @@ const FIELD_ALIAS_ENTRIES: { key: FieldKey; aliases: string[] }[] = [
   },
 ];
 
+/** Label header KK / meta — bukan field anggota. */
+const HEADER_SKIP_RE =
+  /\b(no\.?\s*kk|nomor\s*kk|nomor\s*kartu\s*keluarga|kode\s*kk|kode\s*keluarga|no\.?\s*kartu\s*keluarga)\b/i;
+
 function normKey(s: string): string {
   return s
     .toLowerCase()
@@ -60,14 +64,43 @@ function cleanValue(raw: string): string {
     .trim();
 }
 
+function isHeaderSkipLabel(label: string): boolean {
+  return HEADER_SKIP_RE.test(normKey(label));
+}
+
+function isHeaderSkipLine(line: string): boolean {
+  const n = normKey(line);
+  if (HEADER_SKIP_RE.test(n)) return true;
+  // Judul dokumen
+  if (/\bkartu\s+keluarga\b/.test(n) && !/\bnama\b/.test(n) && !/\bnik\b/.test(n)) {
+    return true;
+  }
+  return false;
+}
+
+function digitsOnly(s: string): string {
+  return s.replace(/\D/g, "");
+}
+
+function isLikelyPersonName(nama: string): boolean {
+  const t = nama.trim();
+  if (!t) return false;
+  if (/^\d{10,}$/.test(digitsOnly(t)) && digitsOnly(t).length >= 14) return false;
+  if (/^nik\s*\d{10,}/i.test(t)) return false;
+  if (/^(nama|nik|no|nomor)\b/i.test(t) && t.length < 12) return false;
+  // Nama orang biasanya punya huruf
+  if (!/[a-zA-Z\u00C0-\u024F]/.test(t)) return false;
+  return true;
+}
+
 function matchFieldKey(label: string): FieldKey | null {
+  if (isHeaderSkipLabel(label)) return null;
   const n = normKey(label);
   for (const { key, aliases } of FIELD_ALIAS_ENTRIES) {
     for (const a of aliases) {
       if (n === a) return key;
     }
   }
-  // cocok awalan untuk label OCR yang kelebihan teks
   for (const { key, aliases } of FIELD_ALIAS_ENTRIES) {
     for (const a of aliases) {
       if (a.length >= 4 && (n.startsWith(a) || n.includes(` ${a}`))) {
@@ -81,12 +114,7 @@ function matchFieldKey(label: string): FieldKey | null {
 export function parseJenisKelaminKk(raw?: string | null): "L" | "P" | undefined {
   if (!raw?.trim()) return undefined;
   const s = normKey(raw).replace(/\s+/g, "");
-  if (
-    s.startsWith("l") ||
-    s.includes("laki") ||
-    s === "male" ||
-    s === "m"
-  ) {
+  if (s.startsWith("l") || s.includes("laki") || s === "male" || s === "m") {
     return "L";
   }
   if (
@@ -164,11 +192,31 @@ function defaultSelected(hubungan?: string): boolean {
 
 type FieldBag = Partial<Record<FieldKey, string>>;
 
+function bagHasMemberSignal(bag: FieldBag): boolean {
+  return Boolean(
+    bag.nama ||
+      bag.jenis_kelamin ||
+      bag.lahir ||
+      bag.hubungan ||
+      bag.agama ||
+      bag.status_kawin ||
+      bag.pekerjaan ||
+      bag.ayah ||
+      bag.ibu
+  );
+}
+
 function bagToMember(bag: FieldBag): KkOcrMember | null {
-  const nama = cleanValue(bag.nama ?? "");
-  const nik = (bag.nik ?? "").replace(/\D/g, "").slice(0, 16);
-  if (!nama && nik.length !== 16) return null;
-  if (nama && /^(nama|nik|no|nomor)/i.test(nama) && nama.length < 8) return null;
+  const namaRaw = cleanValue(bag.nama ?? "");
+  const nik = digitsOnly(bag.nik ?? "").slice(0, 16);
+  const namaOk = isLikelyPersonName(namaRaw);
+
+  // Tolak "anggota" yang hanya nomor KK/NIK tanpa biodata
+  if (!namaOk && !bagHasMemberSignal(bag)) return null;
+  if (!namaOk && nik.length === 16 && !bag.jenis_kelamin && !bag.lahir && !bag.hubungan) {
+    return null;
+  }
+  if (!namaOk && nik.length !== 16) return null;
 
   const lahir = parseTempatTanggalLahir(bag.lahir);
   const hubungan = bag.hubungan ? cleanValue(bag.hubungan) : undefined;
@@ -176,7 +224,7 @@ function bagToMember(bag: FieldBag): KkOcrMember | null {
 
   return {
     nik: nik.length === 16 ? nik : undefined,
-    nama_lengkap: nama || (nik.length === 16 ? `NIK ${nik}` : ""),
+    nama_lengkap: namaOk ? namaRaw : "",
     jenis_kelamin: jk,
     tempat_lahir: lahir.tempat_lahir,
     tanggal_lahir: lahir.tanggal_lahir,
@@ -197,7 +245,7 @@ function flushBag(bag: FieldBag, out: KkOcrMember[]) {
 
 /**
  * Urai teks OCR Kartu Keluarga menjadi daftar anggota.
- * Mendukung blok berlabel (Nama Lengkap :, NIK :, …) yang umum dari OCR.
+ * Nomor KK di header diabaikan; hanya blok NIK + biodata anggota yang dipakai.
  */
 export function parseKkOcrText(text: string): KkOcrMember[] {
   const lines = text
@@ -207,13 +255,21 @@ export function parseKkOcrText(text: string): KkOcrMember[] {
 
   const members: KkOcrMember[] = [];
   let bag: FieldBag = {};
+  /** Sudah melihat label NIK/Nama anggota — baru boleh tangkap NIK polos. */
+  let inMemberSection = false;
 
   for (const line of lines) {
+    if (isHeaderSkipLine(line)) continue;
+
     const colon = line.match(/^(.{2,48}?)\s*[:：]\s*(.*)$/);
     if (colon) {
-      const key = matchFieldKey(colon[1] ?? "");
+      const label = colon[1] ?? "";
+      if (isHeaderSkipLabel(label)) continue;
+
+      const key = matchFieldKey(label);
       const val = cleanValue(colon[2] ?? "");
       if (key) {
+        inMemberSection = true;
         if (key === "nama" && bag.nama) {
           flushBag(bag, members);
           bag = {};
@@ -223,8 +279,15 @@ export function parseKkOcrText(text: string): KkOcrMember[] {
           bag = {};
         }
         if (key === "nik") {
-          const digits = val.replace(/\D/g, "");
-          bag.nik = digits.slice(0, 16);
+          const digits = digitsOnly(val).slice(0, 16);
+          // Nilai "NIK" yang ternyata sama dengan nomor di header sering salah baca;
+          // tetap simpan — filter bagToMember yang menolak tanpa nama.
+          bag.nik = digits;
+        } else if (key === "nama") {
+          // Jangan isi nama dengan nomor 16 digit (sering = No. KK)
+          if (isLikelyPersonName(val) || (val && digitsOnly(val).length < 14)) {
+            bag.nama = val;
+          }
         } else {
           bag[key] = val;
         }
@@ -232,28 +295,35 @@ export function parseKkOcrText(text: string): KkOcrMember[] {
       }
     }
 
-    // Baris yang hanya berisi NIK 16 digit — mulailah anggota baru
-    const onlyNik = line.replace(/\D/g, "");
-    if (/^\d{16}$/.test(onlyNik) && !/nama/i.test(line)) {
+    // Baris hanya 16 digit: hanya setelah masuk bagian anggota, dan bukan baris "No KK"
+    const onlyNik = digitsOnly(line);
+    if (
+      inMemberSection &&
+      /^\d{16}$/.test(onlyNik) &&
+      !/nama/i.test(line) &&
+      !HEADER_SKIP_RE.test(normKey(line))
+    ) {
       if (bag.nama || bag.nik) flushBag(bag, members);
       bag = { nik: onlyNik };
       continue;
     }
 
-    // Cadangan: "NIK 5171… NAMA …"
-    const inlineNik = [...line.matchAll(NIK_RE)];
-    if (inlineNik.length === 1 && !matchFieldKey(line.split(":")[0] ?? "")) {
-      const nik = inlineNik[0]![1]!;
-      if (bag.nama || (bag.nik && bag.nik !== nik)) {
-        flushBag(bag, members);
-        bag = {};
+    // Cadangan inline NIK — hanya di bagian anggota
+    if (inMemberSection) {
+      const inlineNik = [...line.matchAll(NIK_RE)];
+      if (inlineNik.length === 1 && !matchFieldKey(line.split(":")[0] ?? "")) {
+        const nik = inlineNik[0]![1]!;
+        if (bag.nama || (bag.nik && bag.nik !== nik)) {
+          flushBag(bag, members);
+          bag = {};
+        }
+        bag.nik = nik;
       }
-      bag.nik = nik;
     }
   }
   flushBag(bag, members);
 
-  return dedupeMembers(members);
+  return dedupeMembers(members).filter((m) => isLikelyPersonName(m.nama_lengkap));
 }
 
 function dedupeMembers(list: KkOcrMember[]): KkOcrMember[] {
@@ -271,4 +341,14 @@ function dedupeMembers(list: KkOcrMember[]): KkOcrMember[] {
     out.push(m);
   }
   return out;
+}
+
+/** Deteksi kasar: teks tampak Kartu Keluarga (bukan hanya KTP tunggal). */
+export function looksLikeKartuKeluarga(text: string): boolean {
+  const n = normKey(text);
+  if (/\bkartu\s+keluarga\b/.test(n) || HEADER_SKIP_RE.test(n)) return true;
+  const nikCount = [...text.matchAll(NIK_RE)].length;
+  if (nikCount >= 2) return true;
+  if (/\bstatus\s+hubungan\b/.test(n) || /\bkepala\s+keluarga\b/.test(n)) return true;
+  return false;
 }

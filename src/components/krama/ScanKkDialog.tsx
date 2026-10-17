@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Camera, Check, Loader2, ScanLine, X } from "lucide-react";
 import { mapKkMemberToAnggota, type AnggotaFromKk } from "../../lib/kk-scan/map-anggota";
 import { recognizeKkImage, terminateKkOcrWorker } from "../../lib/kk-scan/ocr";
-import { parseKkOcrText } from "../../lib/kk-scan/parse-kk";
+import { looksLikeKartuKeluarga, parseKkOcrText } from "../../lib/kk-scan/parse-kk";
 import type { KkOcrMember } from "../../lib/kk-scan/types";
 import type { KlasifikasiKode } from "../../lib/types";
 import { Button } from "../ui/Button";
@@ -87,7 +87,9 @@ export function ScanKkDialog({
       const parsed = parseKkOcrText(text);
       if (parsed.length === 0) {
         setError(
-          "Tidak ada anggota yang terbaca. Foto ulang dengan cahaya cukup, KK rata, dan tulisan jelas."
+          looksLikeKartuKeluarga(text)
+            ? "Anggota KK tidak terbaca dengan jelas. Foto ulang bagian tabel anggota (bukan hanya nomor KK di header), cahaya cukup, dan tulisan tidak buram."
+            : "Foto tidak tampak seperti Kartu Keluarga. Gunakan foto KK (bukan KTP), pastikan judul «Kartu Keluarga» atau daftar anggota terlihat."
         );
         setPhase("error");
         return;
