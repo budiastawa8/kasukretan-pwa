@@ -1,8 +1,8 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Camera, Check, Loader2, ScanLine, X } from "lucide-react";
 import { mapKkMemberToAnggota, type AnggotaFromKk } from "../../lib/kk-scan/map-anggota";
-import { recognizeKkImage, terminateKkOcrWorker } from "../../lib/kk-scan/ocr";
-import { looksLikeKartuKeluarga, parseKkOcrText } from "../../lib/kk-scan/parse-kk";
+import { terminateKkOcrWorker } from "../../lib/kk-scan/ocr";
+import { scanKartuKeluarga } from "../../lib/kk-scan/scan-pipeline";
 import type { KkOcrMember } from "../../lib/kk-scan/types";
 import type { KlasifikasiKode } from "../../lib/types";
 import { Button } from "../ui/Button";
@@ -46,6 +46,7 @@ export function ScanKkDialog({
   const [rows, setRows] = useState<DraftRow[]>([]);
   const [busyConfirm, setBusyConfirm] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [engineNote, setEngineNote] = useState("");
 
   const isTamiu = klasifikasi === "TAMIU";
   const isPipil = klasifikasi === "MIPIL";
@@ -58,6 +59,7 @@ export function ScanKkDialog({
     setError("");
     setRows([]);
     setBusyConfirm(false);
+    setEngineNote("");
     setPreviewUrl((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return null;
@@ -80,27 +82,25 @@ export function ScanKkDialog({
       return URL.createObjectURL(file);
     });
     try {
-      const text = await recognizeKkImage(file, (p) => {
-        setProgressPct(Math.round(p.progress * 100));
+      const result = await scanKartuKeluarga(file, (p) => {
+        setProgressPct(p.percent);
         setProgressMsg(p.message);
       });
-      const parsed = parseKkOcrText(text);
-      if (parsed.length === 0) {
+      if (result.members.length === 0) {
         setError(
-          looksLikeKartuKeluarga(text)
-            ? "Anggota KK tidak terbaca dengan jelas. Foto ulang bagian tabel anggota (bukan hanya nomor KK di header), cahaya cukup, dan tulisan tidak buram."
-            : "Foto tidak tampak seperti Kartu Keluarga. Gunakan foto KK (bukan KTP), pastikan judul «Kartu Keluarga» atau daftar anggota terlihat."
+          "Anggota KK tidak terbaca. Foto ulang bagian tabel anggota, cahaya cukup, tulisan jelas."
         );
         setPhase("error");
         return;
       }
-      setRows(toDraftRows(parsed, klasifikasi));
+      setEngineNote(result.note ?? "");
+      setRows(toDraftRows(result.members, klasifikasi));
       setPhase("review");
     } catch (e) {
       setError(
         e instanceof Error
           ? e.message
-          : "Gagal membaca KK. Pastikan aset OCR tersedia lalu coba lagi."
+          : "Gagal membaca KK. Pastikan koneksi atau aset OCR tersedia lalu coba lagi."
       );
       setPhase("error");
     }
@@ -208,9 +208,9 @@ export function ScanKkDialog({
     >
       <div className="space-y-3 text-sm leading-snug">
         <p className="text-[11px] text-muted">
-          Hanya daftar di tabel anggota KK yang dibaca (bukan header Desa/Kelurahan).
-          Baris teratas jadi calon Pengarep/Pengajeg — bisa diganti. Periksa NIK dan tanggal
-          lahir sebelum memakai.
+          Scan cepat memakai Vision di server bila dikonfigurasi; jika tidak, OCR di HP.
+          Hanya tabel anggota yang dibaca. Baris teratas = calon Pengarep/Pengajeg. Periksa
+          NIK dan tanggal lahir sebelum memakai.
         </p>
 
         <input
@@ -313,6 +313,11 @@ export function ScanKkDialog({
             {error && (
               <p className="rounded border border-red-100 bg-red-50 px-2.5 py-1.5 text-xs text-red-700">
                 {error}
+              </p>
+            )}
+            {engineNote && (
+              <p className="text-[11px] text-copper-800 bg-copper-50 border border-copper-200 rounded px-2 py-1.5">
+                {engineNote}
               </p>
             )}
             <p className="text-[11px] text-amber-900 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">

@@ -21,6 +21,7 @@ import {
   restoreStatus,
 } from "./restore.js";
 import { toJsonValue } from "./sql-convert.js";
+import { isKkScanConfigured, kkScanModel, scanKkWithGemini } from "./kk-scan.js";
 
 type ApiRequest = IncomingMessage & { body?: unknown };
 
@@ -113,7 +114,14 @@ async function handleRoute(path: string, req: ApiRequest, res: ServerResponse): 
       console.error("[health] database:", err);
       dbError = (err instanceof Error ? err.message : String(err)).replace(/eyJ[\w.-]+/g, "***");
     }
-    send(res, 200, { ok: true, service: "kasukretan-pwa", bridge: "sqlite", dbReady, dbError });
+    send(res, 200, {
+      ok: true,
+      service: "kasukretan-pwa",
+      bridge: "sqlite",
+      dbReady,
+      dbError,
+      kkScan: { configured: isKkScanConfigured(), engine: isKkScanConfigured() ? "gemini" : null },
+    });
     return;
   }
 
@@ -148,6 +156,30 @@ async function handleRoute(path: string, req: ApiRequest, res: ServerResponse): 
       String(body.newPassword ?? "")
     );
     send(res, 200, { ok: true, token: signToken(fresh), user: fresh });
+    return;
+  }
+
+  /** Status mesin scan KK cepat (Gemini). */
+  if (path === "kk-scan/status" && method === "GET") {
+    send(res, 200, {
+      ok: true,
+      configured: isKkScanConfigured(),
+      engine: isKkScanConfigured() ? "gemini" : null,
+      model: isKkScanConfigured() ? kkScanModel() : null,
+    });
+    return;
+  }
+
+  /** Baca tabel anggota Kartu Keluarga lewat Vision (Gemini). */
+  if (path === "kk-scan" && method === "POST") {
+    if (user.peran === "prajuru") {
+      throw new HttpError(403, "Peran prajuru tidak berhak scan KK.");
+    }
+    const body = await readBody(req);
+    const imageBase64 = String(body.imageBase64 ?? body.image ?? "");
+    if (!imageBase64.trim()) throw new HttpError(400, "imageBase64 wajib.");
+    const members = await scanKkWithGemini(imageBase64);
+    send(res, 200, { ok: true, engine: "gemini", members });
     return;
   }
 

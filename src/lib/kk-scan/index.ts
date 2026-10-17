@@ -11,3 +11,5 @@ export {
 } from "./parse-kk";
 export { recognizeKkImage, terminateKkOcrWorker } from "./ocr";
 export type { KkOcrProgress } from "./ocr";
+export { scanKartuKeluarga } from "./scan-pipeline";
+export type { KkScanEngine, KkScanPipelineResult } from "./scan-pipeline";
