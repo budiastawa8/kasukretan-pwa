@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { AlertTriangle, Database, Download, RefreshCw } from "lucide-react";
+import { markBackupCompleted } from "../../lib/backup-reminder";
 import { backupFileName, buildCloudBackup, downloadBytes } from "../../lib/cloud-backup";
 import { CollapsibleSettingsSection } from "./CollapsibleSettingsSection";
 import { Button } from "../ui/Button";
@@ -27,6 +28,7 @@ export function CloudBackupPanel() {
       });
       const name = backupFileName();
       downloadBytes(bytes, name);
+      markBackupCompleted();
       setStatus({
         kind: "success",
         text: `Backup selesai: ${name} (${formatSize(bytes.length)}, ${rows} baris).`,
