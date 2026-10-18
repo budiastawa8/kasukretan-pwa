@@ -89,6 +89,8 @@ export function PungutRekapPage() {
         </IconLink>
       </div>
 
+      <RiwayatSetoranCard petugasId={petugas.id} petugasJabatan={petugas.jabatan} />
+
       <Card title="Jenis perolehan">
         <p className="mb-2 text-xs text-muted">
           Pilih jenis iuran untuk melihat perolehan banjar pada periode yang dipilih.
@@ -114,8 +116,6 @@ export function PungutRekapPage() {
       </Card>
 
       <PerolehanBanjarCard petugas={petugas} mode={mode} />
-
-      <RiwayatSetoranCard petugasId={petugas.id} petugasJabatan={petugas.jabatan} />
 
       <p className="px-1 text-center text-[11px] text-muted">
         Untuk mencatat pembayaran baru, buka{" "}
