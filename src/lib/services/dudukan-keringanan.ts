@@ -15,6 +15,54 @@ import { isJabatanPenerimaSemuaBanjar } from "../petugas-jabatan";
 import type { DudukanKeringananRow } from "../types";
 import { uuid } from "../utils";
 
+type KramaKeringananContext = {
+  tanggal_terdaftar: string;
+  tarif_nominal: number;
+};
+
+async function loadKramaKeringananContext(
+  kramaId: string
+): Promise<KramaKeringananContext> {
+  const db = await getDb();
+  const rows = await db.select<KramaKeringananContext[]>(
+    `SELECT k.tanggal_terdaftar,
+            COALESCE(jkt.dudukan_nominal, jt.dudukan_nominal, 0) as tarif_nominal
+     FROM krama k
+     LEFT JOIN jenis_krama_tamiu jkt ON jkt.id = k.jenis_krama_tamiu_id
+     LEFT JOIN jenis_tamiu jt ON jt.id = k.jenis_tamiu_id
+     WHERE k.id = $1`,
+    [kramaId]
+  );
+  const row = rows[0];
+  if (!row) throw new Error("Krama tidak ditemukan");
+  return {
+    tanggal_terdaftar: row.tanggal_terdaftar,
+    tarif_nominal: Number(row.tarif_nominal) || 0,
+  };
+}
+
+function assertKeringananPeriodeDenganContext(
+  ctx: KramaKeringananContext,
+  tahun: number,
+  bulan: number
+): void {
+  if (isPeriodeDudukanMendatang(tahun, bulan)) {
+    throw new Error("Keringanan tidak berlaku untuk pembayaran dudukan di muka");
+  }
+  if (!isDudukanBerlakuUntukPeriode(ctx.tanggal_terdaftar, tahun, bulan)) {
+    throw new Error(pesanDudukanBelumBerlakuPeriode(ctx.tanggal_terdaftar));
+  }
+  const tagihan = hitungTagihanDudukanPeriode(
+    ctx.tarif_nominal,
+    ctx.tanggal_terdaftar,
+    tahun,
+    bulan
+  );
+  if (tagihan <= 0) {
+    throw new Error("Tidak ada kewajiban dudukan untuk periode ini");
+  }
+}
+
 async function getTotalDibayarKramaPeriode(
   kramaId: string,
   tahun: number,
@@ -30,41 +78,46 @@ async function getTotalDibayarKramaPeriode(
   return Math.round(Number(rows[0]?.total) || 0);
 }
 
+async function getDibayarPeriodeMapForKramaLocal(
+  kramaId: string
+): Promise<Map<string, number>> {
+  const db = await getDb();
+  const rows = await db.select<{ tahun: number; bulan: number; total: number }[]>(
+    `SELECT tahun, bulan, COALESCE(SUM(jumlah), 0) as total
+     FROM dudukan_pembayaran
+     WHERE krama_id = $1
+     GROUP BY tahun, bulan`,
+    [kramaId]
+  );
+  const map = new Map<string, number>();
+  for (const row of rows) {
+    map.set(
+      periodeKey(row.tahun, row.bulan),
+      Math.round(Number(row.total) || 0)
+    );
+  }
+  return map;
+}
+
+async function getExistingKeringananKeysForKrama(
+  kramaId: string
+): Promise<Set<string>> {
+  const db = await getDb();
+  const rows = await db.select<{ tahun: number; bulan: number }[]>(
+    `SELECT tahun, bulan FROM dudukan_keringanan WHERE krama_id = $1`,
+    [kramaId]
+  );
+  return new Set(rows.map((r) => periodeKey(r.tahun, r.bulan)));
+}
+
 async function assertDudukanBerlakuUntukKrama(
   kramaId: string,
   tahun: number,
   bulan: number
-): Promise<{ tanggal_terdaftar: string; tarif_nominal: number }> {
-  const db = await getDb();
-  const rows = await db.select<
-    { tanggal_terdaftar: string; tarif_nominal: number }[]
-  >(
-    `SELECT k.tanggal_terdaftar,
-            COALESCE(jkt.dudukan_nominal, jt.dudukan_nominal, 0) as tarif_nominal
-     FROM krama k
-     LEFT JOIN jenis_krama_tamiu jkt ON jkt.id = k.jenis_krama_tamiu_id
-     LEFT JOIN jenis_tamiu jt ON jt.id = k.jenis_tamiu_id
-     WHERE k.id = $1`,
-    [kramaId]
-  );
-  const row = rows[0];
-  if (!row) throw new Error("Krama tidak ditemukan");
-  if (isPeriodeDudukanMendatang(tahun, bulan)) {
-    throw new Error("Keringanan tidak berlaku untuk pembayaran dudukan di muka");
-  }
-  if (!isDudukanBerlakuUntukPeriode(row.tanggal_terdaftar, tahun, bulan)) {
-    throw new Error(pesanDudukanBelumBerlakuPeriode(row.tanggal_terdaftar));
-  }
-  const tagihan = hitungTagihanDudukanPeriode(
-    Number(row.tarif_nominal) || 0,
-    row.tanggal_terdaftar,
-    tahun,
-    bulan
-  );
-  if (tagihan <= 0) {
-    throw new Error("Tidak ada kewajiban dudukan untuk periode ini");
-  }
-  return row;
+): Promise<KramaKeringananContext> {
+  const ctx = await loadKramaKeringananContext(kramaId);
+  assertKeringananPeriodeDenganContext(ctx, tahun, bulan);
+  return ctx;
 }
 
 async function assertPetugasForKrama(petugasId: string, kramaId: string): Promise<void> {
@@ -301,7 +354,10 @@ export async function createKeringananDudukan(params: {
   return ids[0]!;
 }
 
-/** Simpan keringanan untuk beberapa bulan sekaligus (satu alasan, satu petugas). */
+/** Jumlah placeholder bind per baris keringanan (created_at memakai datetime('now')). */
+const DUDUKAN_KERINGANAN_INSERT_COLS = 8;
+
+/** Simpan keringanan untuk beberapa bulan sekaligus (validasi batch, satu INSERT multi-row). */
 export async function createKeringananDudukanMulti(params: {
   kramaId: string;
   tanggal: string;
@@ -321,69 +377,84 @@ export async function createKeringananDudukanMulti(params: {
 
   await assertPetugasForKrama(params.petugasId, params.kramaId);
 
-  const ids: string[] = [];
-  const db = await getDb();
+  const [ctx, dibayarMap, existingKeys] = await Promise.all([
+    loadKramaKeringananContext(params.kramaId),
+    getDibayarPeriodeMapForKramaLocal(params.kramaId),
+    getExistingKeringananKeysForKrama(params.kramaId),
+  ]);
+
+  const rows: { id: string; args: unknown[] }[] = [];
 
   for (const item of params.items) {
-    const row = await assertDudukanBerlakuUntukKrama(
-      params.kramaId,
-      item.tahun,
-      item.bulan
-    );
+    const tahun = parseTahun(item.tahun);
+    const bulan = parseBulan(item.bulan);
+    const key = periodeKey(tahun, bulan);
 
-    const existing = await db.select<{ id: string }[]>(
-      `SELECT id FROM dudukan_keringanan
-       WHERE krama_id = $1 AND tahun = $2 AND bulan = $3`,
-      [params.kramaId, parseTahun(item.tahun), parseBulan(item.bulan)]
-    );
-    if (existing.length > 0) {
+    assertKeringananPeriodeDenganContext(ctx, tahun, bulan);
+
+    if (existingKeys.has(key)) {
       throw new Error(
-        `Keringanan untuk ${item.bulan}/${item.tahun} sudah ada. Hapus dulu jika perlu diubah.`
+        `Keringanan untuk ${bulan}/${tahun} sudah ada. Hapus dulu jika perlu diubah.`
       );
     }
 
     const tagihan = hitungTagihanDudukanPeriode(
-      Number(row.tarif_nominal) || 0,
-      row.tanggal_terdaftar,
-      item.tahun,
-      item.bulan
+      ctx.tarif_nominal,
+      ctx.tanggal_terdaftar,
+      tahun,
+      bulan
     );
-    const dibayar = await getTotalDibayarKramaPeriode(
-      params.kramaId,
-      item.tahun,
-      item.bulan
-    );
+    const dibayar = dibayarMap.get(key) ?? 0;
     const sisa = hitungSisaDudukan(tagihan, dibayar);
     const jumlah = parseJumlahPembayaran(item.jumlah);
 
     if (sisa <= 0) {
-      throw new Error(`Tidak ada sisa tagihan untuk ${item.bulan}/${item.tahun}`);
+      throw new Error(`Tidak ada sisa tagihan untuk ${bulan}/${tahun}`);
     }
     if (jumlah > sisa) {
       throw new Error(
-        `Keringanan ${item.bulan}/${item.tahun} melebihi sisa tagihan (${sisa})`
+        `Keringanan ${bulan}/${tahun} melebihi sisa tagihan (${sisa})`
       );
     }
 
     const id = uuid();
-    await db.execute(
-      `INSERT INTO dudukan_keringanan
-        (id, krama_id, tahun, bulan, jumlah, tanggal, petugas_id, keterangan, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, datetime('now'))`,
-      [
+    rows.push({
+      id,
+      args: [
         id,
         params.kramaId,
-        parseTahun(item.tahun),
-        parseBulan(item.bulan),
+        tahun,
+        bulan,
         jumlah,
         tanggal,
         params.petugasId,
         alasan,
-      ]
-    );
-    ids.push(id);
+      ],
+    });
+    existingKeys.add(key);
   }
 
+  const valueParts: string[] = [];
+  const bindArgs: unknown[] = [];
+  for (let i = 0; i < rows.length; i++) {
+    const base = i * DUDUKAN_KERINGANAN_INSERT_COLS;
+    const ph = Array.from(
+      { length: DUDUKAN_KERINGANAN_INSERT_COLS },
+      (_, j) => `$${base + j + 1}`
+    ).join(", ");
+    valueParts.push(`(${ph}, datetime('now'))`);
+    bindArgs.push(...rows[i]!.args);
+  }
+
+  const db = await getDb();
+  await db.execute(
+    `INSERT INTO dudukan_keringanan
+      (id, krama_id, tahun, bulan, jumlah, tanggal, petugas_id, keterangan, created_at)
+     VALUES ${valueParts.join(", ")}`,
+    bindArgs
+  );
+
+  const ids = rows.map((r) => r.id);
   const { tryAutoPushKeringanan } = await import("../sync/auto-push-keringanan");
   void tryAutoPushKeringanan(ids);
   return ids;
@@ -424,22 +495,18 @@ export async function updateKeringananDudukan(
   }
 
   await assertPetugasForKrama(params.petugasId, params.kramaId);
-  const row = await assertDudukanBerlakuUntukKrama(
-    params.kramaId,
-    params.tahun,
-    params.bulan
-  );
+  const tahun = parseTahun(params.tahun);
+  const bulan = parseBulan(params.bulan);
+  const [row, dibayar] = await Promise.all([
+    assertDudukanBerlakuUntukKrama(params.kramaId, tahun, bulan),
+    getTotalDibayarKramaPeriode(params.kramaId, tahun, bulan),
+  ]);
 
   const tagihan = hitungTagihanDudukanPeriode(
-    Number(row.tarif_nominal) || 0,
+    row.tarif_nominal,
     row.tanggal_terdaftar,
-    params.tahun,
-    params.bulan
-  );
-  const dibayar = await getTotalDibayarKramaPeriode(
-    params.kramaId,
-    params.tahun,
-    params.bulan
+    tahun,
+    bulan
   );
   const sisa = hitungSisaDudukan(tagihan, dibayar);
   const jumlah = parseJumlahPembayaran(params.jumlah);

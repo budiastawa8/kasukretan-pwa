@@ -18,8 +18,17 @@ import {
   assertAkunForPembayaranDudukan,
   getDefaultAkunDudukanId,
 } from "./akun-keuangan";
+import { getKeringananPeriodeMapForKrama } from "./dudukan-keringanan";
 import { assertKramaAktifUntukPembayaran } from "./krama";
 import { assertPembayaranBelumMasukSetoran } from "./setoran";
+
+/** Data krama+jenis yang dipakai hitung tagihan/sisa — dimuat sekali per simpan multi-bulan. */
+type KramaDudukanTagihanContext = {
+  tanggal_terdaftar: string;
+  tanggal_berlaku_mulai_pemasih: string | null;
+  masa_berlaku_tahun: number | null;
+  tarif_nominal: number;
+};
 
 export type DudukanPembayaranSaveOptions = {
   /** Impor riwayat — izinkan krama nonaktif & lewati validasi tagihan periode. */
@@ -60,23 +69,31 @@ export async function getJenisSnapshotForKrama(kramaId: string): Promise<JenisSn
   };
 }
 
-async function assertDudukanBerlakuUntukKrama(
-  kramaId: string,
-  tahun: number,
-  bulan: number
-): Promise<void> {
+async function loadKramaDudukanTagihanContext(
+  kramaId: string
+): Promise<KramaDudukanTagihanContext> {
+  const loaded = await loadKramaDudukanSaveContext(kramaId);
+  return loaded.ctx;
+}
+
+/** Konteks tagihan + snapshot jenis dalam satu SELECT (hemat round-trip multi-bulan). */
+async function loadKramaDudukanSaveContext(kramaId: string): Promise<{
+  ctx: KramaDudukanTagihanContext;
+  jenisSnap: JenisSnapshot;
+}> {
   const db = await getDb();
   const rows = await db.select<
-    {
-      tanggal_terdaftar: string;
-      tanggal_berlaku_mulai_pemasih: string | null;
-      masa_berlaku_tahun: number | null;
-      tarif_nominal: number;
-    }[]
+    (KramaDudukanTagihanContext & {
+      jenis_krama_tamiu_id: string | null;
+      jenis_tamiu_id: string | null;
+      jenis_nama: string | null;
+    })[]
   >(
     `SELECT k.tanggal_terdaftar, k.tanggal_berlaku_mulai_pemasih,
             COALESCE(jkt.masa_berlaku_tahun, jt.masa_berlaku_tahun) as masa_berlaku_tahun,
-            COALESCE(jkt.dudukan_nominal, jt.dudukan_nominal, 0) as tarif_nominal
+            COALESCE(jkt.dudukan_nominal, jt.dudukan_nominal, 0) as tarif_nominal,
+            k.jenis_krama_tamiu_id, k.jenis_tamiu_id,
+            COALESCE(jt.nama, jkt.nama) as jenis_nama
      FROM krama k
      LEFT JOIN jenis_krama_tamiu jkt ON jkt.id = k.jenis_krama_tamiu_id
      LEFT JOIN jenis_tamiu jt ON jt.id = k.jenis_tamiu_id
@@ -85,16 +102,35 @@ async function assertDudukanBerlakuUntukKrama(
   );
   const row = rows[0];
   if (!row) throw new Error("Krama tidak ditemukan");
-  if (
-    !isDudukanBerlakuUntukPeriode(row.tanggal_terdaftar, tahun, bulan)
-  ) {
-    throw new Error(pesanDudukanBelumBerlakuPeriode(row.tanggal_terdaftar));
+  const nama = row.jenis_nama?.trim();
+  return {
+    ctx: {
+      tanggal_terdaftar: row.tanggal_terdaftar,
+      tanggal_berlaku_mulai_pemasih: row.tanggal_berlaku_mulai_pemasih,
+      masa_berlaku_tahun: row.masa_berlaku_tahun,
+      tarif_nominal: Number(row.tarif_nominal) || 0,
+    },
+    jenisSnap: {
+      jenis_krama_tamiu_id: row.jenis_krama_tamiu_id,
+      jenis_tamiu_id: row.jenis_tamiu_id,
+      jenis_nama: nama || null,
+    },
+  };
+}
+
+function assertDudukanBerlakuDenganContext(
+  ctx: KramaDudukanTagihanContext,
+  tahun: number,
+  bulan: number
+): void {
+  if (!isDudukanBerlakuUntukPeriode(ctx.tanggal_terdaftar, tahun, bulan)) {
+    throw new Error(pesanDudukanBelumBerlakuPeriode(ctx.tanggal_terdaftar));
   }
   if (
     !isPeriodeDudukanDalamMasaBerlaku(
-      row.tanggal_terdaftar,
-      row.tanggal_berlaku_mulai_pemasih,
-      row.masa_berlaku_tahun,
+      ctx.tanggal_terdaftar,
+      ctx.tanggal_berlaku_mulai_pemasih,
+      ctx.masa_berlaku_tahun,
       tahun,
       bulan
     )
@@ -102,14 +138,69 @@ async function assertDudukanBerlakuUntukKrama(
     throw new Error("Periode di luar masa berlaku pemasih");
   }
   const tagihan = hitungTagihanDudukanPeriode(
-    Number(row.tarif_nominal) || 0,
-    row.tanggal_terdaftar,
+    ctx.tarif_nominal,
+    ctx.tanggal_terdaftar,
     tahun,
     bulan
   );
   if (tagihan <= 0) {
     throw new Error("Tidak ada kewajiban dudukan untuk periode ini");
   }
+}
+
+function sisaDudukanDenganContext(
+  ctx: KramaDudukanTagihanContext,
+  tahun: number,
+  bulan: number,
+  dibayar: number,
+  keringanan: number
+): number {
+  if (
+    !isPeriodeDudukanDalamMasaBerlaku(
+      ctx.tanggal_terdaftar,
+      ctx.tanggal_berlaku_mulai_pemasih,
+      ctx.masa_berlaku_tahun,
+      tahun,
+      bulan
+    )
+  ) {
+    return 0;
+  }
+  const tagihan = hitungTagihanDudukanPeriode(
+    ctx.tarif_nominal,
+    ctx.tanggal_terdaftar,
+    tahun,
+    bulan
+  );
+  return hitungSisaDudukan(tagihan, dibayar, keringanan);
+}
+
+function assertPembayaranDudukanItemDenganContext(
+  ctx: KramaDudukanTagihanContext,
+  tahun: number,
+  bulan: number,
+  jumlah: number,
+  dibayar: number,
+  keringanan: number
+): void {
+  assertDudukanBerlakuDenganContext(ctx, tahun, bulan);
+  const sisa = sisaDudukanDenganContext(ctx, tahun, bulan, dibayar, keringanan);
+  const amt = parseJumlahPembayaran(jumlah);
+  if (sisa <= 0) {
+    throw new Error(`Tidak ada sisa tagihan untuk ${bulan}/${tahun}`);
+  }
+  if (amt > sisa) {
+    throw new Error(`Jumlah melebihi sisa tagihan untuk ${bulan}/${tahun}`);
+  }
+}
+
+async function assertDudukanBerlakuUntukKrama(
+  kramaId: string,
+  tahun: number,
+  bulan: number
+): Promise<void> {
+  const ctx = await loadKramaDudukanTagihanContext(kramaId);
+  assertDudukanBerlakuDenganContext(ctx, tahun, bulan);
 }
 
 async function assertPetugasForKrama(petugasId: string, kramaId: string): Promise<void> {
@@ -487,51 +578,20 @@ export async function getSisaDudukanKramaPeriode(
   tahun: number,
   bulan: number
 ): Promise<number> {
+  const ctx = await loadKramaDudukanTagihanContext(kramaId);
+  const t = parseTahun(tahun);
+  const b = parseBulan(bulan);
   const db = await getDb();
-  const rows = await db.select<
-    {
-      tanggal_terdaftar: string;
-      tanggal_berlaku_mulai_pemasih: string | null;
-      masa_berlaku_tahun: number | null;
-      tarif_nominal: number;
-    }[]
-  >(
-    `SELECT k.tanggal_terdaftar, k.tanggal_berlaku_mulai_pemasih,
-            COALESCE(jkt.masa_berlaku_tahun, jt.masa_berlaku_tahun) as masa_berlaku_tahun,
-            COALESCE(jkt.dudukan_nominal, jt.dudukan_nominal, 0) as tarif_nominal
-     FROM krama k
-     LEFT JOIN jenis_krama_tamiu jkt ON jkt.id = k.jenis_krama_tamiu_id
-     LEFT JOIN jenis_tamiu jt ON jt.id = k.jenis_tamiu_id
-     WHERE k.id = $1`,
-    [kramaId]
-  );
-  const row = rows[0];
-  if (!row) throw new Error("Krama tidak ditemukan");
-  if (
-    !isPeriodeDudukanDalamMasaBerlaku(
-      row.tanggal_terdaftar,
-      row.tanggal_berlaku_mulai_pemasih,
-      row.masa_berlaku_tahun,
-      tahun,
-      bulan
-    )
-  ) {
-    return 0;
-  }
-  const tagihan = hitungTagihanDudukanPeriode(
-    Number(row.tarif_nominal) || 0,
-    row.tanggal_terdaftar,
-    tahun,
-    bulan
-  );
-  const dibayar = await getTotalDibayar(kramaId, tahun, bulan);
-  const kerRows = await db.select<{ jumlah: number }[]>(
-    `SELECT jumlah FROM dudukan_keringanan
-     WHERE krama_id = $1 AND tahun = $2 AND bulan = $3`,
-    [kramaId, parseTahun(tahun), parseBulan(bulan)]
-  );
+  const [dibayar, kerRows] = await Promise.all([
+    getTotalDibayar(kramaId, t, b),
+    db.select<{ jumlah: number }[]>(
+      `SELECT jumlah FROM dudukan_keringanan
+       WHERE krama_id = $1 AND tahun = $2 AND bulan = $3`,
+      [kramaId, t, b]
+    ),
+  ]);
   const keringanan = Math.round(Number(kerRows[0]?.jumlah) || 0);
-  return hitungSisaDudukan(tagihan, dibayar, keringanan);
+  return sisaDudukanDenganContext(ctx, t, b, dibayar, keringanan);
 }
 
 export async function assertDudukanPaymentAllowed(
@@ -540,15 +600,20 @@ export async function assertDudukanPaymentAllowed(
   bulan: number,
   jumlah: number
 ): Promise<void> {
-  await assertDudukanBerlakuUntukKrama(kramaId, tahun, bulan);
-  const sisa = await getSisaDudukanKramaPeriode(kramaId, tahun, bulan);
-  const amt = parseJumlahPembayaran(jumlah);
-  if (sisa <= 0) {
-    throw new Error(`Tidak ada sisa tagihan untuk ${bulan}/${tahun}`);
-  }
-  if (amt > sisa) {
-    throw new Error(`Jumlah melebihi sisa tagihan untuk ${bulan}/${tahun}`);
-  }
+  const ctx = await loadKramaDudukanTagihanContext(kramaId);
+  const t = parseTahun(tahun);
+  const b = parseBulan(bulan);
+  const db = await getDb();
+  const [dibayar, kerRows] = await Promise.all([
+    getTotalDibayar(kramaId, t, b),
+    db.select<{ jumlah: number }[]>(
+      `SELECT jumlah FROM dudukan_keringanan
+       WHERE krama_id = $1 AND tahun = $2 AND bulan = $3`,
+      [kramaId, t, b]
+    ),
+  ]);
+  const keringanan = Math.round(Number(kerRows[0]?.jumlah) || 0);
+  assertPembayaranDudukanItemDenganContext(ctx, t, b, jumlah, dibayar, keringanan);
 }
 
 export async function listRiwayatDudukanKrama(
@@ -569,7 +634,10 @@ export async function listRiwayatDudukanKrama(
   );
 }
 
-/** Simpan pembayaran untuk beberapa bulan sekaligus (satu transaksi). */
+/** Jumlah placeholder bind per baris (created_at memakai datetime('now')). */
+const DUDUKAN_PEMBAYARAN_INSERT_COLS = 13;
+
+/** Simpan pembayaran untuk beberapa bulan sekaligus (validasi batch, satu INSERT multi-row). */
 export async function createPembayaranDudukanMulti(
   params: {
     kramaId: string;
@@ -592,44 +660,91 @@ export async function createPembayaranDudukanMulti(
   if (!opts?.riwayatImport) await assertKramaAktifUntukPembayaran(params.kramaId);
   await assertPetugasForKrama(params.petugasId, params.kramaId);
 
-  const ids: string[] = [];
   const db = await getDb();
   const akunId = params.akunKeuanganId?.trim() || (await getDefaultAkunDudukanId());
   await assertAkunForPembayaranDudukan(akunId);
-  const jenisSnap = await getJenisSnapshotForKrama(params.kramaId);
+
+  const skipValidasi = Boolean(opts?.riwayatImport);
+  const [saveCtx, dibayarMap, keringananMap] = await Promise.all([
+    loadKramaDudukanSaveContext(params.kramaId),
+    skipValidasi
+      ? Promise.resolve(new Map<string, number>())
+      : getDibayarPeriodeMapForKrama(params.kramaId),
+    skipValidasi
+      ? Promise.resolve(new Map<string, number>())
+      : getKeringananPeriodeMapForKrama(params.kramaId),
+  ]);
+  const { ctx, jenisSnap } = saveCtx;
+  const ctxValidasi = skipValidasi ? null : ctx;
+
+  const keterangan = params.keterangan?.trim() || null;
+  const tanggalSetor = params.disetorLangsung === false ? null : tanggal;
+  const pendingDibayar = new Map<string, number>();
+  const rows: { id: string; args: unknown[] }[] = [];
 
   for (const item of params.items) {
+    const tahun = parseTahun(item.tahun);
+    const bulan = parseBulan(item.bulan);
     const jumlah = parseJumlahPembayaran(item.jumlah);
-    if (!opts?.riwayatImport) {
-      await assertDudukanBerlakuUntukKrama(params.kramaId, item.tahun, item.bulan);
-      await assertDudukanPaymentAllowed(params.kramaId, item.tahun, item.bulan, jumlah);
+    const key = periodeKey(tahun, bulan);
+
+    if (ctxValidasi) {
+      const dibayar =
+        (dibayarMap.get(key) ?? 0) + (pendingDibayar.get(key) ?? 0);
+      const keringanan = keringananMap.get(key) ?? 0;
+      assertPembayaranDudukanItemDenganContext(
+        ctxValidasi,
+        tahun,
+        bulan,
+        jumlah,
+        dibayar,
+        keringanan
+      );
+      pendingDibayar.set(key, (pendingDibayar.get(key) ?? 0) + jumlah);
     }
 
     const id = uuid();
-    await db.execute(
-      `INSERT INTO dudukan_pembayaran
-        (id, krama_id, tahun, bulan, jumlah, tanggal, petugas_id, akun_keuangan_id, keterangan,
-         jenis_krama_tamiu_id, jenis_tamiu_id, jenis_nama, tanggal_setor, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, datetime('now'))`,
-      [
+    rows.push({
+      id,
+      args: [
         id,
         params.kramaId,
-        parseTahun(item.tahun),
-        parseBulan(item.bulan),
+        tahun,
+        bulan,
         jumlah,
         tanggal,
         params.petugasId,
         akunId,
-        params.keterangan?.trim() || null,
+        keterangan,
         jenisSnap.jenis_krama_tamiu_id,
         jenisSnap.jenis_tamiu_id,
         jenisSnap.jenis_nama,
-        params.disetorLangsung === false ? null : tanggal,
-      ]
-    );
-    ids.push(id);
+        tanggalSetor,
+      ],
+    });
   }
 
+  const valueParts: string[] = [];
+  const bindArgs: unknown[] = [];
+  for (let i = 0; i < rows.length; i++) {
+    const base = i * DUDUKAN_PEMBAYARAN_INSERT_COLS;
+    const ph = Array.from(
+      { length: DUDUKAN_PEMBAYARAN_INSERT_COLS },
+      (_, j) => `$${base + j + 1}`
+    ).join(", ");
+    valueParts.push(`(${ph}, datetime('now'))`);
+    bindArgs.push(...rows[i]!.args);
+  }
+
+  await db.execute(
+    `INSERT INTO dudukan_pembayaran
+      (id, krama_id, tahun, bulan, jumlah, tanggal, petugas_id, akun_keuangan_id, keterangan,
+       jenis_krama_tamiu_id, jenis_tamiu_id, jenis_nama, tanggal_setor, created_at)
+     VALUES ${valueParts.join(", ")}`,
+    bindArgs
+  );
+
+  const ids = rows.map((r) => r.id);
   const { tryAutoPushPayments } = await import("../sync/auto-push-payment");
   void tryAutoPushPayments({ dudukanIds: ids });
 
@@ -649,50 +764,20 @@ export async function createPembayaranDudukan(
   },
   opts?: DudukanPembayaranSaveOptions
 ): Promise<string> {
-  const tanggal = parseIsoDateString(params.tanggal);
-  if (!tanggal) throw new Error("Tanggal pembayaran tidak valid");
-  if (!opts?.riwayatImport) await assertKramaAktifUntukPembayaran(params.kramaId);
-  await assertPetugasForKrama(params.petugasId, params.kramaId);
-  if (!opts?.riwayatImport) {
-    await assertDudukanPaymentAllowed(
-      params.kramaId,
-      params.tahun,
-      params.bulan,
-      params.jumlah
-    );
-  }
-
-  const db = await getDb();
-  const id = uuid();
-  const jumlah = parseJumlahPembayaran(params.jumlah);
-  const akunId = params.akunKeuanganId?.trim() || (await getDefaultAkunDudukanId());
-  await assertAkunForPembayaranDudukan(akunId);
-  const jenisSnap = await getJenisSnapshotForKrama(params.kramaId);
-  await db.execute(
-    `INSERT INTO dudukan_pembayaran
-      (id, krama_id, tahun, bulan, jumlah, tanggal, petugas_id, akun_keuangan_id, keterangan,
-       jenis_krama_tamiu_id, jenis_tamiu_id, jenis_nama, tanggal_setor, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $6, datetime('now'))`,
-    [
-      id,
-      params.kramaId,
-      parseTahun(params.tahun),
-      parseBulan(params.bulan),
-      jumlah,
-      tanggal,
-      params.petugasId,
-      akunId,
-      params.keterangan?.trim() || null,
-      jenisSnap.jenis_krama_tamiu_id,
-      jenisSnap.jenis_tamiu_id,
-      jenisSnap.jenis_nama,
-    ]
+  const ids = await createPembayaranDudukanMulti(
+    {
+      kramaId: params.kramaId,
+      tanggal: params.tanggal,
+      petugasId: params.petugasId,
+      keterangan: params.keterangan,
+      akunKeuanganId: params.akunKeuanganId,
+      items: [
+        { tahun: params.tahun, bulan: params.bulan, jumlah: params.jumlah },
+      ],
+    },
+    opts
   );
-
-  const { tryAutoPushPayments } = await import("../sync/auto-push-payment");
-  void tryAutoPushPayments({ dudukanIds: [id] });
-
-  return id;
+  return ids[0]!;
 }
 
 export async function updatePembayaranDudukan(
