@@ -12,7 +12,7 @@ import {
   truncatePdf,
   type PdfFonts,
 } from "./pdf-common";
-import type { PembayaranSetoranItem, SetoranRow } from "./services/setoran";
+import type { PembayaranSetoranItem, SetoranRow, SumberPembayaran } from "./services/setoran";
 import type { DesaAdat } from "./types";
 import { formatTanggalLahir } from "./utils";
 
@@ -27,15 +27,23 @@ const BODY_SIZE = 9.5;
 const TABLE_SIZE = 8.5;
 const LINE_H = 5 * MM;
 const ROW_H = 6 * MM;
+const SECTION_GAP = 4 * MM;
+
+/** Urutan section di PDF: Dudukan dulu, lalu Paturunan. */
+const SUMBER_ORDER: SumberPembayaran[] = ["dudukan", "paturunan"];
+
+const SUMBER_LABEL: Record<SumberPembayaran, string> = {
+  dudukan: "Dudukan",
+  paturunan: "Paturunan",
+};
 
 type Kolom = { header: string; fraction: number; align?: "right" };
 
 const KOLOM: Kolom[] = [
-  { header: "No", fraction: 0.05 },
-  { header: "Tgl Bayar", fraction: 0.12 },
-  { header: "No. Kartu", fraction: 0.16 },
-  { header: "Nama Krama", fraction: 0.25 },
-  { header: "Uraian", fraction: 0.27 },
+  { header: "No", fraction: 0.06 },
+  { header: "No. Kartu", fraction: 0.18 },
+  { header: "Nama Krama", fraction: 0.28 },
+  { header: "Uraian", fraction: 0.33 },
   { header: "Jumlah", fraction: 0.15, align: "right" },
 ];
 
@@ -44,6 +52,28 @@ export type BuktiSetoranPdfInput = {
   items: PembayaranSetoranItem[];
   desa: DesaAdat | null;
   petugasJabatan?: string | null;
+};
+
+export type BuktiSetoranMergedLine = {
+  sumber: SumberPembayaran;
+  tanggal: string;
+  nomor_kartu: string;
+  kepala_nama: string;
+  uraian: string;
+  jumlah: number;
+};
+
+export type BuktiSetoranTanggalGroup = {
+  tanggal: string;
+  lines: BuktiSetoranMergedLine[];
+};
+
+export type BuktiSetoranJenisSection = {
+  sumber: SumberPembayaran;
+  label: string;
+  jumlahKrama: number;
+  tanggalGroups: BuktiSetoranTanggalGroup[];
+  subtotal: number;
 };
 
 type Ctx = {
@@ -63,6 +93,122 @@ export function namaFileBuktiSetoran(setoran: SetoranRow): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
   return `bukti-setoran-${setoran.tanggal}-${petugas}.pdf`;
+}
+
+function paymentDayKey(tanggal: string): string {
+  return tanggal.trim().slice(0, 10);
+}
+
+function joinUraian(existing: string[], next: string): string[] {
+  const u = next.trim();
+  if (!u || existing.includes(u)) return existing;
+  return [...existing, u];
+}
+
+/** Gabung pembayaran krama yang sama di hari yang sama (per jenis). */
+export function mergeSetoranItemsByKramaHari(items: PembayaranSetoranItem[]): BuktiSetoranMergedLine[] {
+  const map = new Map<
+    string,
+    {
+      sumber: SumberPembayaran;
+      tanggal: string;
+      nomor_kartu: string;
+      kepala_nama: string;
+      uraianList: string[];
+      jumlah: number;
+      order: number;
+    }
+  >();
+  let order = 0;
+  for (const item of items) {
+    const tanggal = paymentDayKey(item.tanggal);
+    if (!tanggal) continue;
+    const nomor = item.nomor_kartu.trim();
+    const key = `${item.sumber}|${tanggal}|${nomor}`;
+    const cur = map.get(key);
+    if (!cur) {
+      map.set(key, {
+        sumber: item.sumber,
+        tanggal,
+        nomor_kartu: nomor,
+        kepala_nama: item.kepala_nama.trim() || "—",
+        uraianList: joinUraian([], item.uraian),
+        jumlah: Math.round(Number(item.jumlah) || 0),
+        order: order++,
+      });
+      continue;
+    }
+    cur.jumlah += Math.round(Number(item.jumlah) || 0);
+    cur.uraianList = joinUraian(cur.uraianList, item.uraian);
+    if (!cur.kepala_nama || cur.kepala_nama === "—") {
+      const nama = item.kepala_nama.trim();
+      if (nama) cur.kepala_nama = nama;
+    }
+  }
+  return [...map.values()]
+    .sort((a, b) => a.order - b.order)
+    .map((v) => ({
+      sumber: v.sumber,
+      tanggal: v.tanggal,
+      nomor_kartu: v.nomor_kartu,
+      kepala_nama: v.kepala_nama,
+      uraian: v.uraianList.join(" · ") || "—",
+      jumlah: v.jumlah,
+    }));
+}
+
+export function countKramaPerSumber(items: PembayaranSetoranItem[]): Record<SumberPembayaran, number> {
+  const sets: Record<SumberPembayaran, Set<string>> = {
+    dudukan: new Set(),
+    paturunan: new Set(),
+  };
+  for (const item of items) {
+    const nomor = item.nomor_kartu.trim();
+    if (!nomor) continue;
+    sets[item.sumber].add(nomor);
+  }
+  return {
+    dudukan: sets.dudukan.size,
+    paturunan: sets.paturunan.size,
+  };
+}
+
+/** Kelompokkan: jenis penerimaan → tanggal → baris (sudah digabung per krama/hari). */
+export function buildBuktiSetoranJenisSections(items: PembayaranSetoranItem[]): BuktiSetoranJenisSection[] {
+  const merged = mergeSetoranItemsByKramaHari(items);
+  const kramaCount = countKramaPerSumber(items);
+  const sections: BuktiSetoranJenisSection[] = [];
+
+  for (const sumber of SUMBER_ORDER) {
+    const lines = merged.filter((l) => l.sumber === sumber);
+    if (lines.length === 0) continue;
+
+    const byTanggal = new Map<string, BuktiSetoranMergedLine[]>();
+    for (const line of lines) {
+      const list = byTanggal.get(line.tanggal) ?? [];
+      list.push(line);
+      byTanggal.set(line.tanggal, list);
+    }
+    const tanggalGroups: BuktiSetoranTanggalGroup[] = [...byTanggal.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([tanggal, groupLines]) => ({
+        tanggal,
+        lines: groupLines.sort(
+          (a, b) =>
+            a.nomor_kartu.localeCompare(b.nomor_kartu, "id") ||
+            a.kepala_nama.localeCompare(b.kepala_nama, "id")
+        ),
+      }));
+
+    sections.push({
+      sumber,
+      label: SUMBER_LABEL[sumber],
+      jumlahKrama: kramaCount[sumber],
+      tanggalGroups,
+      subtotal: lines.reduce((s, l) => s + l.jumlah, 0),
+    });
+  }
+  return sections;
 }
 
 function addPage(ctx: Ctx): void {
@@ -128,7 +274,7 @@ async function drawKop(ctx: Ctx, desa: DesaAdat | null): Promise<void> {
 }
 
 function drawInfo(ctx: Ctx, label: string, value: string): void {
-  const labelW = 32 * MM;
+  const labelW = 38 * MM;
   drawText(ctx, label, MARGIN_X, ctx.y);
   drawText(ctx, ":", MARGIN_X + labelW, ctx.y);
   drawText(ctx, truncatePdf(value || "-", 80), MARGIN_X + labelW + 3 * MM, ctx.y);
@@ -209,6 +355,21 @@ function ensureSpace(ctx: Ctx, needed: number, ulangHeader: boolean): void {
   if (ulangHeader) drawRow(ctx, KOLOM.map((k) => k.header), { header: true });
 }
 
+function drawSectionTitle(ctx: Ctx, label: string): void {
+  ensureSpace(ctx, LINE_H + ROW_H, false);
+  drawText(ctx, label.toUpperCase(), MARGIN_X, ctx.y, { bold: true, size: 10.5 });
+  ctx.y -= LINE_H + 1 * MM;
+}
+
+function drawTanggalHeading(ctx: Ctx, tanggal: string): void {
+  ensureSpace(ctx, LINE_H + ROW_H, false);
+  drawText(ctx, `Tanggal: ${formatTanggalLahir(tanggal)}`, MARGIN_X, ctx.y, {
+    bold: true,
+    size: BODY_SIZE,
+  });
+  ctx.y -= LINE_H;
+}
+
 function drawTandaTangan(ctx: Ctx, setoran: SetoranRow): void {
   const blokH = 32 * MM;
   ensureSpace(ctx, blokH, false);
@@ -257,6 +418,8 @@ export async function buildBuktiSetoranPdfBytes(input: BuktiSetoranPdfInput): Pr
   const fonts = await createPdfFonts(pdf);
   const ctx: Ctx = { pdf, page: pdf.addPage([PAGE_W, PAGE_H]), y: PAGE_H - MARGIN_TOP, fonts };
   const nomor = nomorBuktiSetoran(setoran.id);
+  const sections = buildBuktiSetoranJenisSections(items);
+  const kramaCount = countKramaPerSumber(items);
 
   await drawKop(ctx, desa);
 
@@ -271,33 +434,45 @@ export async function buildBuktiSetoranPdfBytes(input: BuktiSetoranPdfInput): Pr
   drawInfo(ctx, "Tanggal setor", formatTanggalLahir(setoran.tanggal));
   drawInfo(ctx, "Petugas", petugas);
   drawInfo(ctx, "Diterima oleh", setoran.diterima_oleh_nama ?? "-");
-  drawInfo(ctx, "Jumlah transaksi", String(items.length));
+  for (const sumber of SUMBER_ORDER) {
+    if (kramaCount[sumber] > 0) {
+      drawInfo(ctx, `Jumlah krama ${SUMBER_LABEL[sumber]}`, String(kramaCount[sumber]));
+    }
+  }
   if (setoran.keterangan?.trim()) drawInfo(ctx, "Keterangan", setoran.keterangan.trim());
   ctx.y -= 3 * MM;
 
-  drawRow(ctx, KOLOM.map((k) => k.header), { header: true });
-  items.forEach((item, i) => {
-    ensureSpace(ctx, ROW_H, true);
-    drawRow(ctx, [
-      String(i + 1),
-      formatTanggalLahir(item.tanggal),
-      item.nomor_kartu,
-      item.kepala_nama,
-      item.uraian,
-      formatRupiah(item.jumlah),
-    ]);
+  sections.forEach((section, sectionIdx) => {
+    if (sectionIdx > 0) ctx.y -= SECTION_GAP;
+    drawSectionTitle(ctx, section.label);
+
+    section.tanggalGroups.forEach((group, groupIdx) => {
+      if (groupIdx > 0) ctx.y -= 2 * MM;
+      drawTanggalHeading(ctx, group.tanggal);
+      ensureSpace(ctx, ROW_H * 2, false);
+      drawRow(ctx, KOLOM.map((k) => k.header), { header: true });
+      group.lines.forEach((line, i) => {
+        ensureSpace(ctx, ROW_H, true);
+        drawRow(ctx, [
+          String(i + 1),
+          line.nomor_kartu,
+          line.kepala_nama,
+          line.uraian,
+          formatRupiah(line.jumlah),
+        ]);
+      });
+    });
   });
 
-  const subtotal = (sumber: PembayaranSetoranItem["sumber"]) =>
-    items.filter((i) => i.sumber === sumber).reduce((s, i) => s + i.jumlah, 0);
-  const paturunan = subtotal("paturunan");
-  const dudukan = subtotal("dudukan");
-  const total = items.reduce((s, i) => s + i.jumlah, 0);
+  const dudukan = sections.find((s) => s.sumber === "dudukan")?.subtotal ?? 0;
+  const paturunan = sections.find((s) => s.sumber === "paturunan")?.subtotal ?? 0;
+  const total = dudukan + paturunan;
 
   ensureSpace(ctx, ROW_H * 3, false);
+  ctx.y -= 2 * MM;
   if (paturunan > 0 && dudukan > 0) {
-    drawRingkasanRow(ctx, "Subtotal Paturunan", paturunan);
     drawRingkasanRow(ctx, "Subtotal Dudukan", dudukan);
+    drawRingkasanRow(ctx, "Subtotal Paturunan", paturunan);
   }
   drawRingkasanRow(ctx, "TOTAL DISETOR", total, true);
 
