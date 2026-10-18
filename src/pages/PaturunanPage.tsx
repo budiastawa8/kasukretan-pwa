@@ -180,17 +180,18 @@ export function PaturunanPage() {
 
   const filterKey = `${debouncedQ}|${banjarId}|${tempekId}|${jenisMipilId}|${iuranId}|${sortKey}|${sortDir}|${pageSize}`;
   const lastFullLoadKey = useRef("");
+  const iuranListRef = useRef(iuranList);
+  iuranListRef.current = iuranList;
 
   const load = useCallback(
     async (opts?: { force?: boolean }) => {
       setLoading(true);
       setError("");
       try {
-        const needFull =
-          opts?.force === true ||
-          lastFullLoadKey.current !== filterKey ||
-          iuranList.length === 0;
-        let iuran = iuranList;
+        // Jangan pakai iuranList.length === 0 sebagai syarat needFull:
+        // desa tanpa iuran paturunan akan memicu load berulang (pagination blink / UI stuck).
+        const needFull = opts?.force === true || lastFullLoadKey.current !== filterKey;
+        let iuran = iuranListRef.current;
         if (needFull) {
           const [r, b, j, iuranRows, peringatan] = await Promise.all([
             getPaturunanRingkasan(),
@@ -242,7 +243,6 @@ export function PaturunanPage() {
     },
     [
       filterKey,
-      iuranList,
       debouncedQ,
       banjarId,
       tempekId,
