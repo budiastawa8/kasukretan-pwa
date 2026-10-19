@@ -170,6 +170,18 @@ const keuanganItems: LaporanItem[] = [
 
   {
 
+    to: "/laporan/posisi-uang-paturunan",
+
+    icon: Coins,
+
+    title: "Posisi Uang Paturunan",
+
+    desc: "Total dibayar krama = di tangan petugas + sudah di bendahara (sudah disetor).",
+
+  },
+
+  {
+
     to: "/laporan/rekap-penerimaan-dudukan",
 
     icon: HandCoins,
@@ -177,6 +189,18 @@ const keuanganItems: LaporanItem[] = [
     title: "Rekap Penerimaan Dudukan",
 
     desc: "Realisasi pembayaran per banjar, klasifikasi, dan jenis — per bulan bayar atau per transaksi.",
+
+  },
+
+  {
+
+    to: "/laporan/posisi-uang-dudukan",
+
+    icon: HandCoins,
+
+    title: "Posisi Uang Dudukan",
+
+    desc: "Total dibayar pemasih = di tangan petugas + sudah di bendahara (sudah disetor).",
 
   },
 

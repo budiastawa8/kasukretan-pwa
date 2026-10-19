@@ -39,6 +39,8 @@ import { LaporanKeringananDudukanPage } from "./pages/laporan/LaporanKeringananD
 import { LaporanPertimbanganKeringananDudukanPage } from "./pages/laporan/LaporanPertimbanganKeringananDudukanPage";
 import { LaporanBukuKasPage } from "./pages/laporan/LaporanBukuKasPage";
 import { LaporanRekapPenerimaanPaturunanPage } from "./pages/laporan/LaporanRekapPenerimaanPaturunanPage";
+import { LaporanPosisiUangPaturunanPage } from "./pages/laporan/LaporanPosisiUangPaturunanPage";
+import { LaporanPosisiUangDudukanPage } from "./pages/laporan/LaporanPosisiUangDudukanPage";
 import { LaporanRekapPenerimaanDudukanPage } from "./pages/laporan/LaporanRekapPenerimaanDudukanPage";
 import { LaporanPlafonDanaDudukanPage } from "./pages/laporan/LaporanPlafonDanaDudukanPage";
 import { LaporanEksekutifPage } from "./pages/laporan/LaporanEksekutifPage";
@@ -195,8 +197,16 @@ export default function App() {
               element={<LaporanRekapPenerimaanPaturunanPage />}
             />
             <Route
+              path="/laporan/posisi-uang-paturunan"
+              element={<LaporanPosisiUangPaturunanPage />}
+            />
+            <Route
               path="/laporan/rekap-penerimaan-dudukan"
               element={<LaporanRekapPenerimaanDudukanPage />}
+            />
+            <Route
+              path="/laporan/posisi-uang-dudukan"
+              element={<LaporanPosisiUangDudukanPage />}
             />
             <Route
               path="/laporan/plafon-dana-dudukan"
