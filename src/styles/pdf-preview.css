@@ -55,3 +55,27 @@
     min-height: calc(100dvh - 140px);
   }
 }
+
+/* Embed PDF Pipil/Pemasih di halaman detail (A4 landscape) */
+.ilikita-pdf-inline-frame {
+  width: 100%;
+  max-width: 100%;
+  margin-inline: auto;
+}
+
+.ilikita-pdf-inline-iframe {
+  display: block;
+  width: 100%;
+  border: none;
+  background: #525659;
+  /* A4 landscape ≈ 297:210 — tinggi ekstra untuk toolbar viewer browser */
+  aspect-ratio: 297 / 230;
+  min-height: 320px;
+  height: auto;
+}
+
+@media (min-width: 640px) {
+  .ilikita-pdf-inline-iframe {
+    min-height: 480px;
+  }
+}

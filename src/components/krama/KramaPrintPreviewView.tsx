@@ -10,14 +10,11 @@ import { Button } from "../ui/Button";
 import { SuratKeteranganKramaDialog } from "./SuratKeteranganKramaDialog";
 import { SuratKeteranganPindahDialog } from "./SuratKeteranganPindahDialog";
 import { PengarepWarningsPanel } from "./PengarepWarningsPanel";
-import { PipilPrintSheet } from "./PipilPrintSheet";
+import { IlikitaPdfInlinePreview } from "./IlikitaPdfInlinePreview";
 import { KartuA4Grid, kartuA4GridHint } from "./KartuA4Grid";
 import { KartuKramaAdatPair } from "./KartuKramaAdatPair";
 import { KartuKramaTamiuPair } from "./KartuKramaTamiuPair";
 import { KartuTamiuPair } from "./KartuTamiuPair";
-import { KramaTamiuPrintSheet } from "./KramaTamiuPrintSheet";
-import "../../styles/pipil-print.css";
-import "../../styles/krama-tamiu-print.css";
 import "../../styles/kartu-krama-print.css";
 
 export function KramaPrintPreviewView({ krama }: { krama: KramaDetail }) {
@@ -27,6 +24,7 @@ export function KramaPrintPreviewView({ krama }: { krama: KramaDetail }) {
   const isPemasihSheet = isPemasihPrintKlasifikasi(krama.klasifikasi_kode);
   const pemasihMeta = pemasihPrintMeta(krama.klasifikasi_kode);
   const [desa, setDesa] = useState<DesaAdat | null>(null);
+  const [desaReady, setDesaReady] = useState(false);
   const [jenisMipil, setJenisMipil] = useState<JenisKramaMipilRow[]>([]);
   const [skkOpen, setSkkOpen] = useState(false);
   const [skpOpen, setSkpOpen] = useState(false);
@@ -34,12 +32,14 @@ export function KramaPrintPreviewView({ krama }: { krama: KramaDetail }) {
   const [hasTtdImage, setHasTtdImage] = useState(false);
 
   useEffect(() => {
-    void getDesaAdatWithMedia().then((d) => {
-      setDesa(d);
-      const has = !!d?.bandesa_ttd_url?.trim()?.startsWith("data:image/");
-      setHasTtdImage(has);
-      if (!has) setTampilkanTtdBandesa(false);
-    });
+    void getDesaAdatWithMedia()
+      .then((d) => {
+        setDesa(d);
+        const has = !!d?.bandesa_ttd_url?.trim()?.startsWith("data:image/");
+        setHasTtdImage(has);
+        if (!has) setTampilkanTtdBandesa(false);
+      })
+      .finally(() => setDesaReady(true));
     if (isPipil) void listJenisMipil().then(setJenisMipil);
   }, [isPipil]);
 
@@ -129,15 +129,14 @@ export function KramaPrintPreviewView({ krama }: { krama: KramaDetail }) {
       {isPipil && (
         <>
           <PengarepWarningsPanel krama={krama} desa={desa} jenisMipil={jenisMipil} />
-          <div className="pipil-print-stage">
-            <div className="pipil-print-wrapper">
-              <PipilPrintSheet
-                krama={krama}
-                desa={desa}
-                tampilkanTtdBandesa={tampilkanTtdBandesa}
-              />
-            </div>
-          </div>
+          <IlikitaPdfInlinePreview
+            key={`pipil-${krama.id}`}
+            doc="pipil"
+            krama={krama}
+            desa={desa}
+            desaReady={desaReady}
+            tampilkanTtdBandesa={tampilkanTtdBandesa && hasTtdImage}
+          />
 
           {krama.anggota_aktif.length > 0 && (
             <section className="space-y-2">
@@ -178,16 +177,14 @@ export function KramaPrintPreviewView({ krama }: { krama: KramaDetail }) {
 
       {isPemasihSheet && pemasihMeta && (
         <>
-          <div className="kt-print-stage">
-            <div className="kt-print-wrapper">
-              <KramaTamiuPrintSheet
-                krama={krama}
-                desa={desa}
-                meta={pemasihMeta}
-                tampilkanTtdBandesa={tampilkanTtdBandesa}
-              />
-            </div>
-          </div>
+          <IlikitaPdfInlinePreview
+            key={`pemasih-${krama.id}`}
+            doc="pemasih"
+            krama={krama}
+            desa={desa}
+            desaReady={desaReady}
+            tampilkanTtdBandesa={tampilkanTtdBandesa && hasTtdImage}
+          />
 
           {isKramaTamiu && showKartu && (
             <section className="space-y-2">

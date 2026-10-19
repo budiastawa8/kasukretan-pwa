@@ -23,9 +23,6 @@ import { Button } from "../components/ui/Button";
 import { IconLink } from "../components/ui/IconLink";
 import { AnggotaImportExportPanel } from "../components/krama/AnggotaImportExportPanel";
 import { PemasihAnggotaImportExportPanel } from "../components/krama/PemasihAnggotaImportExportPanel";
-import { KramaPortalCard } from "../components/krama/KramaPortalCard";
-import { KramaCloudPushCard } from "../components/krama/KramaCloudPushCard";
-import { useOnlineModuleEnabled } from "../lib/online-module";
 import { useIsPhoneClient } from "../hooks/useClientFormFactor";
 import { cn } from "../lib/utils";
 
@@ -40,7 +37,6 @@ export function KramaDetailPage() {
   const [importFlash, setImportFlash] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [perpanjangOpen, setPerpanjangOpen] = useState(false);
   const canEdit = canEditKrama(user?.peran);
-  const onlineEnabled = useOnlineModuleEnabled();
   const isPemasih =
     krama?.klasifikasi_kode === "KRAMA_TAMIU" || krama?.klasifikasi_kode === "TAMIU";
   const kramaNonaktifTotal = krama ? isKramaNonaktifTotal(krama) : false;
@@ -206,20 +202,6 @@ export function KramaDetailPage() {
             }}
           />
         ))}
-      {canEdit && onlineEnabled && (
-        <>
-          <KramaCloudPushCard
-            kramaId={krama.id}
-            nomorKartu={krama.nomor_kartu}
-            statusKrama={krama.status_krama}
-          />
-          <KramaPortalCard
-            kramaId={krama.id}
-            nomorKartu={krama.nomor_kartu}
-            statusKrama={krama.status_krama}
-          />
-        </>
-      )}
     </div>
   );
 }
