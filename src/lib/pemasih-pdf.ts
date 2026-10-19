@@ -12,7 +12,7 @@ import {
   type PdfFonts,
 } from "./pdf-common";
 import { createTableFonts } from "./pdf-table-fonts";
-import { pemasihTableColumns } from "./ilikita-table-columns";
+import { buildIlikitaAnggotaTablePages, pemasihTableColumns } from "./ilikita-table-columns";
 import {
   contentLeft,
   contentWidth,
@@ -45,7 +45,6 @@ export async function generatePemasihPdf(
   options?: { tampilkanTtdBandesa?: boolean }
 ): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
-  const page = pdf.addPage([PAGE_LANDSCAPE_W, PAGE_LANDSCAPE_H]);
   const fonts = await createPdfFonts(pdf);
   const tableFonts = await createTableFonts(pdf);
   const images = await loadSheetLogos(pdf, desa);
@@ -55,34 +54,21 @@ export async function generatePemasihPdf(
   const headerVariant: HeaderVariant =
     meta.layout === "tamiu-official" ? "tamiu-black" : "classic-yellow";
 
-  let y = drawFullHeader(page, desa, headerVariant, fonts, images);
   const nomorLine = `${meta.nomorPrefix} . ${krama.nomor_kartu}`;
   const titlePt =
     meta.layout === "classic" ? 14 : meta.layout === "tamiu-official" ? 14 : 12;
   const nomorPt =
     meta.layout === "classic" ? 13 : meta.layout === "tamiu-official" ? 13 : 11;
-  y = drawSheetTitle(page, fonts, meta.sheetTitle, nomorLine, y, titlePt, nomorPt);
-
-  if (meta.layout === "classic") {
-    y = drawClassicGrid(page, krama, fonts, y);
-  } else {
-    y = drawTamiuOfficialGrid(page, krama, meta, fonts, y);
-  }
 
   const nikHeader = meta.layout === "tamiu-official" ? meta.nikColumnHeader : "NIKA";
-  y = drawStyledTable(
-    page,
-    tableFonts,
-    pemasihTableColumns(nikHeader, krama.klasifikasi_kode),
-    krama.anggota_aktif,
-    y,
-    {
-      boldHeaders: false,
-      wrapCells: true,
-      fontSize: TABLE_SIZE - 1,
-      headerFontSize: TABLE_HEADER_SIZE - 1,
-    }
-  );
+  const tablePages = buildIlikitaAnggotaTablePages(krama.anggota_aktif);
+  const columns = pemasihTableColumns(nikHeader, krama.klasifikasi_kode);
+  const tableOpts = {
+    boldHeaders: false as const,
+    wrapCells: true,
+    fontSize: TABLE_SIZE - 1,
+    headerFontSize: TABLE_HEADER_SIZE - 1,
+  };
 
   const tanggalTerbit = formatTanggalLahir(krama.tanggal_terdaftar);
   const tempatTanda = desa?.nama_desa_adat?.trim() || "Desa Adat";
@@ -94,25 +80,56 @@ export async function generatePemasihPdf(
     footerLeftLines.push({ label: "Berlaku Sampai", value: formatBerlakuSdKrama(krama) });
   }
 
-  drawThreeColumnFooter(page, fonts, y, {
-    left: {
-      lines: footerLeftLines,
-    },
-    center: {
-      role: "Pengajeg",
-      name: krama.kepala.nama_lengkap,
-      placeDate: meta.layout === "tamiu-official" ? ttd : undefined,
-      hidePlaceLine: meta.layout === "classic",
-    },
-    right: {
-      placeDate: ttd,
-      role: desa?.bandesa_jabatan?.trim() || "Bandesa",
-      name: desa?.bandesa_nama?.trim() || "",
-      signImage: bandesaTtd,
-    },
-  });
+  for (let pageIndex = 0; pageIndex < tablePages.length; pageIndex++) {
+    const page = pdf.addPage([PAGE_LANDSCAPE_W, PAGE_LANDSCAPE_H]);
+    const isFirst = pageIndex === 0;
+    const isLast = pageIndex === tablePages.length - 1;
 
-  await drawIlikitaFooterQr(pdf, page, krama.nomor_kartu, y, footerLeftLines.length);
+    let y = drawFullHeader(page, desa, headerVariant, fonts, images);
+    if (isFirst) {
+      y = drawSheetTitle(page, fonts, meta.sheetTitle, nomorLine, y, titlePt, nomorPt);
+      if (meta.layout === "classic") {
+        y = drawClassicGrid(page, krama, fonts, y);
+      } else {
+        y = drawTamiuOfficialGrid(page, krama, meta, fonts, y);
+      }
+    } else {
+      y = drawSheetTitle(
+        page,
+        fonts,
+        `${meta.sheetTitle} (LANJUTAN)`,
+        `${nomorLine} · hlm. ${pageIndex + 1}`,
+        y,
+        titlePt,
+        nomorPt
+      );
+      y -= 4 * MM;
+    }
+
+    y = drawStyledTable(page, tableFonts, columns, tablePages[pageIndex]!, y, tableOpts);
+
+    if (isLast) {
+      drawThreeColumnFooter(page, fonts, y, {
+        left: {
+          lines: footerLeftLines,
+        },
+        center: {
+          role: "Pengajeg",
+          name: krama.kepala.nama_lengkap,
+          placeDate: meta.layout === "tamiu-official" ? ttd : undefined,
+          hidePlaceLine: meta.layout === "classic",
+        },
+        right: {
+          placeDate: ttd,
+          role: desa?.bandesa_jabatan?.trim() || "Bandesa",
+          name: desa?.bandesa_nama?.trim() || "",
+          signImage: bandesaTtd,
+        },
+      });
+
+      await drawIlikitaFooterQr(pdf, page, krama.nomor_kartu, y, footerLeftLines.length);
+    }
+  }
 
   return pdf.save();
 }
