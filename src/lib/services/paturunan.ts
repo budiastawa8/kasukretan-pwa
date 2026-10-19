@@ -8,6 +8,7 @@ import {
   resolvePersenPaturunanIuran,
 } from "../paturunan-hitung";
 import { cachedQuery } from "../query-cache";
+import { buildKramaSearchSql } from "../search-query";
 import { listBanjar } from "./master";
 import { getIuranPaturunan, listIuranPaturunan } from "./iuran-paturunan";
 import { getPembayaranTotalsMap } from "./paturunan-pembayaran";
@@ -376,20 +377,20 @@ function buildPaturunanListWhere(params?: PaturunanListFilter): { where: string;
     args.push(params.jenisMipilId);
   }
   if (params?.q) {
-    const q = `%${params.q}%`;
-    where += ` AND (
-      k.nomor_kartu LIKE $${n}
-      OR p.nama_lengkap LIKE $${n + 1}
-      OR EXISTS (
-        SELECT 1
-        FROM anggota_keluarga ak
-        JOIN penduduk pm ON pm.id = ak.penduduk_id
-        WHERE ak.krama_id = k.id
-          AND ak.status = 'aktif'
-          AND pm.nama_lengkap LIKE $${n + 2}
-      )
-    )`;
-    args.push(q, q, q);
+    const search = buildKramaSearchSql(
+      params.q,
+      {
+        kartu: "k.nomor_kartu",
+        kartuNorm: "k.nomor_kartu_norm",
+        namaKepala: "p.nama_lengkap",
+        includeAnggota: true,
+        includeNik: false,
+        kramaAlias: "k",
+      },
+      { startN: n }
+    );
+    where += search.sql;
+    args.push(...search.args);
   }
   return { where, args };
 }

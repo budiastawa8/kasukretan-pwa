@@ -19,12 +19,11 @@ import { SortableTableHead } from "../components/ui/SortableTableHead";
 import { formatAlasanTidakAktif } from "../lib/krama-status";
 import { downloadPemasihExport } from "../lib/import/pemasih-template";
 import {
-  countKrama,
   deleteKrama,
   listKrama,
+  listKramaPageWithMeta,
   listRtBtnPemasih,
   reaktivasiKrama,
-  summarizeKramaByJenis,
 } from "../lib/services/krama";
 import { kramaEditPath } from "../lib/krama-routes";
 import { listBanjar, listJenisKramaTamiu, listJenisTamiu, listTempek } from "../lib/services/master";
@@ -165,17 +164,13 @@ export function KramaPemasihListPage() {
   const reloadList = useCallback(async () => {
     const offset = (Math.max(1, page) - 1) * pageSize;
     const filter = { ...listFilter, klasifikasiIn: [...listFilter.klasifikasiIn] };
-    const [pageRows, total, summary] = await Promise.all([
-      listKrama({
-        ...filter,
-        limit: pageSize,
-        offset,
-        orderBy: sortKey && sortKey in KRAMA_PEMASIH_SORT ? sortKey : undefined,
-        orderDir: sortKey ? sortDir : undefined,
-      }),
-      countKrama(filter),
-      summarizeKramaByJenis(filter),
-    ]);
+    const { rows: pageRows, total, summary } = await listKramaPageWithMeta({
+      ...filter,
+      limit: pageSize,
+      offset,
+      orderBy: sortKey && sortKey in KRAMA_PEMASIH_SORT ? sortKey : undefined,
+      orderDir: sortKey ? sortDir : undefined,
+    });
     setRows(pageRows);
     setTotalItems(total);
     setJenisRingkasan(

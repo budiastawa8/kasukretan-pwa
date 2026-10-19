@@ -120,6 +120,7 @@ export function LaporanMipilPage() {
   const [arahan, setArahan] = useState<Arahan[]>([]);
   const [statistikTempekList, setStatistikTempekList] = useState<Tempek[]>([]);
   const [q, setQ] = usePersistedScalar(PAGE_ID, "q", "");
+  const [debouncedQ, setDebouncedQ] = useState(q.trim());
   const [loading, setLoading] = useState(true);
   const [loadingDemografi, setLoadingDemografi] = useState(false);
   const [loadingStatistik, setLoadingStatistik] = useState(false);
@@ -156,15 +157,21 @@ export function LaporanMipilPage() {
     if (page !== safePage) setPage(safePage);
   }, [page, safePage]);
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedQ(q.trim()), 250);
+    return () => window.clearTimeout(timer);
+  }, [q]);
+
   const loadDaftar = useCallback(async () => {
     setPage(1);
+    const qSearch = debouncedQ.length >= 2 ? debouncedQ : "";
     const hasFilter =
       Boolean(filterBase.banjarId) ||
       Boolean(filterBase.tempekId) ||
       Boolean(filterBase.arahanId) ||
       Boolean(filterBase.jenisMipilId) ||
       Boolean(filterBase.statusPipil) ||
-      Boolean(q?.trim());
+      Boolean(qSearch);
     if (!hasFilter) {
       setRingkasan(null);
       setRows([]);
@@ -177,7 +184,7 @@ export function LaporanMipilPage() {
     try {
       const result = await getLaporanMipil({
         ...filterBase,
-        q: q || undefined,
+        q: qSearch || undefined,
       });
       setRingkasan(result.ringkasan);
       setRows(result.rows);
@@ -186,7 +193,7 @@ export function LaporanMipilPage() {
     } finally {
       setLoading(false);
     }
-  }, [filterBase, q]);
+  }, [filterBase, debouncedQ]);
 
   const loadDemografi = useCallback(async () => {
     const hasFilter =

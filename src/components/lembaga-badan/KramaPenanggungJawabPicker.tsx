@@ -26,12 +26,17 @@ export function KramaPenanggungJawabPicker({
   }, [q]);
 
   const load = useCallback(async () => {
+    if (debouncedQ.length < 2) {
+      setRows([]);
+      return;
+    }
     setLoading(true);
     try {
       const result = await listKrama({
         klasifikasiIn: ["MIPIL", "KRAMA_TAMIU", "TAMIU"],
-        q: debouncedQ || undefined,
+        q: debouncedQ,
         statusKrama: "aktif",
+        limit: 20,
       });
       setRows(result);
     } finally {
@@ -93,10 +98,12 @@ export function KramaPenanggungJawabPicker({
           <div className="max-h-40 overflow-y-auto rounded-md border border-copper-200 divide-y divide-copper-100">
             {loading ? (
               <p className="p-2 text-sm text-muted">Memuat...</p>
+            ) : debouncedQ.length < 2 ? (
+              <p className="p-2 text-sm text-muted">Ketik minimal 2 karakter untuk mencari.</p>
             ) : rows.length === 0 ? (
               <p className="p-2 text-sm text-muted">Tidak ada krama ditemukan.</p>
             ) : (
-              rows.slice(0, 20).map((r) => (
+              rows.map((r) => (
                 <button
                   key={r.id}
                   type="button"

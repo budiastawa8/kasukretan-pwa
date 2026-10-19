@@ -8,7 +8,7 @@ import {
   type AlasanTidakAktifKode,
 } from "../lib/krama-status";
 import { getDesaAdat } from "../lib/services/desa";
-import { countKrama, deleteKrama, listKrama, reaktivasiKrama } from "../lib/services/krama";
+import { countKrama, deleteKrama, listKrama, listKramaPageWithMeta, reaktivasiKrama } from "../lib/services/krama";
 import { listBanjar } from "../lib/services/master";
 import { kramaEditPath } from "../lib/krama-routes";
 import type { Banjar, DesaAdat, KlasifikasiKode, KramaListItem } from "../lib/types";
@@ -134,14 +134,11 @@ export function KramaListPage({
 
   const load = useCallback(async () => {
     const offset = (Math.max(1, page) - 1) * pageSize;
-    const [pageRows, total] = await Promise.all([
-      listKrama({
-        ...listFilter,
-        limit: pageSize,
-        offset,
-      }),
-      countKrama(listFilter),
-    ]);
+    const { rows: pageRows, total } = await listKramaPageWithMeta({
+      ...listFilter,
+      limit: pageSize,
+      offset,
+    });
     setRows(pageRows);
     setTotalItems(total);
 

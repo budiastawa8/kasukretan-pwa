@@ -13,6 +13,7 @@ export {
   getKlasifikasiList,
   listRtBtnPemasih,
   listKrama,
+  listKramaPageWithMeta,
   countKrama,
   summarizeKramaByJenis,
   getKramaDetail,

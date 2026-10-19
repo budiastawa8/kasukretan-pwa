@@ -309,6 +309,7 @@ CREATE TABLE IF NOT EXISTS penduduk (
 CREATE TABLE IF NOT EXISTS krama (
   id TEXT PRIMARY KEY,
   nomor_kartu TEXT NOT NULL UNIQUE,
+  nomor_kartu_norm TEXT,
   jenis_kartu TEXT NOT NULL,
   nomor_kartu_diterbitkan_pada TEXT NOT NULL DEFAULT (datetime('now')),
   desa_adat_id TEXT NOT NULL REFERENCES desa_adat(id),

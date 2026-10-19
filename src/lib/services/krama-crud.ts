@@ -131,16 +131,17 @@ export async function createKrama(input: CreateKramaInput): Promise<string> {
 
   await db.execute(
     `INSERT INTO krama (
-      id, nomor_kartu, jenis_kartu, desa_adat_id, banjar_id, tempek_id, arahan_id,
+      id, nomor_kartu, nomor_kartu_norm, jenis_kartu, desa_adat_id, banjar_id, tempek_id, arahan_id,
       alamat, keterangan, rt_btn, asal_desa_adat, asal_kecamatan, asal_kabupaten, asal_provinsi,
       klasifikasi_krama_id, jenis_krama_mipil_id, jenis_krama_tamiu_id, jenis_tamiu_id,
       kepala_penduduk_id, tanggal_terdaftar, nomor_kontak, status_krama,
       status_pipil, status_pemasih, tanggal_berlaku_mulai_pemasih,
       alasan_tidak_aktif, tanggal_tidak_aktif, keterangan_tidak_aktif
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)`,
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29)`,
     [
       kramaId,
       nomorKartu,
+      nomorKartu.replace(/-/g, "").toLowerCase(),
       klas[0].prefix_kartu,
       desa!.id,
       input.banjarId,

@@ -20,11 +20,10 @@ import { formatAlasanTidakAktif } from "../lib/krama-status";
 import { downloadKramaExport } from "../lib/import/krama-template";
 import { getDesaAdat } from "../lib/services/desa";
 import {
-  countKrama,
   deleteKrama,
   listKrama,
+  listKramaPageWithMeta,
   reaktivasiKrama,
-  summarizeKramaByJenis,
 } from "../lib/services/krama";
 import { kramaEditPath } from "../lib/krama-routes";
 import { listArahan, listBanjar, listJenisMipil, listTempek } from "../lib/services/master";
@@ -160,17 +159,13 @@ export function KramaMipilListPage() {
 
   const reloadList = useCallback(async () => {
     const offset = (Math.max(1, page) - 1) * pageSize;
-    const [pageRows, total, summary] = await Promise.all([
-      listKrama({
-        ...listFilter,
-        limit: pageSize,
-        offset,
-        orderBy: sortKey && sortKey in KRAMA_MIPIL_SORT ? sortKey : undefined,
-        orderDir: sortKey ? sortDir : undefined,
-      }),
-      countKrama(listFilter),
-      summarizeKramaByJenis(listFilter),
-    ]);
+    const { rows: pageRows, total, summary } = await listKramaPageWithMeta({
+      ...listFilter,
+      limit: pageSize,
+      offset,
+      orderBy: sortKey && sortKey in KRAMA_MIPIL_SORT ? sortKey : undefined,
+      orderDir: sortKey ? sortDir : undefined,
+    });
     setRows(pageRows);
     setTotalItems(total);
     setJenisRingkasan(

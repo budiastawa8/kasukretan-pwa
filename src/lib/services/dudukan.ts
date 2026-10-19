@@ -1,5 +1,6 @@
 import { getDb } from "../db/client";
 import { cachedQuery } from "../query-cache";
+import { buildKramaSearchSql } from "../search-query";
 import { compareBanjarRow } from "../wilayah-order";
 import {
   hitungSisaDudukan,
@@ -280,20 +281,21 @@ export async function listKramaDudukan(params: {
     args.push(params.jenisTamiuId);
   }
   if (params.q) {
-    const q = `%${params.q}%`;
-    sql += ` AND (
-      k.nomor_kartu LIKE $${n}
-      OR p.nama_lengkap LIKE $${n + 1}
-      OR EXISTS (
-        SELECT 1
-        FROM anggota_keluarga ak
-        JOIN penduduk pm ON pm.id = ak.penduduk_id
-        WHERE ak.krama_id = k.id
-          AND ak.status = 'aktif'
-          AND pm.nama_lengkap LIKE $${n + 2}
-      )
-    )`;
-    args.push(q, q, q);
+    const search = buildKramaSearchSql(
+      params.q,
+      {
+        kartu: "k.nomor_kartu",
+        kartuNorm: "k.nomor_kartu_norm",
+        namaKepala: "p.nama_lengkap",
+        includeAnggota: true,
+        includeNik: false,
+        kramaAlias: "k",
+      },
+      { startN: n }
+    );
+    sql += search.sql;
+    args.push(...search.args);
+    n = search.nextN;
   }
   sql += ` ORDER BY b.kode ASC, k.nomor_kartu ASC`;
 
@@ -752,19 +754,32 @@ export async function loadDudukanListAndRingkasanBulan(
   const b = parseBulan(bulan);
   const cacheKey = `dudukan:list+ringkasan:${t}-${b}:${JSON.stringify(searchParams)}:${page?.limit ?? "all"}:${page?.offset ?? 0}:${page?.fullTunggakanBatch ? 1 : 0}`;
   return cachedQuery(cacheKey, async () => {
-    const rows = await queryKramaDudukanBase(searchParams);
-    const scoped = hasDudukanListFilter(searchParams);
-    const allIds = scoped ? rows.map((r) => r.id) : null;
-
     const needFullBatch =
       Boolean(searchParams.punyaTunggakan) || Boolean(page?.fullTunggakanBatch) || !page;
 
-    const pageRows =
-      page && !needFullBatch
-        ? rows.slice(page.offset, page.offset + page.limit)
-        : page && needFullBatch
-          ? rows
-          : rows;
+    const scoped = hasDudukanListFilter(searchParams);
+
+    // Pagination normal: LIMIT di SQL + COUNT (hindari unduh semua baris ke klien).
+    if (page && !needFullBatch) {
+      const [pageRows, totalCount, ringkasanBulan] = await Promise.all([
+        queryKramaDudukanBase({
+          ...searchParams,
+          limit: page.limit,
+          offset: page.offset,
+        }),
+        countKramaDudukanBase(searchParams),
+        getRingkasanBulanDudukan(t, b),
+      ]);
+      const pageIds = pageRows.map((r) => r.id);
+      const batch = await loadTunggakanBatchDataForKramaIds(pageIds);
+      const list = buildKramaDudukanSearchFromBase(pageRows, batch, false);
+      return { list, ringkasanBulan, totalCount };
+    }
+
+    const rows = await queryKramaDudukanBase(searchParams);
+    const allIds = scoped ? rows.map((r) => r.id) : null;
+
+    const pageRows = page && needFullBatch ? rows : page ? rows.slice(page.offset, page.offset + page.limit) : rows;
     const batchIds = needFullBatch
       ? allIds ?? rows.map((r) => r.id)
       : pageRows.map((r) => r.id);
@@ -891,7 +906,7 @@ function isPeriodePertimbanganKeringanan(b: DudukanTunggakanBulan): boolean {
   return statusBayarDudukan(b.tagihan, b.dibayar, b.keringanan) === "cicil";
 }
 
-async function queryKramaDudukanBase(params?: {
+type DudukanBaseFilter = {
   q?: string;
   banjarId?: string;
   klasifikasi?: KlasifikasiKode;
@@ -899,8 +914,88 @@ async function queryKramaDudukanBase(params?: {
   jenisTamiuId?: string;
   rtBtn?: string;
   kramaId?: string;
-}): Promise<KramaDudukanBase[]> {
+  limit?: number;
+  offset?: number;
+};
+
+const DUDUKAN_BASE_FROM = `
+    FROM krama k
+    JOIN klasifikasi_krama kk ON kk.id = k.klasifikasi_krama_id
+    JOIN penduduk p ON p.id = k.kepala_penduduk_id
+    LEFT JOIN jenis_krama_tamiu jkt ON jkt.id = k.jenis_krama_tamiu_id
+    LEFT JOIN jenis_tamiu jt ON jt.id = k.jenis_tamiu_id
+    JOIN banjar b ON b.id = k.banjar_id
+    WHERE kk.kode IN ('KRAMA_TAMIU', 'TAMIU') AND k.status_krama = 'aktif'
+`;
+
+function buildDudukanBaseWhere(params?: DudukanBaseFilter): {
+  whereExtra: string;
+  args: unknown[];
+  nextN: number;
+} {
+  const args: unknown[] = [];
+  let n = 1;
+  let whereExtra = "";
+
+  if (params?.kramaId) {
+    whereExtra += ` AND k.id = $${n++}`;
+    args.push(params.kramaId);
+  }
+  if (params?.klasifikasi) {
+    whereExtra += ` AND kk.kode = $${n++}`;
+    args.push(params.klasifikasi);
+  }
+  if (params?.banjarId) {
+    whereExtra += ` AND k.banjar_id = $${n++}`;
+    args.push(params.banjarId);
+  }
+  if (params?.jenisKramaTamiuId) {
+    whereExtra += ` AND k.jenis_krama_tamiu_id = $${n++}`;
+    args.push(params.jenisKramaTamiuId);
+  }
+  if (params?.jenisTamiuId) {
+    whereExtra += ` AND k.jenis_tamiu_id = $${n++}`;
+    args.push(params.jenisTamiuId);
+  }
+  if (params?.rtBtn?.trim()) {
+    whereExtra += ` AND TRIM(k.rt_btn) = $${n++}`;
+    args.push(params.rtBtn.trim());
+  }
+  if (params?.q) {
+    const search = buildKramaSearchSql(
+      params.q,
+      {
+        kartu: "k.nomor_kartu",
+        kartuNorm: "k.nomor_kartu_norm",
+        namaKepala: "p.nama_lengkap",
+        alamat: "k.alamat",
+        includeAnggota: true,
+        includeNik: false,
+        kramaAlias: "k",
+      },
+      { startN: n }
+    );
+    whereExtra += search.sql;
+    args.push(...search.args);
+    n = search.nextN;
+  }
+  return { whereExtra, args, nextN: n };
+}
+
+async function countKramaDudukanBase(params?: DudukanBaseFilter): Promise<number> {
   const db = await getDb();
+  const { whereExtra, args } = buildDudukanBaseWhere(params);
+  const rows = await db.select<{ c: number }[]>(
+    `SELECT COUNT(*) as c ${DUDUKAN_BASE_FROM} ${whereExtra}`,
+    args
+  );
+  return Number(rows[0]?.c ?? 0);
+}
+
+async function queryKramaDudukanBase(params?: DudukanBaseFilter): Promise<KramaDudukanBase[]> {
+  const db = await getDb();
+  const { whereExtra, args, nextN } = buildDudukanBaseWhere(params);
+  let n = nextN;
   let sql = `
     SELECT k.id, k.nomor_kartu, k.tanggal_terdaftar, k.status_krama,
            k.tanggal_tidak_aktif, k.tanggal_berlaku_mulai_pemasih,
@@ -913,61 +1008,20 @@ async function queryKramaDudukanBase(params?: {
            COALESCE(NULLIF(TRIM(k.alamat), ''), '—') as alamat,
            COALESCE(NULLIF(TRIM(k.rt_btn), ''), '—') as rt_btn,
            k.nomor_kontak
-    FROM krama k
-    JOIN klasifikasi_krama kk ON kk.id = k.klasifikasi_krama_id
-    JOIN penduduk p ON p.id = k.kepala_penduduk_id
-    LEFT JOIN jenis_krama_tamiu jkt ON jkt.id = k.jenis_krama_tamiu_id
-    LEFT JOIN jenis_tamiu jt ON jt.id = k.jenis_tamiu_id
-    JOIN banjar b ON b.id = k.banjar_id
-    WHERE kk.kode IN ('KRAMA_TAMIU', 'TAMIU') AND k.status_krama = 'aktif'
+    ${DUDUKAN_BASE_FROM}
+    ${whereExtra}
+    ORDER BY b.kode ASC, k.nomor_kartu ASC
   `;
-  const args: unknown[] = [];
-  let n = 1;
-
-  if (params?.kramaId) {
-    sql += ` AND k.id = $${n++}`;
-    args.push(params.kramaId);
+  const bind = [...args];
+  if (params?.limit != null && Number.isFinite(params.limit)) {
+    sql += ` LIMIT $${n++}`;
+    bind.push(Math.max(1, Math.floor(params.limit)));
+    if (params.offset != null && Number.isFinite(params.offset) && params.offset > 0) {
+      sql += ` OFFSET $${n++}`;
+      bind.push(Math.max(0, Math.floor(params.offset)));
+    }
   }
-  if (params?.klasifikasi) {
-    sql += ` AND kk.kode = $${n++}`;
-    args.push(params.klasifikasi);
-  }
-  if (params?.banjarId) {
-    sql += ` AND k.banjar_id = $${n++}`;
-    args.push(params.banjarId);
-  }
-  if (params?.jenisKramaTamiuId) {
-    sql += ` AND k.jenis_krama_tamiu_id = $${n++}`;
-    args.push(params.jenisKramaTamiuId);
-  }
-  if (params?.jenisTamiuId) {
-    sql += ` AND k.jenis_tamiu_id = $${n++}`;
-    args.push(params.jenisTamiuId);
-  }
-  if (params?.rtBtn?.trim()) {
-    sql += ` AND TRIM(k.rt_btn) = $${n++}`;
-    args.push(params.rtBtn.trim());
-  }
-  if (params?.q) {
-    const q = `%${params.q}%`;
-    sql += ` AND (
-      k.nomor_kartu LIKE $${n}
-      OR p.nama_lengkap LIKE $${n + 1}
-      OR COALESCE(k.alamat, '') LIKE $${n + 2}
-      OR EXISTS (
-        SELECT 1
-        FROM anggota_keluarga ak
-        JOIN penduduk pm ON pm.id = ak.penduduk_id
-        WHERE ak.krama_id = k.id
-          AND ak.status = 'aktif'
-          AND pm.nama_lengkap LIKE $${n + 3}
-      )
-    )`;
-    args.push(q, q, q, q);
-    n += 4;
-  }
-  sql += ` ORDER BY b.kode ASC, k.nomor_kartu ASC`;
-  return db.select<KramaDudukanBase[]>(sql, args);
+  return db.select<KramaDudukanBase[]>(sql, bind);
 }
 
 export async function getKramaDudukanDetail(

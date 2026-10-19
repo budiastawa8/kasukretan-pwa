@@ -20,6 +20,23 @@ async function ensureColumn(table: string, column: string, ddl: string): Promise
 async function runEnsureMigrations(): Promise<void> {
   // Pengingat setoran: kontak WhatsApp Tim Kasukretan
   await ensureColumn("tim_kasukretan", "nomor_kontak", "TEXT");
+
+  // Pencarian cepat nomor kartu
+  await ensureColumn("krama", "nomor_kartu_norm", "TEXT");
+  await dbExecute(
+    `UPDATE krama SET nomor_kartu_norm = lower(replace(nomor_kartu, '-', ''))
+     WHERE nomor_kartu_norm IS NULL OR nomor_kartu_norm = ''
+        OR nomor_kartu_norm <> lower(replace(nomor_kartu, '-', ''))`
+  );
+  await dbExecute(
+    `CREATE INDEX IF NOT EXISTS idx_krama_nomor_kartu_norm ON krama (nomor_kartu_norm)`
+  );
+  await dbExecute(
+    `CREATE INDEX IF NOT EXISTS idx_krama_status_banjar ON krama (status_krama, banjar_id)`
+  );
+  await dbExecute(
+    `CREATE INDEX IF NOT EXISTS idx_krama_kepala ON krama (kepala_penduduk_id)`
+  );
 }
 
 /** Idempoten; aman dipanggil tiap request (hanya sekali benar-benar jalan per cold start). */

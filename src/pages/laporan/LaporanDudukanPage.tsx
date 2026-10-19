@@ -185,6 +185,7 @@ export function LaporanDudukanPage() {
   const [statusBayar, setStatusBayar] = usePersistedScalar(PAGE_ID, "statusBayar", "");
 
   const [q, setQ] = usePersistedScalar(PAGE_ID, "q", "");
+  const [debouncedQ, setDebouncedQ] = useState(q.trim());
 
   const [loading, setLoading] = useState(true);
 
@@ -257,64 +258,41 @@ export function LaporanDudukanPage() {
 
 
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedQ(q.trim()), 250);
+    return () => window.clearTimeout(timer);
+  }, [q]);
+
   const load = useCallback(async () => {
-
     setPage(1);
-
     setLoading(true);
-
     setError("");
-
     try {
-
       const filterKlas = klasifikasi ? (klasifikasi as KlasifikasiKode) : undefined;
-
+      const qSearch = debouncedQ.length >= 2 ? debouncedQ : undefined;
       const result = await getLaporanDudukan({
-
         dari: dari || undefined,
-
         sampai: sampai || undefined,
-
         banjarId: banjarId || undefined,
-
         klasifikasi: filterKlas,
-
         jenisKramaTamiuId,
-
         jenisTamiuId,
-
-        q: q || undefined,
-
+        q: qSearch,
         statusBayar: statusBayar
-
           ? (statusBayar as LaporanDudukanFilter["statusBayar"])
-
           : undefined,
-
       });
-
       setRingkasan(result.ringkasan);
-
       setRows(result.rows);
-
     } catch (e) {
-
       setError(String(e));
-
     } finally {
-
       setLoading(false);
-
     }
-
-  }, [dari, sampai, banjarId, klasifikasi, jenisKramaTamiuId, jenisTamiuId, q, statusBayar]);
-
-
+  }, [dari, sampai, banjarId, klasifikasi, jenisKramaTamiuId, jenisTamiuId, debouncedQ, statusBayar]);
 
   useEffect(() => {
-
     load();
-
   }, [load]);
 
 

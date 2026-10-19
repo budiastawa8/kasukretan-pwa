@@ -604,8 +604,35 @@ export async function runMasterDataMigrations(db: Database): Promise<void> {
   await migrateSetoranPetugas(db);
   await migrateUserTimKasukretan(db);
   await migrateTimKasukretanKontak(db);
+  await migrateKramaNomorKartuNorm(db);
   await ensureRingkasanIndexes(db);
   await ensureRingkasanCacheTable(db);
+}
+
+/** Kolom pencarian cepat nomor kartu (tanpa strip) + index filter. */
+async function migrateKramaNomorKartuNorm(db: Database): Promise<void> {
+  if (!(await tableHasColumn(db, "krama", "nomor_kartu_norm"))) {
+    try {
+      await db.execute(`ALTER TABLE krama ADD COLUMN nomor_kartu_norm TEXT`);
+    } catch {
+      if (!(await tableHasColumn(db, "krama", "nomor_kartu_norm"))) {
+        throw new Error("Gagal menambah kolom nomor_kartu_norm pada krama");
+      }
+    }
+  }
+  await db.execute(
+    `UPDATE krama SET nomor_kartu_norm = lower(replace(nomor_kartu, '-', ''))
+     WHERE nomor_kartu_norm IS NULL OR nomor_kartu_norm = '' OR nomor_kartu_norm <> lower(replace(nomor_kartu, '-', ''))`
+  );
+  await db.execute(
+    `CREATE INDEX IF NOT EXISTS idx_krama_nomor_kartu_norm ON krama (nomor_kartu_norm)`
+  );
+  await db.execute(
+    `CREATE INDEX IF NOT EXISTS idx_krama_status_banjar ON krama (status_krama, banjar_id)`
+  );
+  await db.execute(
+    `CREATE INDEX IF NOT EXISTS idx_krama_kepala ON krama (kepala_penduduk_id)`
+  );
 }
 
 /** Nomor WhatsApp/HP anggota Tim Kasukretan (pengingat setoran). */
@@ -636,6 +663,15 @@ async function ensureRingkasanIndexes(db: Database): Promise<void> {
   );
   await db.execute(
     `CREATE INDEX IF NOT EXISTS idx_dudukan_pembayaran_krama_periode ON dudukan_pembayaran (krama_id, tahun, bulan)`
+  );
+  await db.execute(
+    `CREATE INDEX IF NOT EXISTS idx_krama_status_banjar ON krama (status_krama, banjar_id)`
+  );
+  await db.execute(
+    `CREATE INDEX IF NOT EXISTS idx_krama_kepala ON krama (kepala_penduduk_id)`
+  );
+  await db.execute(
+    `CREATE INDEX IF NOT EXISTS idx_krama_nomor_kartu_norm ON krama (nomor_kartu_norm)`
   );
 }
 

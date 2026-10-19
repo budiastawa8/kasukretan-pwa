@@ -1,5 +1,6 @@
 import { getDb } from "../db/client";
 import { normalizeNomorKartuKey } from "../kartu-qr";
+import { buildKramaSearchSql, classifySearchQuery } from "../search-query";
 import { hitungSisaPaturunan } from "../paturunan-hitung";
 import { isJabatanPenerimaSemuaBanjar } from "../petugas-jabatan";
 import type { PetugasStrukPreviewState } from "../petugas-struk-preview";
@@ -246,7 +247,7 @@ export async function findKramaByNomorKartu(nomorKartu: string): Promise<KramaPe
   const db = await getDb();
   const rows = await db.select<KramaPengumpulan[]>(
     `${KRAMA_PENGUMPULAN_SELECT}
-     WHERE lower(REPLACE(k.nomor_kartu, '-', '')) = ?
+     WHERE COALESCE(NULLIF(TRIM(k.nomor_kartu_norm), ''), lower(replace(k.nomor_kartu, '-', ''))) = ?
      LIMIT 1`,
     [key]
   );
@@ -260,14 +261,26 @@ export async function cariKramaPengumpulan(
   mode: ModePengumpulan,
   limit = 20
 ): Promise<KramaPengumpulan[]> {
-  const needle = q.trim().toLowerCase();
-  if (needle.length < 2) return [];
+  const classified = classifySearchQuery(q);
+  if (classified.intent === "empty") return [];
   const db = await getDb();
   const klasifikasi = KLASIFIKASI_MODE[mode];
-  const args: unknown[] = [`%${needle}%`, `%${needle.replace(/-/g, "")}%`, ...klasifikasi];
+  const search = buildKramaSearchSql(
+    q,
+    {
+      kartu: "k.nomor_kartu",
+      kartuNorm: "k.nomor_kartu_norm",
+      namaKepala: "pd.nama_lengkap",
+      includeAnggota: false,
+      includeNik: false,
+      kramaAlias: "k",
+    },
+    { placeholderStyle: "qmark" }
+  );
+  const args: unknown[] = [...search.args, ...klasifikasi];
   let sql = `${KRAMA_PENGUMPULAN_SELECT}
      WHERE k.status_krama = 'aktif'
-       AND (lower(pd.nama_lengkap) LIKE ? OR lower(REPLACE(k.nomor_kartu, '-', '')) LIKE ?)
+       ${search.sql.replace(/^\s*AND/, "AND")}
        AND kk.kode IN (${klasifikasi.map(() => "?").join(", ")})`;
   if (!petugas.semua_banjar) {
     sql += ` AND k.banjar_id = ?`;

@@ -96,6 +96,7 @@ export function LaporanPaturunanPage() {
     []
   );
   const [q, setQ] = usePersistedScalar(PAGE_ID, "q", "");
+  const [debouncedQ, setDebouncedQ] = useState(q.trim());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
@@ -166,6 +167,11 @@ export function LaporanPaturunanPage() {
     setTempekId("");
   }, [banjarId]);
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedQ(q.trim()), 250);
+    return () => window.clearTimeout(timer);
+  }, [q]);
+
   const load = useCallback(async () => {
     if (!iuranId) {
       setRows([]);
@@ -177,12 +183,13 @@ export function LaporanPaturunanPage() {
     setLoading(true);
     setError("");
     try {
+      const qSearch = debouncedQ.length >= 2 ? debouncedQ : undefined;
       const result = await getLaporanPaturunan({
         iuranId,
         banjarId: banjarId || undefined,
         tempekId: tempekId || undefined,
         jenisMipilId: jenisMipilId || undefined,
-        q: q || undefined,
+        q: qSearch,
         statusBayar: statusBayarList.length > 0 ? statusBayarList : undefined,
       });
       setRingkasan(result.ringkasan);
@@ -192,7 +199,7 @@ export function LaporanPaturunanPage() {
     } finally {
       setLoading(false);
     }
-  }, [iuranId, banjarId, tempekId, jenisMipilId, q, statusBayarList]);
+  }, [iuranId, banjarId, tempekId, jenisMipilId, debouncedQ, statusBayarList]);
 
   useEffect(() => {
     load();

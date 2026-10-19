@@ -8,6 +8,8 @@ import type {
 } from "../types";
 import { assertKramaStatusAktifUntukPembayaran } from "../krama-status";
 import { formatStatusKeluarga } from "../status-keluarga";
+import { cachedQuery } from "../query-cache";
+import { buildKramaSearchSql } from "../search-query";
 import { getDesaAdat } from "./desa";
 import { syncStatusIlikitaStored } from "./krama-ilikita-sync";
 import { previewStatusIlikita, statusIlikitaColumn } from "../status-ilikita";
@@ -155,30 +157,19 @@ function buildKramaListWhere(params?: KramaListFilter): {
     args.push(params.arahanId);
   }
   if (params?.q) {
-    const q = `%${params.q}%`;
-    where += ` AND (
-      k.nomor_kartu LIKE $${n}
-      OR COALESCE(k.alamat, '') LIKE $${n + 1}
-      OR p.nama_lengkap LIKE $${n + 2}
-      OR p.nik_atau_nika LIKE $${n + 3}
-      OR COALESCE(p.nik_kependudukan, '') LIKE $${n + 4}
-      OR EXISTS (
-        SELECT 1
-        FROM anggota_keluarga ak
-        JOIN penduduk pm ON pm.id = ak.penduduk_id
-        WHERE ak.krama_id = k.id
-          AND ak.status = 'aktif'
-          AND (
-            pm.nama_lengkap LIKE $${n + 5}
-            OR pm.nik_atau_nika LIKE $${n + 6}
-            OR COALESCE(pm.nik_kependudukan, '') LIKE $${n + 7}
-            OR COALESCE(ak.nika, '') LIKE $${n + 8}
-            OR COALESCE(ak.nrkt, '') LIKE $${n + 9}
-            OR COALESCE(ak.nrt, '') LIKE $${n + 10}
-          )
-      )
-    )`;
-    args.push(q, q, q, q, q, q, q, q, q, q, q);
+    const search = buildKramaSearchSql(params.q, {
+      kartu: "k.nomor_kartu",
+      kartuNorm: "k.nomor_kartu_norm",
+      namaKepala: "p.nama_lengkap",
+      alamat: "k.alamat",
+      includeAnggota: true,
+      includeNik: true,
+      pendudukAlias: "p",
+      kramaAlias: "k",
+    }, { startN: n });
+    where += search.sql;
+    args.push(...search.args);
+    n = search.nextN;
   }
   return { where, args, statusFilter };
 }
@@ -233,10 +224,16 @@ export async function countKrama(params?: KramaListFilter): Promise<number> {
   return Number(rows[0]?.c ?? 0);
 }
 
+export type KramaJenisSummary = {
+  klasifikasi_nama: string;
+  jenis_nama: string | null;
+  count: number;
+};
+
 /** Ringkasan chip filter — tanpa mengunduh seluruh daftar. */
 export async function summarizeKramaByJenis(
   params?: KramaListFilter
-): Promise<{ klasifikasi_nama: string; jenis_nama: string | null; count: number }[]> {
+): Promise<KramaJenisSummary[]> {
   const db = await getDb();
   const { where, args } = buildKramaListWhere(params);
   return db.select(
@@ -251,9 +248,14 @@ export async function summarizeKramaByJenis(
   );
 }
 
-export async function listKrama(params?: KramaListParams): Promise<KramaListItem[]> {
+type KramaListRowWithTotal = KramaListItem & { __total?: number };
+
+async function listKramaInternal(
+  params?: KramaListParams & { withTotal?: boolean }
+): Promise<{ rows: KramaListItem[]; total: number }> {
   const db = await getDb();
   const { where, args, statusFilter } = buildKramaListWhere(params);
+  const withTotal = Boolean(params?.withTotal);
   let sql = `
     SELECT k.id, k.nomor_kartu, k.nomor_kontak, k.jenis_kartu, k.status_krama, k.status_pipil, k.status_pemasih,
            k.tanggal_terdaftar, k.tanggal_berlaku_mulai_pemasih,
@@ -268,6 +270,7 @@ export async function listKrama(params?: KramaListParams): Promise<KramaListItem
            b.nama as banjar_nama, b.kode as banjar_kode,
            t.nama as tempek_nama, t.created_at as tempek_created_at,
            a.nama as arahan_nama, a.created_at as arahan_created_at
+           ${withTotal ? ", COUNT(*) OVER() as __total" : ""}
     ${KRAMA_LIST_FROM}
     ${where}
     ${kramaListOrderSql(params?.orderBy, params?.orderDir)}
@@ -281,17 +284,52 @@ export async function listKrama(params?: KramaListParams): Promise<KramaListItem
       bind.push(Math.max(0, Math.floor(params.offset)));
     }
   }
-  const rows = await db.select<KramaListItem[]>(sql, bind);
+  const raw = await db.select<KramaListRowWithTotal[]>(sql, bind);
+  const total = withTotal
+    ? Number(raw[0]?.__total ?? 0)
+    : raw.length;
 
-  for (const row of rows) {
-    row.nomor_kontak = row.nomor_kontak?.trim() || null;
-  }
+  const rows: KramaListItem[] = raw.map((row) => {
+    const { __total: _t, ...rest } = row;
+    rest.nomor_kontak = rest.nomor_kontak?.trim() || null;
+    return rest;
+  });
 
   if (statusFilter === "aktif") {
     applyIlikitaPreview(rows, await getDesaAdat());
   }
 
+  return { rows, total };
+}
+
+export async function listKrama(params?: KramaListParams): Promise<KramaListItem[]> {
+  const { rows } = await listKramaInternal(params);
   return rows;
+}
+
+const KRAMA_PAGE_CACHE_TTL_MS = 45_000;
+
+/** List + total (window) + ringkasan jenis — cache singkat, 2 query filter (bukan 3). */
+export async function listKramaPageWithMeta(params?: KramaListParams): Promise<{
+  rows: KramaListItem[];
+  total: number;
+  summary: KramaJenisSummary[];
+}> {
+  const key = `krama:page:${JSON.stringify({
+    ...params,
+    q: params?.q?.trim() || undefined,
+  })}`;
+  return cachedQuery(
+    key,
+    async () => {
+      const [page, summary] = await Promise.all([
+        listKramaInternal({ ...params, withTotal: true }),
+        summarizeKramaByJenis(params),
+      ]);
+      return { rows: page.rows, total: page.total, summary };
+    },
+    KRAMA_PAGE_CACHE_TTL_MS
+  );
 }
 
 type KramaDetailRow = KramaDetail & { kepala_penduduk_id: string };
