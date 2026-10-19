@@ -17,8 +17,8 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { KeuanganPage } from "./pages/KeuanganPage";
 import { PaturunanPage } from "./pages/PaturunanPage";
 import { DudukanPage } from "./pages/DudukanPage";
-import { PungutPage } from "./pages/PungutPage";
-import { PungutRekapPage } from "./pages/PungutRekapPage";
+import { PengumpulanPage } from "./pages/PengumpulanPage";
+import { PengumpulanRekapPage } from "./pages/PengumpulanRekapPage";
 import { PetugasStrukPreviewPage } from "./pages/petugas/PetugasStrukPreviewPage";
 import { PETUGAS_STRUK_PREVIEW_PATH } from "./lib/petugas-struk-preview";
 import { LaporanHubPage } from "./pages/laporan/LaporanHubPage";
@@ -181,8 +181,11 @@ export default function App() {
             <Route path="/krama-mipil/:id" element={<KramaDetailPage />} />
             <Route path="/krama-pemasih" element={<KramaPemasihListPage />} />
             <Route path="/dudukan" element={<DudukanPage />} />
-            <Route path="/pungut" element={<PungutPage />} />
-            <Route path="/pungut/rekap" element={<PungutRekapPage />} />
+            <Route path="/pengumpulan" element={<PengumpulanPage />} />
+            <Route path="/pengumpulan/rekap" element={<PengumpulanRekapPage />} />
+            <Route path="/pungut" element={<Navigate to="/pengumpulan" replace />} />
+            <Route path="/pungut/rekap" element={<Navigate to="/pengumpulan/rekap" replace />} />
+            <Route path="/pungut/struk" element={<Navigate to="/pengumpulan/struk" replace />} />
             <Route path="/laporan" element={<LaporanHubPage />} />
             <Route path="/laporan/eksekutif" element={<LaporanEksekutifPage />} />
             <Route path="/laporan/rekap-krama" element={<LaporanRekapKramaPage />} />

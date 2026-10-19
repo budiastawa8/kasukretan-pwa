@@ -387,7 +387,7 @@ export function SetoranPanel({
                       <Input
                         value={keterangan}
                         onChange={(e) => setKeterangan(e.target.value)}
-                        placeholder="Opsional — mis. setoran pungutan banjar"
+                        placeholder="Opsional — mis. setoran penerimaan banjar"
                       />
                     </div>
                   </div>

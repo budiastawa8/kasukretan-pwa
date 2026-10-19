@@ -17,7 +17,7 @@ import {
   listUangBelumDisetorPerPetugas,
   type UangBelumDisetorPetugas,
 } from "../../lib/services/setoran";
-import { getPetugasLapanganSaya } from "../../lib/services/pungut";
+import { getPetugasLapanganSaya } from "../../lib/services/pengumpulan";
 import {
   hasWhatsAppContact,
   openWhatsAppChat,
@@ -36,7 +36,7 @@ async function maybeNotifyPetugas(row: UangBelumDisetorPetugas): Promise<void> {
     title: "Setoran belum diserahkan",
     body: `Anda masih memegang ${formatRupiah(row.total)} sejak lebih dari sehari. Segera setor ke bendahara.`,
     tag: `setoran-telat-${row.petugas_id}`,
-    url: "/pungut",
+    url: "/pengumpulan",
   });
   if (ok) markSetoranTelatNotifSent(row.petugas_id);
 }

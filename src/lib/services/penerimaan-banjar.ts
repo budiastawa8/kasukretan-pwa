@@ -1,7 +1,7 @@
 import { getDb } from "../db/client";
-import type { ModePungut } from "./pungut";
+import type { ModePengumpulan } from "./pengumpulan";
 
-export type PerolehanRincian = {
+export type PenerimaanRincian = {
   kunci: string;
   label: string;
   jumlah: number;
@@ -11,14 +11,14 @@ export type PerolehanRincian = {
   punia?: number;
 };
 
-export type PerolehanBanjar = {
+export type PenerimaanBanjar = {
   total: number;
   transaksi: number;
   krama: number;
   wajib?: number;
   punia?: number;
   rincianJudul: string;
-  rincian: PerolehanRincian[];
+  rincian: PenerimaanRincian[];
 };
 
 type AggRow = {
@@ -33,13 +33,13 @@ type AggRow = {
 
 const roundRp = (n: unknown) => Math.round(Number(n) || 0);
 
-/** Perolehan dihitung dari tanggal bayar (sama dengan laporan rekap penerimaan), termasuk yang belum disetor. */
-export async function getPerolehanBanjar(params: {
-  mode: ModePungut;
+/** Penerimaan dihitung dari tanggal bayar (sama dengan laporan rekap penerimaan), termasuk yang belum disetor. */
+export async function getPenerimaanBanjar(params: {
+  mode: ModePengumpulan;
   banjarId: string | null;
   dari: string;
   sampai: string;
-}): Promise<PerolehanBanjar> {
+}): Promise<PenerimaanBanjar> {
   const db = await getDb();
   const perBanjar = !params.banjarId;
   const args: unknown[] = [params.dari, params.sampai];

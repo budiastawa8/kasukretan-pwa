@@ -25,46 +25,48 @@ import {
   type PetugasStrukPreviewState,
 } from "../lib/petugas-struk-preview";
 import {
-  bolehPungutKrama,
-  buildStrukDudukanPungut,
-  buildStrukPaturunanPungut,
-  cariKramaPungut,
+  bolehPengumpulanKrama,
+  buildStrukDudukanPengumpulan,
+  buildStrukPaturunanPengumpulan,
+  cariKramaPengumpulan,
   findKramaByNomorKartu,
   getPetugasLapanganSaya,
-  getRingkasanPungut,
+  getRingkasanPengumpulan,
   getStrukCetakUlang,
   isKramaMipil,
   isKramaPemasih,
   modeUntukKrama,
-  type KramaPungut,
-  type ModePungut,
+  type KramaPengumpulan,
+  type ModePengumpulan,
   type PetugasLapangan,
-  type RingkasanPaturunanPungut,
-  type RingkasanPungut,
-} from "../lib/services/pungut";
+  type RingkasanPaturunanPengumpulan,
+  type RingkasanPengumpulan,
+} from "../lib/services/pengumpulan";
 import { listPembayaranBelumDisetor, type PembayaranSetoranItem } from "../lib/services/setoran";
 import { hariSejakTanggal, isSetoranTelat } from "../lib/setoran-telat";
 import { cn, formatTanggalLahir } from "../lib/utils";
 
-const MODE_STORAGE_KEY = "kasukretan.pungut_mode.v1";
+const MODE_STORAGE_KEY = "kasukretan.pengumpulan_mode.v1";
+const MODE_STORAGE_KEY_LEGACY = "kasukretan.pungut_mode.v1";
 
-const MODE_LABEL: Record<ModePungut, string> = {
+const MODE_LABEL: Record<ModePengumpulan, string> = {
   paturunan: "Paturunan",
   dudukan: "Dudukan",
 };
 
-function readMode(): ModePungut | null {
+function readMode(): ModePengumpulan | null {
   try {
-    const v = localStorage.getItem(MODE_STORAGE_KEY);
+    const v =
+      localStorage.getItem(MODE_STORAGE_KEY) ?? localStorage.getItem(MODE_STORAGE_KEY_LEGACY);
     return v === "paturunan" || v === "dudukan" ? v : null;
   } catch {
     return null;
   }
 }
 
-function useModePungut() {
-  const [mode, setModeState] = useState<ModePungut | null>(readMode);
-  const setMode = useCallback((m: ModePungut | null) => {
+function useModePengumpulan() {
+  const [mode, setModeState] = useState<ModePengumpulan | null>(readMode);
+  const setMode = useCallback((m: ModePengumpulan | null) => {
     setModeState(m);
     try {
       if (m) localStorage.setItem(MODE_STORAGE_KEY, m);
@@ -76,7 +78,7 @@ function useModePungut() {
   return [mode, setMode] as const;
 }
 
-function PilihMode({ onPilih }: { onPilih: (m: ModePungut) => void }) {
+function PilihMode({ onPilih }: { onPilih: (m: ModePengumpulan) => void }) {
   return (
     <div className="mt-3 space-y-2">
       <p className="text-sm text-copper-950 font-medium">Mau mengumpulkan apa?</p>
@@ -94,10 +96,10 @@ function PilihMode({ onPilih }: { onPilih: (m: ModePungut) => void }) {
   );
 }
 
-export function PungutPage() {
+export function PengumpulanPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [mode, setMode] = useModePungut();
+  const [mode, setMode] = useModePengumpulan();
   const [petugas, setPetugas] = useState<PetugasLapangan | null>(null);
   const [petugasLoaded, setPetugasLoaded] = useState(false);
   const [error, setError] = useState("");
@@ -105,14 +107,14 @@ export function PungutPage() {
 
   const [scanOpen, setScanOpen] = useState(false);
   const [q, setQ] = useState("");
-  const [hasilCari, setHasilCari] = useState<KramaPungut[]>([]);
+  const [hasilCari, setHasilCari] = useState<KramaPengumpulan[]>([]);
   const [cariBusy, setCariBusy] = useState(false);
 
-  const [krama, setKrama] = useState<KramaPungut | null>(null);
-  const [ringkasan, setRingkasan] = useState<RingkasanPungut | null>(null);
+  const [krama, setKrama] = useState<KramaPengumpulan | null>(null);
+  const [ringkasan, setRingkasan] = useState<RingkasanPengumpulan | null>(null);
   const [ringkasanLoading, setRingkasanLoading] = useState(false);
 
-  const [bayarIuran, setBayarIuran] = useState<RingkasanPaturunanPungut | null>(null);
+  const [bayarIuran, setBayarIuran] = useState<RingkasanPaturunanPengumpulan | null>(null);
   const [bayarDudukan, setBayarDudukan] = useState(false);
 
   const [pegangan, setPegangan] = useState<PembayaranSetoranItem[]>([]);
@@ -140,10 +142,10 @@ export function PungutPage() {
     void loadPegangan();
   }, [loadPegangan]);
 
-  const loadRingkasan = useCallback(async (k: KramaPungut) => {
+  const loadRingkasan = useCallback(async (k: KramaPengumpulan) => {
     setRingkasanLoading(true);
     try {
-      setRingkasan(await getRingkasanPungut(k));
+      setRingkasan(await getRingkasanPengumpulan(k));
     } catch (e) {
       setError(String(e));
     } finally {
@@ -152,7 +154,7 @@ export function PungutPage() {
   }, []);
 
   const pilihKrama = useCallback(
-    (k: KramaPungut) => {
+    (k: KramaPengumpulan) => {
       setKrama(k);
       setRingkasan(null);
       setHasilCari([]);
@@ -161,7 +163,7 @@ export function PungutPage() {
       setStrukBaru(null);
       if (
         petugas &&
-        bolehPungutKrama(petugas, k) &&
+        bolehPengumpulanKrama(petugas, k) &&
         k.status_krama === "aktif" &&
         modeUntukKrama(k) === mode
       ) {
@@ -171,7 +173,7 @@ export function PungutPage() {
     [petugas, mode, loadRingkasan]
   );
 
-  function gantiMode(m: ModePungut | null) {
+  function gantiMode(m: ModePengumpulan | null) {
     setMode(m);
     setHasilCari([]);
     setError("");
@@ -179,7 +181,7 @@ export function PungutPage() {
     setStrukBaru(null);
     setRingkasan(null);
     if (m && krama && modeUntukKrama(krama) === m) {
-      if (petugas && bolehPungutKrama(petugas, krama) && krama.status_krama === "aktif") {
+      if (petugas && bolehPengumpulanKrama(petugas, krama) && krama.status_krama === "aktif") {
         void loadRingkasan(krama);
       }
     } else {
@@ -220,7 +222,7 @@ export function PungutPage() {
     setCariBusy(true);
     setError("");
     try {
-      const rows = await cariKramaPungut(petugas, q, mode);
+      const rows = await cariKramaPengumpulan(petugas, q, mode);
       setHasilCari(rows);
       if (rows.length === 0) {
         setError(
@@ -297,7 +299,7 @@ export function PungutPage() {
     : null;
   const modeKrama = krama ? modeUntukKrama(krama) : null;
   const beda = krama != null && mode != null && modeKrama !== mode;
-  const diLuarWilayah = krama != null && !bolehPungutKrama(petugas, krama);
+  const diLuarWilayah = krama != null && !bolehPengumpulanKrama(petugas, krama);
   const tidakAktif = krama != null && krama.status_krama !== "aktif";
 
   return (
@@ -559,7 +561,7 @@ export function PungutPage() {
           </ul>
         )}
         <Link
-          to="/pungut/rekap"
+          to="/pengumpulan/rekap"
           className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-copper-800 hover:underline"
         >
           <ClipboardList size={14} />
@@ -581,7 +583,7 @@ export function PungutPage() {
           onPembayaranBaru={({ wajib, punia, tanggal }) =>
             setStrukBaru({
               kind: "paturunan",
-              payload: buildStrukPaturunanPungut({
+              payload: buildStrukPaturunanPengumpulan({
                 krama,
                 iuranNama: bayarIuran.iuran.nama,
                 petugasNama: petugas.nama,
@@ -589,7 +591,7 @@ export function PungutPage() {
                 punia,
                 tanggal,
               }),
-              backTo: "/pungut",
+              backTo: "/pengumpulan",
               backLabel: "Pengumpulan",
             })
           }
@@ -619,13 +621,13 @@ export function PungutPage() {
           onPembayaranBaru={({ items, tanggal }) =>
             setStrukBaru({
               kind: "dudukan",
-              payload: buildStrukDudukanPungut({
+              payload: buildStrukDudukanPengumpulan({
                 krama,
                 petugasNama: petugas.nama,
                 items,
                 tanggal,
               }),
-              backTo: "/pungut",
+              backTo: "/pengumpulan",
               backLabel: "Pengumpulan",
             })
           }

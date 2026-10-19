@@ -184,7 +184,7 @@ export function PetugasStrukPreviewPage() {
   }, [previewState, desaFull, thermalWidthMm]);
 
   if (!previewState) {
-    return <Navigate to="/pungut" replace />;
+    return <Navigate to="/pengumpulan" replace />;
   }
 
   const kramaNama =

@@ -11,23 +11,23 @@ import {
   type PeriodePreset as Preset,
 } from "../../lib/periode-preset";
 import { listBanjar } from "../../lib/services/master";
-import { getPerolehanBanjar, type PerolehanBanjar } from "../../lib/services/perolehan-banjar";
-import type { ModePungut, PetugasLapangan } from "../../lib/services/pungut";
+import { getPenerimaanBanjar, type PenerimaanBanjar } from "../../lib/services/penerimaan-banjar";
+import type { ModePengumpulan, PetugasLapangan } from "../../lib/services/pengumpulan";
 
 const SEMUA = "__semua__";
 
-export function PerolehanBanjarCard({
+export function PenerimaanBanjarCard({
   petugas,
   mode,
 }: {
   petugas: PetugasLapangan;
-  mode: ModePungut;
+  mode: ModePengumpulan;
 }) {
   const [periode, setPeriode] = useState(() => periodePreset("bulan-ini"));
   const [preset, setPreset] = useState<Preset | null>("bulan-ini");
   const [banjarPilihan, setBanjarPilihan] = useState(petugas.banjar_id);
   const [banjarList, setBanjarList] = useState<{ id: string; nama: string }[]>([]);
-  const [data, setData] = useState<PerolehanBanjar | null>(null);
+  const [data, setData] = useState<PenerimaanBanjar | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -48,7 +48,7 @@ export function PerolehanBanjarCard({
     setLoading(true);
     setError("");
     try {
-      setData(await getPerolehanBanjar({ mode, banjarId, dari: periode.dari, sampai: periode.sampai }));
+      setData(await getPenerimaanBanjar({ mode, banjarId, dari: periode.dari, sampai: periode.sampai }));
     } catch (e) {
       setError(String(e));
     } finally {
@@ -79,7 +79,7 @@ export function PerolehanBanjarCard({
   const tampilRincian = data && (data.rincian.length > 1 || !banjarId);
 
   return (
-    <Card title={`Perolehan ${namaMode} Banjar`}>
+    <Card title={`Penerimaan ${namaMode} Banjar`}>
       {petugas.semua_banjar && (
         <div className="mb-2">
           <Label className="text-xs">Banjar</Label>

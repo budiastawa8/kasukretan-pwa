@@ -2,35 +2,37 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, ClipboardList } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { PerolehanBanjarCard } from "../components/pungut/PerolehanBanjarCard";
-import { RiwayatSetoranCard } from "../components/pungut/RiwayatSetoranCard";
+import { PenerimaanBanjarCard } from "../components/pengumpulan/PenerimaanBanjarCard";
+import { RiwayatSetoranCard } from "../components/pengumpulan/RiwayatSetoranCard";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { IconLink } from "../components/ui/IconLink";
 import {
   getPetugasLapanganSaya,
-  type ModePungut,
+  type ModePengumpulan,
   type PetugasLapangan,
-} from "../lib/services/pungut";
+} from "../lib/services/pengumpulan";
 import { cn } from "../lib/utils";
 
-const MODE_STORAGE_KEY = "kasukretan.pungut_mode.v1";
+const MODE_STORAGE_KEY = "kasukretan.pengumpulan_mode.v1";
+const MODE_STORAGE_KEY_LEGACY = "kasukretan.pungut_mode.v1";
 
-function readMode(): ModePungut {
+function readMode(): ModePengumpulan {
   try {
-    const v = localStorage.getItem(MODE_STORAGE_KEY);
+    const v =
+      localStorage.getItem(MODE_STORAGE_KEY) ?? localStorage.getItem(MODE_STORAGE_KEY_LEGACY);
     return v === "dudukan" ? "dudukan" : "paturunan";
   } catch {
     return "paturunan";
   }
 }
 
-export function PungutRekapPage() {
+export function PengumpulanRekapPage() {
   const { user } = useAuth();
   const [petugas, setPetugas] = useState<PetugasLapangan | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
-  const [mode, setMode] = useState<ModePungut>(readMode);
+  const [mode, setMode] = useState<ModePengumpulan>(readMode);
 
   useEffect(() => {
     if (!user) {
@@ -43,7 +45,7 @@ export function PungutRekapPage() {
       .finally(() => setLoaded(true));
   }, [user]);
 
-  function pilihMode(m: ModePungut) {
+  function pilihMode(m: ModePengumpulan) {
     setMode(m);
     try {
       localStorage.setItem(MODE_STORAGE_KEY, m);
@@ -64,7 +66,7 @@ export function PungutRekapPage() {
           Pengguna, lalu memilih nama petugas untuk akun ini.
         </p>
         {error && <p className="mt-2 text-xs text-red-700">{error}</p>}
-        <IconLink to="/pungut" icon={ArrowLeft} variant="secondary" className="mt-3">
+        <IconLink to="/pengumpulan" icon={ArrowLeft} variant="secondary" className="mt-3">
           Kembali ke Pengumpulan
         </IconLink>
       </Card>
@@ -84,16 +86,16 @@ export function PungutRekapPage() {
             {petugas.semua_banjar ? "semua banjar" : `Banjar ${petugas.banjar_nama}`}
           </p>
         </div>
-        <IconLink to="/pungut" icon={ArrowLeft} variant="secondary">
+        <IconLink to="/pengumpulan" icon={ArrowLeft} variant="secondary">
           Pengumpulan
         </IconLink>
       </div>
 
       <RiwayatSetoranCard petugasId={petugas.id} petugasJabatan={petugas.jabatan} />
 
-      <Card title="Jenis perolehan">
+      <Card title="Jenis penerimaan">
         <p className="mb-2 text-xs text-muted">
-          Pilih jenis iuran untuk melihat perolehan banjar pada periode yang dipilih.
+          Pilih jenis iuran untuk melihat penerimaan banjar pada periode yang dipilih.
         </p>
         <div className="grid grid-cols-2 gap-2">
           <Button
@@ -115,11 +117,11 @@ export function PungutRekapPage() {
         </div>
       </Card>
 
-      <PerolehanBanjarCard petugas={petugas} mode={mode} />
+      <PenerimaanBanjarCard petugas={petugas} mode={mode} />
 
       <p className="px-1 text-center text-[11px] text-muted">
         Untuk mencatat pembayaran baru, buka{" "}
-        <Link to="/pungut" className="font-medium text-copper-800 underline">
+        <Link to="/pengumpulan" className="font-medium text-copper-800 underline">
           Pengumpulan
         </Link>
         .

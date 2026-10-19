@@ -67,8 +67,8 @@ const NAV_GROUPS: NavGroup[] = [
     id: "iuran",
     label: "Iuran",
     items: [
-      { to: "/pungut", icon: ScanLine, label: "Pengumpulan", end: true },
-      { to: "/pungut/rekap", icon: ClipboardList, label: "Rekap & Riwayat" },
+      { to: "/pengumpulan", icon: ScanLine, label: "Pengumpulan", end: true },
+      { to: "/pengumpulan/rekap", icon: ClipboardList, label: "Rekap & Riwayat" },
       { to: "/paturunan", icon: Coins, label: "Paturunan" },
       { to: "/dudukan", icon: HandCoins, label: "Dudukan" },
     ],
@@ -93,7 +93,7 @@ const NAV_GROUPS: NavGroup[] = [
 ];
 
 /** Shortcut bawah HP — sisanya lewat tombol Menu. */
-const PHONE_DOCK_PATHS = ["/", "/pungut", "/krama-mipil", "/krama-pemasih", "/paturunan"] as const;
+const PHONE_DOCK_PATHS = ["/", "/pengumpulan", "/pungut", "/krama-mipil", "/krama-pemasih", "/paturunan"] as const;
 
 function SidebarNav({
   peran,

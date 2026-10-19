@@ -3,7 +3,7 @@ self.addEventListener("push", (event) => {
   let data = {
     title: "Kasukretan",
     body: "Ada pengingat setoran yang belum diserahkan.",
-    url: "/pungut",
+    url: "/pengumpulan",
     tag: "setoran-telat",
   };
   try {
@@ -27,7 +27,7 @@ self.addEventListener("push", (event) => {
       badge: "/pwa-192x192.png",
       tag: data.tag || "setoran-telat",
       renotify: true,
-      data: { url: data.url || "/pungut" },
+      data: { url: data.url || "/pengumpulan" },
     })
   );
 });
@@ -35,7 +35,7 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const url =
-    (event.notification.data && event.notification.data.url) || "/pungut";
+    (event.notification.data && event.notification.data.url) || "/pengumpulan";
 
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {

@@ -4,7 +4,7 @@ import { hitungBerlakuSampai } from "./masa-berlaku";
 export { formatRupiah, parseJumlahPembayaran } from "./paturunan-hitung";
 export { formatRupiahDigits, parseRupiahDigits, type RupiahInputValue } from "./rupiah-input";
 
-/** Hari tunggu setelah pencatatan sebelum dudukan boleh dipungut (pencatatan dari tanggal ini). */
+/** Hari tunggu setelah pencatatan sebelum dudukan boleh dikumpulkan (pencatatan dari tanggal ini). */
 export const DUDUKAN_HARI_TUNGGU = 7;
 
 /** Pencatatan sebelum tanggal ini: bulan pertama tagihan = bulan kalender berikutnya. */
@@ -132,7 +132,7 @@ function mulaiBulanBerikutnyaDariPencatatan(iso: string): PeriodeBulanTahun {
   return { tahun, bulan };
 }
 
-/** Pencatatan dari 1 Juni 2026: mulai pungut = pencatatan + 7 hari; sebelum itu bulan tagihan berikutnya. */
+/** Pencatatan dari 1 Juni 2026: mulai kewajiban = pencatatan + 7 hari; sebelum itu bulan tagihan berikutnya. */
 export function pakaiAturanHariTungguDudukan(
   tanggalTerdaftar?: string | null
 ): boolean {
@@ -141,8 +141,8 @@ export function pakaiAturanHariTungguDudukan(
   return iso >= DUDUKAN_ATURAN_7_HARI_MULAI;
 }
 
-/** Tanggal mulai pungut (ISO YYYY-MM-DD) — dasar bulan pertama kewajiban dudukan. */
-export function tanggalMulaiPungutDudukan(
+/** Tanggal mulai kewajiban (ISO YYYY-MM-DD) — dasar bulan pertama kewajiban dudukan. */
+export function tanggalMulaiKewajibanDudukan(
   tanggalTerdaftar?: string | null
 ): string | null {
   const iso = parseIsoDateString(tanggalTerdaftar);
@@ -159,7 +159,7 @@ export function tanggalMulaiPungutDudukan(
   return dateToIsoLocal(dt);
 }
 
-/** Bulan pertama kewajiban dudukan (bulan kalender dari tanggal mulai pungut). */
+/** Bulan pertama kewajiban dudukan (bulan kalender dari tanggal mulai kewajiban). */
 export function mulaiDudukanDariTanggal(
   tanggalTerdaftar?: string | null
 ): PeriodeBulanTahun | null {
@@ -170,7 +170,7 @@ export function mulaiDudukanDariTanggal(
     return mulaiBulanBerikutnyaDariPencatatan(iso);
   }
 
-  const mulai = tanggalMulaiPungutDudukan(iso);
+  const mulai = tanggalMulaiKewajibanDudukan(iso);
   if (!mulai) return null;
   const [y, m] = mulai.split("-").map(Number);
   if (!Number.isFinite(y) || !Number.isFinite(m) || m < 1 || m > 12) return null;
@@ -186,7 +186,7 @@ export function pesanDudukanBelumBerlakuPeriode(
   return "Dudukan belum berlaku untuk periode ini (belum masuk bulan tagihan setelah pencatatan)";
 }
 
-/** Apakah periode bulan/tahun sudah masuk kewajiban dudukan (≥ bulan mulai pungut). */
+/** Apakah periode bulan/tahun sudah masuk kewajiban dudukan (≥ bulan mulai kewajiban). */
 export function isDudukanBerlakuUntukPeriode(
   tanggalTerdaftar: string | null | undefined,
   tahun: number,

@@ -14,7 +14,7 @@ vi.mock("../db/client", () => ({
   }),
 }));
 
-const { getPerolehanBanjar } = await import("./perolehan-banjar");
+const { getPenerimaanBanjar } = await import("./penerimaan-banjar");
 
 beforeAll(async () => {
   await client.executeMultiple(`
@@ -48,9 +48,9 @@ beforeAll(async () => {
 
 const OKT = { dari: "2026-10-01", sampai: "2026-10-31" };
 
-describe("getPerolehanBanjar", () => {
+describe("getPenerimaanBanjar", () => {
   it("dudukan satu banjar: total periode, rincian per klasifikasi", async () => {
-    const r = await getPerolehanBanjar({ mode: "dudukan", banjarId: "b1", ...OKT });
+    const r = await getPenerimaanBanjar({ mode: "dudukan", banjarId: "b1", ...OKT });
     expect(r.total).toBe(120000);
     expect(r.transaksi).toBe(3);
     expect(r.krama).toBe(2);
@@ -61,7 +61,7 @@ describe("getPerolehanBanjar", () => {
   });
 
   it("dudukan semua banjar: rincian per banjar", async () => {
-    const r = await getPerolehanBanjar({ mode: "dudukan", banjarId: null, ...OKT });
+    const r = await getPenerimaanBanjar({ mode: "dudukan", banjarId: null, ...OKT });
     expect(r.total).toBe(150000);
     expect(r.rincian.map((x) => [x.label, x.jumlah])).toEqual([
       ["Banjar Satu", 120000],
@@ -70,7 +70,7 @@ describe("getPerolehanBanjar", () => {
   });
 
   it("paturunan satu banjar: wajib/punia dan rincian per iuran", async () => {
-    const r = await getPerolehanBanjar({ mode: "paturunan", banjarId: "b1", ...OKT });
+    const r = await getPenerimaanBanjar({ mode: "paturunan", banjarId: "b1", ...OKT });
     expect(r.total).toBe(125000);
     expect(r.wajib).toBe(100000);
     expect(r.punia).toBe(25000);

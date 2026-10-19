@@ -4,7 +4,7 @@
  * - operator — input/edit/hapus krama + lihat laporan
  * - keuangan — menu keuangan (+ paturunan/dudukan) + edit krama + laporan
  * - prajuru  — hanya lihat laporan
- * - petugas  — pungut paturunan/dudukan di banjarnya (scan QR kartu)
+ * - petugas  — mengumpulkan paturunan/dudukan di banjarnya (scan QR kartu)
  */
 
 export type StaffRole = "admin" | "operator" | "keuangan" | "prajuru" | "petugas";
@@ -96,7 +96,7 @@ export function canEditData(peran: string | undefined | null): boolean {
 export function defaultHomePath(peran: string | undefined | null): string {
   const r = normalizeStaffRole(peran);
   if (r === "prajuru") return "/laporan";
-  if (r === "petugas") return "/pungut";
+  if (r === "petugas") return "/pengumpulan";
   return "/";
 }
 
@@ -111,8 +111,11 @@ export function canAccessPath(peran: string | undefined | null, pathname: string
   const r = normalizeStaffRole(peran);
   if (!r) return false;
 
-  // Halaman pungut bergantung pada akun yang terhubung ke Tim Kasukretan.
-  if (pathStarts(pathname, "/pungut")) return r === "petugas";
+  // Halaman pengumpulan bergantung pada akun yang terhubung ke Tim Kasukretan.
+  // /pungut* = alias lama (redirect ke /pengumpulan*).
+  if (pathStarts(pathname, "/pengumpulan") || pathStarts(pathname, "/pungut")) {
+    return r === "petugas";
+  }
   if (r === "petugas") return false;
 
   if (r === "admin") return true;

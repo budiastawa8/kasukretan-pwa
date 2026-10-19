@@ -23,7 +23,7 @@ export type PetugasLapangan = {
   semua_banjar: boolean;
 };
 
-export type KramaPungut = {
+export type KramaPengumpulan = {
   id: string;
   nomor_kartu: string;
   kepala_nama: string;
@@ -37,43 +37,43 @@ export type KramaPungut = {
   alamat: string | null;
 };
 
-export type RingkasanPaturunanPungut = {
+export type RingkasanPaturunanPengumpulan = {
   iuran: IuranPaturunanRow;
   tagihan: number;
   dibayarWajib: number;
   sisa: number;
 };
 
-export type RingkasanPungut = {
-  paturunan: RingkasanPaturunanPungut[];
+export type RingkasanPengumpulan = {
+  paturunan: RingkasanPaturunanPengumpulan[];
   /** Total sisa dudukan bulan berjalan dan sebelumnya (tanpa bayar di muka). */
   tunggakanDudukan: number;
   bulanTunggakanDudukan: number;
 };
 
-export type ModePungut = "paturunan" | "dudukan";
+export type ModePengumpulan = "paturunan" | "dudukan";
 
-const KLASIFIKASI_MODE: Record<ModePungut, string[]> = {
+const KLASIFIKASI_MODE: Record<ModePengumpulan, string[]> = {
   paturunan: ["MIPIL"],
   dudukan: ["KRAMA_TAMIU", "TAMIU"],
 };
 
-export function isKramaMipil(k: KramaPungut): boolean {
+export function isKramaMipil(k: KramaPengumpulan): boolean {
   return KLASIFIKASI_MODE.paturunan.includes(k.klasifikasi_kode);
 }
 
-export function isKramaPemasih(k: KramaPungut): boolean {
+export function isKramaPemasih(k: KramaPengumpulan): boolean {
   return KLASIFIKASI_MODE.dudukan.includes(k.klasifikasi_kode);
 }
 
 /** Mode pengumpulan yang cocok untuk krama ini (null = tidak punya iuran). */
-export function modeUntukKrama(k: KramaPungut): ModePungut | null {
+export function modeUntukKrama(k: KramaPengumpulan): ModePengumpulan | null {
   if (isKramaMipil(k)) return "paturunan";
   if (isKramaPemasih(k)) return "dudukan";
   return null;
 }
 
-export function bolehPungutKrama(petugas: PetugasLapangan, krama: KramaPungut): boolean {
+export function bolehPengumpulanKrama(petugas: PetugasLapangan, krama: KramaPengumpulan): boolean {
   return petugas.semua_banjar || krama.banjar_id === petugas.banjar_id;
 }
 
@@ -93,7 +93,7 @@ export async function getPetugasLapanganSaya(userId: string): Promise<PetugasLap
   return { ...row, semua_banjar: isJabatanPenerimaSemuaBanjar(row.jabatan) };
 }
 
-const KRAMA_PUNGUT_SELECT = `
+const KRAMA_PENGUMPULAN_SELECT = `
   SELECT k.id, k.nomor_kartu, pd.nama_lengkap as kepala_nama, k.banjar_id, b.nama as banjar_nama,
          t.nama as tempek_nama, ar.nama as arahan_nama, kk.kode as klasifikasi_kode, k.status_krama,
          COALESCE(NULLIF(TRIM(jm.nama), ''), jkt.nama, jt.nama) as jenis_nama, k.alamat
@@ -107,20 +107,20 @@ const KRAMA_PUNGUT_SELECT = `
   LEFT JOIN jenis_krama_tamiu jkt ON jkt.id = k.jenis_krama_tamiu_id
   LEFT JOIN jenis_tamiu jt ON jt.id = k.jenis_tamiu_id`;
 
-async function getKramaPungutById(kramaId: string): Promise<KramaPungut | null> {
+async function getKramaPengumpulanById(kramaId: string): Promise<KramaPengumpulan | null> {
   const db = await getDb();
-  const rows = await db.select<KramaPungut[]>(`${KRAMA_PUNGUT_SELECT} WHERE k.id = ? LIMIT 1`, [
+  const rows = await db.select<KramaPengumpulan[]>(`${KRAMA_PENGUMPULAN_SELECT} WHERE k.id = ? LIMIT 1`, [
     kramaId,
   ]);
   return rows[0] ?? null;
 }
 
-function strukFilename(jenis: "paturunan" | "dudukan", krama: KramaPungut, tanggal: string) {
+function strukFilename(jenis: "paturunan" | "dudukan", krama: KramaPengumpulan, tanggal: string) {
   return `struk-${jenis}-${krama.nomor_kartu.replace(/\W/g, "")}-${tanggal}`;
 }
 
-export function buildStrukPaturunanPungut(params: {
-  krama: KramaPungut;
+export function buildStrukPaturunanPengumpulan(params: {
+  krama: KramaPengumpulan;
   iuranNama: string;
   petugasNama: string;
   wajib: number;
@@ -147,8 +147,8 @@ export function buildStrukPaturunanPungut(params: {
   };
 }
 
-export function buildStrukDudukanPungut(params: {
-  krama: KramaPungut;
+export function buildStrukDudukanPengumpulan(params: {
+  krama: KramaPengumpulan;
   petugasNama: string;
   items: StrukDudukanPeriodeLine[];
   tanggal: string;
@@ -178,7 +178,7 @@ export async function getStrukCetakUlang(
   item: PembayaranSetoranItem
 ): Promise<PetugasStrukPreviewState | null> {
   const db = await getDb();
-  const back = { backTo: "/pungut", backLabel: "Pengumpulan" };
+  const back = { backTo: "/pengumpulan", backLabel: "Pengumpulan" };
 
   if (item.sumber === "paturunan") {
     const [ref] = await db.select<{ krama_id: string; iuran_id: string; iuran_nama: string }[]>(
@@ -188,7 +188,7 @@ export async function getStrukCetakUlang(
       [item.id]
     );
     if (!ref) return null;
-    const krama = await getKramaPungutById(ref.krama_id);
+    const krama = await getKramaPengumpulanById(ref.krama_id);
     if (!krama) return null;
     const rows = await db.select<{ jenis: string; jumlah: number }[]>(
       `SELECT COALESCE(jenis, 'wajib') as jenis, jumlah FROM paturunan_pembayaran
@@ -199,7 +199,7 @@ export async function getStrukCetakUlang(
       rows.filter((r) => r.jenis === jenis).reduce((s, r) => s + Math.round(Number(r.jumlah) || 0), 0);
     return {
       kind: "paturunan",
-      payload: buildStrukPaturunanPungut({
+      payload: buildStrukPaturunanPengumpulan({
         krama,
         iuranNama: ref.iuran_nama,
         petugasNama: petugas.nama,
@@ -216,7 +216,7 @@ export async function getStrukCetakUlang(
     [item.id]
   );
   if (!ref) return null;
-  const krama = await getKramaPungutById(ref.krama_id);
+  const krama = await getKramaPengumpulanById(ref.krama_id);
   if (!krama) return null;
   const rows = await db.select<StrukDudukanPeriodeLine[]>(
     `SELECT tahun, bulan, jumlah FROM dudukan_pembayaran
@@ -226,7 +226,7 @@ export async function getStrukCetakUlang(
   );
   return {
     kind: "dudukan",
-    payload: buildStrukDudukanPungut({
+    payload: buildStrukDudukanPengumpulan({
       krama,
       petugasNama: petugas.nama,
       items: rows.map((r) => ({
@@ -240,12 +240,12 @@ export async function getStrukCetakUlang(
   };
 }
 
-export async function findKramaByNomorKartu(nomorKartu: string): Promise<KramaPungut | null> {
+export async function findKramaByNomorKartu(nomorKartu: string): Promise<KramaPengumpulan | null> {
   const key = normalizeNomorKartuKey(nomorKartu);
   if (!key) return null;
   const db = await getDb();
-  const rows = await db.select<KramaPungut[]>(
-    `${KRAMA_PUNGUT_SELECT}
+  const rows = await db.select<KramaPengumpulan[]>(
+    `${KRAMA_PENGUMPULAN_SELECT}
      WHERE lower(REPLACE(k.nomor_kartu, '-', '')) = ?
      LIMIT 1`,
     [key]
@@ -254,18 +254,18 @@ export async function findKramaByNomorKartu(nomorKartu: string): Promise<KramaPu
 }
 
 /** Cari krama aktif di wilayah petugas — cadangan bila QR kartu tidak bisa dipindai. */
-export async function cariKramaPungut(
+export async function cariKramaPengumpulan(
   petugas: PetugasLapangan,
   q: string,
-  mode: ModePungut,
+  mode: ModePengumpulan,
   limit = 20
-): Promise<KramaPungut[]> {
+): Promise<KramaPengumpulan[]> {
   const needle = q.trim().toLowerCase();
   if (needle.length < 2) return [];
   const db = await getDb();
   const klasifikasi = KLASIFIKASI_MODE[mode];
   const args: unknown[] = [`%${needle}%`, `%${needle.replace(/-/g, "")}%`, ...klasifikasi];
-  let sql = `${KRAMA_PUNGUT_SELECT}
+  let sql = `${KRAMA_PENGUMPULAN_SELECT}
      WHERE k.status_krama = 'aktif'
        AND (lower(pd.nama_lengkap) LIKE ? OR lower(REPLACE(k.nomor_kartu, '-', '')) LIKE ?)
        AND kk.kode IN (${klasifikasi.map(() => "?").join(", ")})`;
@@ -275,11 +275,11 @@ export async function cariKramaPungut(
   }
   sql += ` ORDER BY pd.nama_lengkap COLLATE NOCASE LIMIT ?`;
   args.push(limit);
-  return db.select<KramaPungut[]>(sql, args);
+  return db.select<KramaPengumpulan[]>(sql, args);
 }
 
-export async function getRingkasanPungut(krama: KramaPungut): Promise<RingkasanPungut> {
-  const paturunan: RingkasanPaturunanPungut[] = [];
+export async function getRingkasanPengumpulan(krama: KramaPengumpulan): Promise<RingkasanPengumpulan> {
+  const paturunan: RingkasanPaturunanPengumpulan[] = [];
   if (isKramaMipil(krama)) {
     const iuranList = await listIuranPaturunan();
     for (const iuran of iuranList) {

@@ -33,7 +33,7 @@ describe("buildEscPosReceipt", () => {
           tanggal: "2026-10-14",
           petugasNama: "Made Petugas",
         },
-        backTo: "/pungut",
+        backTo: "/pengumpulan",
         backLabel: "Pengumpulan",
       },
       "Desa Adat Contoh"

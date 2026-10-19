@@ -12,7 +12,7 @@ import {
   isDudukanBerlakuUntukPeriode,
   mulaiDudukanDariTanggal,
   pakaiAturanHariTungguDudukan,
-  tanggalMulaiPungutDudukan,
+  tanggalMulaiKewajibanDudukan,
 } from "./dudukan-hitung";
 
 describe("paturunan-hitung", () => {
@@ -52,7 +52,7 @@ describe("dudukan-hitung", () => {
   it("aturan lama: bulan pertama tagihan = bulan berikutnya setelah pencatatan", () => {
     expect(mulaiDudukanDariTanggal("2025-01-15")).toEqual({ tahun: 2025, bulan: 2 });
     expect(mulaiDudukanDariTanggal("2026-05-31")).toEqual({ tahun: 2026, bulan: 6 });
-    expect(tanggalMulaiPungutDudukan("2025-12-10")).toBe("2026-01-01");
+    expect(tanggalMulaiKewajibanDudukan("2025-12-10")).toBe("2026-01-01");
     expect(pakaiAturanHariTungguDudukan("2026-05-31")).toBe(false);
     expect(isDudukanBerlakuUntukPeriode("2025-03-08", 2025, 3)).toBe(false);
     expect(isDudukanBerlakuUntukPeriode("2025-03-08", 2025, 4)).toBe(true);
@@ -62,6 +62,6 @@ describe("dudukan-hitung", () => {
     expect(pakaiAturanHariTungguDudukan("2026-06-01")).toBe(true);
     expect(mulaiDudukanDariTanggal("2026-06-01")).toEqual({ tahun: 2026, bulan: 6 });
     expect(mulaiDudukanDariTanggal("2026-06-28")).toEqual({ tahun: 2026, bulan: 7 });
-    expect(tanggalMulaiPungutDudukan("2026-06-01")).toBe("2026-06-08");
+    expect(tanggalMulaiKewajibanDudukan("2026-06-01")).toBe("2026-06-08");
   });
 });
