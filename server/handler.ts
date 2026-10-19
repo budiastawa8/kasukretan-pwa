@@ -8,6 +8,7 @@ import {
   type PublicUser,
 } from "./auth.js";
 import { dbExecute, dbSelect, getClient, type DbTiming } from "./db.js";
+import { ensureServerMigrations } from "./ensure-migrations.js";
 import { executePetugasPaymentWrite } from "./petugas-guard.js";
 import { authorizeSql, type PetugasGuard } from "./policy.js";
 import {
@@ -108,6 +109,7 @@ async function handleRoute(path: string, req: ApiRequest, res: ServerResponse): 
     let dbReady = false;
     let dbError: string | undefined;
     try {
+      await ensureServerMigrations();
       await dbSelect("SELECT 1 AS ok");
       dbReady = true;
     } catch (err) {
@@ -142,6 +144,8 @@ async function handleRoute(path: string, req: ApiRequest, res: ServerResponse): 
   }
 
   const user = await requireUser(req, res);
+  // Pastikan kolom/skema cloud (Turso) sudah mutakhir sebelum SQL klien jalan.
+  await ensureServerMigrations();
 
   if (path === "auth/me" && method === "GET") {
     send(res, 200, { ok: true, user });
