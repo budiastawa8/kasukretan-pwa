@@ -18,6 +18,7 @@ import { CloudRestorePanel } from "../components/settings/CloudRestorePanel";
 import { UsersPanel } from "../components/settings/UsersPanel";
 import { WhatsAppTemplatePanel } from "../components/settings/WhatsAppTemplatePanel";
 import { AppAboutPanel } from "../components/settings/AppAboutPanel";
+import { ChangePasswordPanel } from "../components/settings/ChangePasswordPanel";
 import { isAdmin } from "../lib/auth-roles";
 import { parseSettingsTab, type SettingsTab } from "../lib/settings-routes";
 import { cn } from "../lib/utils";
@@ -68,6 +69,7 @@ type TabDef = {
 
 const TAB_DEFS: TabDef[] = [
   { id: "umum", label: "Umum" },
+  { id: "akun", label: "Akun" },
   { id: "database", label: "Database", adminOnly: true },
   { id: "pengguna", label: "Pengguna", adminOnly: true },
 ];
@@ -156,7 +158,7 @@ export function SettingsPage() {
       <div>
         <h2 className="text-xl sm:text-2xl font-bold">Pengaturan</h2>
         <p className="text-xs text-muted mt-0.5">
-          Wilayah desa, backup database, dan pengguna staf.
+          Wilayah desa, akun Anda, backup database, dan pengguna staf.
         </p>
       </div>
 
@@ -300,6 +302,8 @@ export function SettingsPage() {
           <AppAboutPanel />
         </div>
       )}
+
+      {activeTab === "akun" && <ChangePasswordPanel />}
 
       {activeTab === "database" && admin && (
         <>

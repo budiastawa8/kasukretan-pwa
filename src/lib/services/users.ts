@@ -4,6 +4,7 @@ import { validatePassword, validateUsername } from "../auth-password";
 import type { StaffRole } from "../auth-roles";
 import { normalizeStaffRole } from "../auth-roles";
 import { uuid } from "../utils";
+import type { SessionUser } from "./auth";
 import { isLanClientMode, lanChangePassword } from "../lan-client";
 
 export type UserRecord = {
@@ -175,10 +176,9 @@ export async function changeOwnPassword(
   userId: string,
   oldPassword: string,
   newPassword: string
-): Promise<void> {
+): Promise<SessionUser | null> {
   if (isLanClientMode()) {
-    await lanChangePassword(oldPassword, newPassword);
-    return;
+    return lanChangePassword(oldPassword, newPassword);
   }
   const db = await getDb();
   const rows = await db.select<{ password_hash: string }[]>(
@@ -192,6 +192,7 @@ export async function changeOwnPassword(
   if (!ok) throw new Error("Password lama salah");
 
   await setUserPassword(userId, newPassword, { clearMustChange: true });
+  return null;
 }
 
 export async function countActiveAdmins(excludeId?: string): Promise<number> {

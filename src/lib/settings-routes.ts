@@ -1,9 +1,10 @@
 export const SETTINGS_PATH = "/pengaturan";
 
-export type SettingsTab = "umum" | "database" | "pengguna" | "online" | "jaringan";
+export type SettingsTab = "umum" | "akun" | "database" | "pengguna" | "online" | "jaringan";
 
 const VALID_TABS = new Set<SettingsTab>([
   "umum",
+  "akun",
   "database",
   "pengguna",
   "online",

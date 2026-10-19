@@ -123,6 +123,9 @@ export function canAccessPath(peran: string | undefined | null, pathname: string
   // Laporan — semua peran
   if (pathStarts(pathname, "/laporan")) return true;
 
+  // Pengaturan: semua staf (tab sensitif tetap di-gate di UI)
+  if (pathStarts(pathname, "/pengaturan")) return true;
+
   // Print kartu / preview terkait krama (bukan prajuru)
   const kramaPrint =
     pathStarts(pathname, "/pipil") ||
@@ -136,7 +139,7 @@ export function canAccessPath(peran: string | undefined | null, pathname: string
     return false;
   }
 
-  // Operator: dashboard + krama (+ print) — tanpa keuangan/paturunan/dudukan/master/pengaturan/lembaga
+  // Operator: dashboard + krama (+ print) — tanpa keuangan/paturunan/dudukan/master/lembaga
   if (r === "operator") {
     if (pathname === "/" || pathname === "") return true;
     if (pathStarts(pathname, "/krama-mipil")) return true;

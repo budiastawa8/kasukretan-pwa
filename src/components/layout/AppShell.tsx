@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { Link, Outlet, useLocation } from "react-router-dom";
 import { DESA_ADAT_UPDATED_EVENT, getDesaAdat } from "../../lib/services/desa";
 import { runBatchSyncStatusIlikitaBackground } from "../../lib/services/krama";
 import { runSyncNyadaOtomatisBackground } from "../../lib/services/nyada-otomatis";
 import { APP_MAIN_SCROLL_ID } from "../../lib/scroll-main";
 import { canAccessPath, isPetugasLapangan, staffRoleLabel } from "../../lib/auth-roles";
 import { canUseStaffApp } from "../../lib/runtime";
+import { settingsPath } from "../../lib/settings-routes";
 import { useIsPhoneClient } from "../../hooks/useClientFormFactor";
 import { GuardedNavLink } from "./GuardedNavLink";
 import {
@@ -20,6 +21,7 @@ import {
   Settings,
   Database,
   LogOut,
+  KeyRound,
   Menu,
   X,
   MoreHorizontal,
@@ -169,12 +171,20 @@ function SidebarChrome({
         <div className="mt-2">
           <UkuranTulisanControl tone="dark" />
         </div>
+        <Link
+          to={settingsPath("akun")}
+          onClick={onNavigate}
+          className="mt-2 flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-copper-300 hover:bg-copper-800/40 hover:text-copper-100"
+        >
+          <KeyRound size={16} strokeWidth={2} aria-hidden />
+          Ganti password
+        </Link>
         <Button
           type="button"
           variant="ghost"
           icon={LogOut}
           onClick={onLogout}
-          className="mt-2 w-full justify-start text-copper-300 hover:bg-copper-800/40 hover:text-red-300"
+          className="mt-1 w-full justify-start text-copper-300 hover:bg-copper-800/40 hover:text-red-300"
         >
           Keluar
         </Button>
