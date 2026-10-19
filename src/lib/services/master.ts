@@ -458,10 +458,15 @@ export async function updateJenisTamiuIlikita(
   invalidateMasterListCache();
 }
 
+function normalizeNomorKontak(raw?: string | null): string | null {
+  const trimmed = raw?.trim() ?? "";
+  return trimmed || null;
+}
+
 export async function listTimKasukretan(banjarId?: string): Promise<TimKasukretan[]> {
   const db = await getDb();
   let sql = `
-    SELECT t.id, t.nama, t.banjar_id, t.jabatan, t.created_at, t.updated_at,
+    SELECT t.id, t.nama, t.banjar_id, t.jabatan, t.nomor_kontak, t.created_at, t.updated_at,
            b.nama as banjar_nama, b.kode as banjar_kode
     FROM tim_kasukretan t
     JOIN banjar b ON b.id = t.banjar_id AND b.aktif = 1
@@ -478,15 +483,17 @@ export async function listTimKasukretan(banjarId?: string): Promise<TimKasukreta
 export async function createTimKasukretan(
   nama: string,
   banjarId: string,
-  jabatan: string
+  jabatan: string,
+  nomorKontak?: string | null
 ): Promise<string> {
   if (!banjarId?.trim()) throw new Error("Banjar wajib dipilih");
   await assertBanjarAktif(banjarId);
   const db = await getDb();
   const id = uuid();
   await db.execute(
-    `INSERT INTO tim_kasukretan (id, nama, banjar_id, jabatan) VALUES ($1, $2, $3, $4)`,
-    [id, requireNama(nama), banjarId, requireJabatan(jabatan)]
+    `INSERT INTO tim_kasukretan (id, nama, banjar_id, jabatan, nomor_kontak)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [id, requireNama(nama), banjarId, requireJabatan(jabatan), normalizeNomorKontak(nomorKontak)]
   );
   return id;
 }
@@ -495,7 +502,8 @@ export async function updateTimKasukretan(
   id: string,
   nama: string,
   banjarId: string,
-  jabatan: string
+  jabatan: string,
+  nomorKontak?: string | null
 ): Promise<void> {
   if (!banjarId?.trim()) throw new Error("Banjar wajib dipilih");
   await assertBanjarAktif(banjarId);
@@ -507,9 +515,9 @@ export async function updateTimKasukretan(
   if ((rows[0]?.c ?? 0) === 0) throw new Error("Anggota tim tidak ditemukan");
   await db.execute(
     `UPDATE tim_kasukretan SET
-      nama = $1, banjar_id = $2, jabatan = $3, updated_at = datetime('now')
-     WHERE id = $4`,
-    [requireNama(nama), banjarId, requireJabatan(jabatan), id]
+      nama = $1, banjar_id = $2, jabatan = $3, nomor_kontak = $4, updated_at = datetime('now')
+     WHERE id = $5`,
+    [requireNama(nama), banjarId, requireJabatan(jabatan), normalizeNomorKontak(nomorKontak), id]
   );
 }
 

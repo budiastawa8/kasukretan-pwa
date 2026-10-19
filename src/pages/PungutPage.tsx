@@ -43,6 +43,7 @@ import {
   type RingkasanPungut,
 } from "../lib/services/pungut";
 import { listPembayaranBelumDisetor, type PembayaranSetoranItem } from "../lib/services/setoran";
+import { hariSejakTanggal, isSetoranTelat } from "../lib/setoran-telat";
 import { cn, formatTanggalLahir } from "../lib/utils";
 
 const MODE_STORAGE_KEY = "kasukretan.pungut_mode.v1";
@@ -286,6 +287,14 @@ export function PungutPage() {
   const totalSemuaPegangan = pegangan.reduce((s, p) => s + p.jumlah, 0);
   const peganganMode = mode ? pegangan.filter((p) => p.sumber === mode) : pegangan;
   const totalPegangan = peganganMode.reduce((s, p) => s + p.jumlah, 0);
+  const tanggalTertuaPegangan =
+    pegangan.length > 0
+      ? pegangan.reduce((min, p) => (p.tanggal < min ? p.tanggal : min), pegangan[0]!.tanggal)
+      : null;
+  const peganganTelat = tanggalTertuaPegangan != null && isSetoranTelat(tanggalTertuaPegangan);
+  const hariPeganganTelat = tanggalTertuaPegangan
+    ? hariSejakTanggal(tanggalTertuaPegangan)
+    : null;
   const modeKrama = krama ? modeUntukKrama(krama) : null;
   const beda = krama != null && mode != null && modeKrama !== mode;
   const diLuarWilayah = krama != null && !bolehPungutKrama(petugas, krama);
@@ -513,6 +522,14 @@ export function PungutPage() {
           Serahkan uang ini ke bendahara. Setelah bendahara menerima setoran, pembayarannya pindah ke
           Riwayat Setoran Saya dan tidak bisa dihapus lagi dari HP.
         </p>
+        {peganganTelat && tanggalTertuaPegangan ? (
+          <p className="mt-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-950 leading-snug">
+            Ada uang yang sudah dipegang lebih dari sehari (sejak{" "}
+            {formatTanggalLahir(tanggalTertuaPegangan)}
+            {hariPeganganTelat != null ? ` · ${hariPeganganTelat} hari` : ""}
+            ). Segera setorkan ke bendahara.
+          </p>
+        ) : null}
         {peganganMode.length > 0 && (
           <ul className="mt-2 divide-y divide-copper-100 border border-copper-100 rounded-md max-h-72 overflow-y-auto">
             {peganganMode.map((p) => (

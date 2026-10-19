@@ -510,6 +510,7 @@ CREATE TABLE IF NOT EXISTS tim_kasukretan (
   nama TEXT NOT NULL,
   banjar_id TEXT NOT NULL REFERENCES banjar(id),
   jabatan TEXT NOT NULL,
+  nomor_kontak TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

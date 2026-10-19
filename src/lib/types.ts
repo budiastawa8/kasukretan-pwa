@@ -125,6 +125,8 @@ export interface TimKasukretan {
   nama: string;
   banjar_id: string;
   jabatan: string;
+  /** Nomor HP/WhatsApp petugas (opsional). */
+  nomor_kontak?: string | null;
   banjar_nama: string;
   banjar_kode: string;
   created_at?: string;

@@ -30,6 +30,7 @@ import { useAuth } from "../../context/AuthContext";
 import { Button } from "../ui/Button";
 import { UkuranTulisanControl } from "../ui/UkuranTulisanControl";
 import { AdminBackupReminderBanner } from "../settings/AdminBackupReminderBanner";
+import { SetoranTelatPetugasBanner } from "../setoran/SetoranTelatBanner";
 import { CloudSyncBanner } from "../settings/CloudSyncBanner";
 import { TrialLicenseBanner } from "../settings/TrialLicenseBanner";
 import { InstallAppBanner } from "../pwa/InstallAppBanner";
@@ -378,6 +379,7 @@ export function AppShell() {
           >
             <TrialLicenseBanner />
             <AdminBackupReminderBanner />
+            <SetoranTelatPetugasBanner />
             <CloudSyncBanner />
             <InstallAppBanner isPhone={isPhone} />
             <Outlet />

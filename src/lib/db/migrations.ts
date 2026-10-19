@@ -603,8 +603,21 @@ export async function runMasterDataMigrations(db: Database): Promise<void> {
   await migrateStaffRolesRbacV1(db);
   await migrateSetoranPetugas(db);
   await migrateUserTimKasukretan(db);
+  await migrateTimKasukretanKontak(db);
   await ensureRingkasanIndexes(db);
   await ensureRingkasanCacheTable(db);
+}
+
+/** Nomor WhatsApp/HP anggota Tim Kasukretan (pengingat setoran). */
+async function migrateTimKasukretanKontak(db: Database): Promise<void> {
+  if (await tableHasColumn(db, "tim_kasukretan", "nomor_kontak")) return;
+  try {
+    await db.execute(`ALTER TABLE tim_kasukretan ADD COLUMN nomor_kontak TEXT`);
+  } catch {
+    if (!(await tableHasColumn(db, "tim_kasukretan", "nomor_kontak"))) {
+      throw new Error("Gagal menambah kolom nomor_kontak pada tim_kasukretan");
+    }
+  }
 }
 
 /** Index untuk query ringkasan dashboard/laporan (aman dijalankan ulang). */

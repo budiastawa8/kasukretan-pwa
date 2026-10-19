@@ -35,6 +35,7 @@ export default defineConfig({
         ],
       },
       workbox: {
+        importScripts: ["sw-push.js"],
         globPatterns: ["**/*.{js,css,html,png,svg,ico,woff,woff2,otf,ttf}"],
         globIgnores: ["**/tesseract/**"],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,

@@ -98,7 +98,25 @@ export function MasterPage() {
   );
   const [tab, setTab] = useState<
     "wilayah" | "jenis" | "berlaku" | "profil" | "tim" | "keuangan" | "impor"
-  >("wilayah");
+  >(() => {
+    try {
+      const q = new URLSearchParams(window.location.search).get("tab");
+      if (
+        q === "wilayah" ||
+        q === "jenis" ||
+        q === "berlaku" ||
+        q === "profil" ||
+        q === "tim" ||
+        q === "keuangan" ||
+        q === "impor"
+      ) {
+        return q;
+      }
+    } catch {
+      /* ignore */
+    }
+    return "wilayah";
+  });
   const [banjar, setBanjar] = useState<Banjar[]>([]);
   const [tempek, setTempek] = useState<Tempek[]>([]);
   const [arahan, setArahan] = useState<Arahan[]>([]);

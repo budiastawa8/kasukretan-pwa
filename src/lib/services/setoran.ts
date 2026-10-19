@@ -13,6 +13,7 @@ export type UangBelumDisetorPetugas = {
   petugas_id: string | null;
   petugas_nama: string;
   petugas_jabatan: string | null;
+  petugas_nomor_kontak: string | null;
   jumlah_transaksi: number;
   total: number;
   /** Tanggal bayar paling lama yang belum disetor. */
@@ -51,6 +52,7 @@ export async function listUangBelumDisetorPerPetugas(): Promise<UangBelumDisetor
     `SELECT x.petugas_id,
             COALESCE(t.nama, 'Tanpa petugas') as petugas_nama,
             t.jabatan as petugas_jabatan,
+            t.nomor_kontak as petugas_nomor_kontak,
             COUNT(*) as jumlah_transaksi,
             COALESCE(SUM(x.jumlah), 0) as total,
             MIN(x.tanggal) as tanggal_tertua
@@ -65,6 +67,7 @@ export async function listUangBelumDisetorPerPetugas(): Promise<UangBelumDisetor
   );
   return rows.map((r) => ({
     ...r,
+    petugas_nomor_kontak: r.petugas_nomor_kontak?.trim() || null,
     jumlah_transaksi: Number(r.jumlah_transaksi) || 0,
     total: Math.round(Number(r.total) || 0),
   }));

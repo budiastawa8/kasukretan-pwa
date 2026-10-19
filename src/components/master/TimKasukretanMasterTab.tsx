@@ -25,12 +25,14 @@ type TimForm = {
   nama: string;
   banjar_id: string;
   jabatan: string;
+  nomor_kontak: string;
 };
 
 const emptyForm = (): TimForm => ({
   nama: "",
   banjar_id: "",
   jabatan: "",
+  nomor_kontak: "",
 });
 
 function formFromItem(item: TimKasukretan): TimForm {
@@ -38,6 +40,7 @@ function formFromItem(item: TimKasukretan): TimForm {
     nama: item.nama,
     banjar_id: item.banjar_id,
     jabatan: item.jabatan,
+    nomor_kontak: item.nomor_kontak?.trim() ?? "",
   };
 }
 
@@ -57,7 +60,7 @@ function TimFormFields({
   isPhone?: boolean;
 }) {
   return (
-    <div className={cn("grid gap-2", isPhone ? "grid-cols-1" : "sm:grid-cols-3")}>
+    <div className={cn("grid gap-2", isPhone ? "grid-cols-1" : "sm:grid-cols-2 lg:grid-cols-4")}>
       <div>
         <Label htmlFor={`${idPrefix}-nama`}>Nama</Label>
         <Input
@@ -94,6 +97,18 @@ function TimFormFields({
           disabled={disabled}
           placeholder="Mis. Ketua, Anggota"
           required
+        />
+      </div>
+      <div>
+        <Label htmlFor={`${idPrefix}-kontak`}>No. WhatsApp / HP</Label>
+        <Input
+          id={`${idPrefix}-kontak`}
+          type="tel"
+          inputMode="tel"
+          value={form.nomor_kontak}
+          onChange={(e) => onChange({ ...form, nomor_kontak: e.target.value })}
+          disabled={disabled}
+          placeholder="08…"
         />
       </div>
     </div>
@@ -140,7 +155,7 @@ export function TimKasukretanMasterTab({
     setSaving(true);
     onError("");
     try {
-      await createTimKasukretan(addForm.nama, addForm.banjar_id, addForm.jabatan);
+      await createTimKasukretan(addForm.nama, addForm.banjar_id, addForm.jabatan, addForm.nomor_kontak);
       setAddForm(emptyForm());
       await refresh();
       onSaved("Anggota Tim Kasukretan berhasil ditambahkan");
@@ -157,7 +172,13 @@ export function TimKasukretanMasterTab({
     setSaving(true);
     onError("");
     try {
-      await updateTimKasukretan(editingId, editForm.nama, editForm.banjar_id, editForm.jabatan);
+      await updateTimKasukretan(
+        editingId,
+        editForm.nama,
+        editForm.banjar_id,
+        editForm.jabatan,
+        editForm.nomor_kontak
+      );
       setEditingId(null);
       await refresh();
       onSaved("Data Tim Kasukretan berhasil disimpan");
@@ -289,6 +310,9 @@ export function TimKasukretanMasterTab({
                     {r.banjar_kode} — {r.banjar_nama}
                   </p>
                   <p className="text-xs text-muted">{r.jabatan}</p>
+                  {r.nomor_kontak?.trim() ? (
+                    <p className="text-xs text-copper-800 mt-0.5">{r.nomor_kontak.trim()}</p>
+                  ) : null}
                   {canEdit && (
                     <div className="flex gap-2 mt-2">
                       <Button
@@ -324,6 +348,7 @@ export function TimKasukretanMasterTab({
                   <th>Nama</th>
                   <th>Banjar</th>
                   <th>Jabatan</th>
+                  <th>Kontak</th>
                   {canEdit && <th>Aksi</th>}
                 </tr>
               </thead>
@@ -336,6 +361,7 @@ export function TimKasukretanMasterTab({
                         {r.banjar_kode} — {r.banjar_nama}
                       </td>
                       <td>{r.jabatan}</td>
+                      <td className="text-muted">{r.nomor_kontak?.trim() || "—"}</td>
                       {canEdit && (
                         <td>
                           <div className="flex gap-0.5">

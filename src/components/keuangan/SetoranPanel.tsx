@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, FileDown, HandCoins, RotateCcw, Undo2 } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  FileDown,
+  HandCoins,
+  MessageCircle,
+  RotateCcw,
+  Undo2,
+} from "lucide-react";
 import { unduhBuktiSetoran } from "../../lib/bukti-setoran-petugas-unduh";
 import {
   batalkanSetoran,
@@ -13,7 +21,13 @@ import {
   type UangBelumDisetorPetugas,
 } from "../../lib/services/setoran";
 import { formatRupiah } from "../../lib/dudukan-hitung";
+import {
+  buildPesanWhatsAppSetoranTelat,
+  isSetoranTelat,
+} from "../../lib/setoran-telat";
 import { cn, formatTanggalLahir, today } from "../../lib/utils";
+import { hasWhatsAppContact, openWhatsAppChat } from "../../lib/whatsapp";
+import { SetoranTelatBendaharaBanner } from "../setoran/SetoranTelatBanner";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
@@ -236,6 +250,7 @@ export function SetoranPanel({
 
   return (
     <>
+      <SetoranTelatBendaharaBanner ringkasan={ringkasan} onRefresh={() => void load()} />
       <Card title="Uang belum disetor (dipegang petugas)">
         <p className="text-xs text-muted mb-2 leading-snug">
           Pembayaran yang dicatat dengan centang “langsung masuk buku kas” dimatikan belum tercatat di buku
@@ -271,6 +286,7 @@ export function SetoranPanel({
             {ringkasan.map((r) => {
               const key = petugasKey(r.petugas_id);
               const aktif = key === petugasDipilih;
+              const telat = isSetoranTelat(r.tanggal_tertua);
               return (
                 <li key={key}>
                   <button
@@ -279,7 +295,9 @@ export function SetoranPanel({
                       "w-full text-left rounded-lg border px-3 py-2 transition-colors",
                       aktif
                         ? "border-amber-400 bg-amber-50 ring-1 ring-amber-200"
-                        : "border-copper-200 bg-card hover:bg-copper-50/60"
+                        : telat
+                          ? "border-amber-300 bg-amber-50/40 hover:bg-amber-50/70"
+                          : "border-copper-200 bg-card hover:bg-copper-50/60"
                     )}
                     onClick={() => void pilihPetugas(aktif ? null : key)}
                   >
@@ -287,6 +305,11 @@ export function SetoranPanel({
                       <span className="min-w-0">
                         <span className="block text-sm font-medium text-copper-950 truncate">
                           {r.petugas_nama}
+                          {telat ? (
+                            <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
+                              Telat setor
+                            </span>
+                          ) : null}
                         </span>
                         <span className="block text-[11px] text-muted">
                           {r.jumlah_transaksi} transaksi · sejak {formatTanggalLahir(r.tanggal_tertua)}
@@ -297,6 +320,22 @@ export function SetoranPanel({
                       </span>
                     </span>
                   </button>
+                  {telat && hasWhatsAppContact(r.petugas_nomor_kontak) ? (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      icon={MessageCircle}
+                      className="mt-1 h-8 w-full text-[11px]"
+                      onClick={() =>
+                        void openWhatsAppChat(
+                          r.petugas_nomor_kontak!,
+                          buildPesanWhatsAppSetoranTelat(r)
+                        )
+                      }
+                    >
+                      Pengingat WhatsApp
+                    </Button>
+                  ) : null}
                 </li>
               );
             })}
