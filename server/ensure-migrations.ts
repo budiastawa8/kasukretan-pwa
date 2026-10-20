@@ -41,6 +41,16 @@ async function runEnsureMigrations(): Promise<void> {
   await dbExecute(
     `CREATE INDEX IF NOT EXISTS idx_krama_kepala ON krama (kepala_penduduk_id)`
   );
+
+  // Akun PIN portal krama (login /portal)
+  await dbExecute(
+    `CREATE TABLE IF NOT EXISTS krama_portal (
+      krama_id TEXT PRIMARY KEY REFERENCES krama(id) ON DELETE CASCADE,
+      password_hash TEXT NOT NULL,
+      aktif INTEGER NOT NULL DEFAULT 1,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`
+  );
 }
 
 /** Idempoten; aman dipanggil tiap request (hanya sekali benar-benar jalan per cold start). */

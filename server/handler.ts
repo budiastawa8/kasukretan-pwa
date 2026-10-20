@@ -23,6 +23,11 @@ import {
 } from "./restore.js";
 import { toJsonValue } from "./sql-convert.js";
 import { isKkScanConfigured, kkScanModel, scanKkWithGemini } from "./kk-scan.js";
+import {
+  handlePortalAuthedRoute,
+  handlePortalLoginRoute,
+  handlePortalSyncPush,
+} from "./portal-routes.js";
 
 type ApiRequest = IncomingMessage & { body?: unknown };
 
@@ -143,9 +148,29 @@ async function handleRoute(path: string, req: ApiRequest, res: ServerResponse): 
     return;
   }
 
+  // Skema cloud perlu mutakhir sebelum login/portal/sync.
+  if (path.startsWith("portal/") || path === "sync/portal/push") {
+    await ensureServerMigrations();
+  }
+
+  if (await handlePortalLoginRoute(path, method, () => readBody(req), (status, data) => send(res, status, data))) {
+    return;
+  }
+
+  if (await handlePortalAuthedRoute(path, method, req, (status, data) => send(res, status, data))) {
+    return;
+  }
+
   const user = await requireUser(req, res);
   // Pastikan kolom/skema cloud (Turso) sudah mutakhir sebelum SQL klien jalan.
   await ensureServerMigrations();
+
+  if (path === "sync/portal/push" && method === "POST") {
+    requireAdmin(user);
+    if (await handlePortalSyncPush(path, method, () => readBody(req), (status, data) => send(res, status, data))) {
+      return;
+    }
+  }
 
   if (path === "auth/me" && method === "GET") {
     send(res, 200, { ok: true, user });

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ChevronDown, Globe, KeyRound, Monitor } from "lucide-react";
-import { isDesktopApp } from "../../lib/runtime";
+import { canUseStaffApp, isDesktopApp } from "../../lib/runtime";
 import {
   getKramaPortalStatus,
   setKramaPortalAktif,
@@ -22,8 +22,10 @@ type Props = {
 
 export function KramaPortalCard({ kramaId, nomorKartu, statusKrama }: Props) {
   const desktop = isDesktopApp();
+  const staffDb = canUseStaffApp();
   const kramaAktif = statusKrama === "aktif";
-  const canManage = desktop && kramaAktif;
+  /** Desktop SQLite atau browser staf yang terhubung API/DB. */
+  const canManage = staffDb && kramaAktif;
 
   const [aktif, setAktif] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
@@ -66,38 +68,41 @@ export function KramaPortalCard({ kramaId, nomorKartu, statusKrama }: Props) {
       await setKramaPortalPin(kramaId, pin, true);
       setPin("");
       setPin2("");
-      setMessage("PIN portal disimpan di komputer ini.");
+      setMessage(desktop ? "PIN portal disimpan di komputer ini." : "PIN portal disimpan di database online.");
       load();
 
-      if (!getCloudApiToken()) {
-        setWarning(
-          <>
-            Kirim ke server lewat{" "}
-            <Link to={settingsPath("online")} className="underline font-medium">
-              Pengaturan → Modul Online
-            </Link>{" "}
-            (login API dulu).
-          </>
-        );
-      } else {
-        const push = await tryAutoPushPortal();
-        if (push.ok) {
-          setMessage(`PIN disimpan & dikirim ke cloud (${push.upserted ?? 0} akun).`);
-        } else if (push.upserted != null && (push.errors?.length ?? 0) > 0) {
-          setMessage(`PIN disimpan. Cloud: ${push.upserted} akun, ${push.errors!.length} gagal.`);
-          setWarning(push.errors!.slice(0, 3).join(" · "));
-        } else {
+      // Desktop SQLite perlu push; browser staf sudah menulis ke DB cloud.
+      if (desktop) {
+        if (!getCloudApiToken()) {
           setWarning(
-            push.message ?? (
-              <>
-                Gagal kirim otomatis ke server — coba Kirim portal di{" "}
-                <Link to={settingsPath("online")} className="underline font-medium">
-                  Pengaturan → Modul Online
-                </Link>
-                .
-              </>
-            )
+            <>
+              Kirim ke server lewat{" "}
+              <Link to={settingsPath("online")} className="underline font-medium">
+                Pengaturan → Modul Online
+              </Link>{" "}
+              (login API dulu).
+            </>
           );
+        } else {
+          const push = await tryAutoPushPortal();
+          if (push.ok) {
+            setMessage(`PIN disimpan & dikirim ke cloud (${push.upserted ?? 0} akun).`);
+          } else if (push.upserted != null && (push.errors?.length ?? 0) > 0) {
+            setMessage(`PIN disimpan. Cloud: ${push.upserted} akun, ${push.errors!.length} gagal.`);
+            setWarning(push.errors!.slice(0, 3).join(" · "));
+          } else {
+            setWarning(
+              push.message ?? (
+                <>
+                  Gagal kirim otomatis ke server — coba Kirim portal di{" "}
+                  <Link to={settingsPath("online")} className="underline font-medium">
+                    Pengaturan → Modul Online
+                  </Link>
+                  .
+                </>
+              )
+            );
+          }
         }
       }
     } catch (e) {
@@ -116,7 +121,7 @@ export function KramaPortalCard({ kramaId, nomorKartu, statusKrama }: Props) {
       await setKramaPortalAktif(kramaId, next);
       setMessage(next ? "Portal diaktifkan" : "Portal dinonaktifkan");
       load();
-      if (getCloudApiToken()) {
+      if (desktop && getCloudApiToken()) {
         const push = await tryAutoPushPortal();
         if (!push.ok && push.message) {
           setWarning(
@@ -156,18 +161,17 @@ export function KramaPortalCard({ kramaId, nomorKartu, statusKrama }: Props) {
         portal dipakai.
       </p>
 
-      {!desktop && (
+      {!staffDb && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950 mb-3 flex gap-2">
           <Monitor size={16} className="shrink-0 mt-0.5" aria-hidden />
           <p>
-            Pengaturan PIN hanya tersedia di <strong>aplikasi desktop</strong> (
-            <code className="text-[10px]">npm run electron:dev</code> atau instalasi Electron), bukan di
-            browser biasa (<code className="text-[10px]">npm run dev</code>).
+            Pengaturan PIN hanya di aplikasi kantor (desktop / browser staf yang terhubung database),
+            bukan di portal krama.
           </p>
         </div>
       )}
 
-      {desktop && !kramaAktif && (
+      {staffDb && !kramaAktif && (
         <p className="text-xs text-muted mb-3 rounded-lg border border-copper-200 bg-copper-50 px-3 py-2">
           Portal hanya bisa diatur untuk krama berstatus <strong>aktif</strong>.
         </p>

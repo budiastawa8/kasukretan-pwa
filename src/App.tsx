@@ -1,11 +1,25 @@
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation, useParams } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { PortalAuthProvider } from "./context/PortalAuthContext";
+import { PetugasAuthProvider } from "./context/PetugasAuthContext";
 import { canAccessPath, defaultHomePath } from "./lib/auth-roles";
 import { ForceChangePasswordPage } from "./pages/ForceChangePasswordPage";
 import { KramaFormGuardProvider } from "./context/KramaFormGuardContext";
 import { AppShell } from "./components/layout/AppShell";
+import { PortalLayout } from "./components/portal/PortalLayout";
+import { PetugasLayout } from "./components/petugas/PetugasLayout";
 import { LoginPage } from "./pages/LoginPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { PortalLoginPage } from "./pages/portal/PortalLoginPage";
+import { PortalHomePage } from "./pages/portal/PortalHomePage";
+import { PortalKartuPage } from "./pages/portal/PortalKartuPage";
+import { PortalPaturunanPage } from "./pages/portal/PortalPaturunanPage";
+import { PortalDudukanPage } from "./pages/portal/PortalDudukanPage";
+import { PetugasLoginPage } from "./pages/petugas/PetugasLoginPage";
+import { PetugasHomePage } from "./pages/petugas/PetugasHomePage";
+import { PetugasPaturunanPage } from "./pages/petugas/PetugasPaturunanPage";
+import { PetugasDudukanPage } from "./pages/petugas/PetugasDudukanPage";
+import { PetugasRekapHariIniPage } from "./pages/petugas/PetugasRekapHariIniPage";
 import { KramaMipilListPage } from "./pages/KramaMipilListPage";
 import { KramaPemasihListPage } from "./pages/KramaPemasihListPage";
 import { PemasihPerhatianPage } from "./pages/PemasihPerhatianPage";
@@ -85,6 +99,48 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route
+            path="/portal/login"
+            element={
+              <PortalAuthProvider>
+                <PortalLoginPage />
+              </PortalAuthProvider>
+            }
+          />
+          <Route
+            path="/portal"
+            element={
+              <PortalAuthProvider>
+                <PortalLayout />
+              </PortalAuthProvider>
+            }
+          >
+            <Route index element={<PortalHomePage />} />
+            <Route path="kartu" element={<PortalKartuPage />} />
+            <Route path="paturunan" element={<PortalPaturunanPage />} />
+            <Route path="dudukan" element={<PortalDudukanPage />} />
+          </Route>
+          <Route
+            path="/petugas/login"
+            element={
+              <PetugasAuthProvider>
+                <PetugasLoginPage />
+              </PetugasAuthProvider>
+            }
+          />
+          <Route
+            path="/petugas"
+            element={
+              <PetugasAuthProvider>
+                <PetugasLayout />
+              </PetugasAuthProvider>
+            }
+          >
+            <Route index element={<PetugasHomePage />} />
+            <Route path="rekap-hari-ini" element={<PetugasRekapHariIniPage />} />
+            <Route path="paturunan" element={<PetugasPaturunanPage />} />
+            <Route path="dudukan" element={<PetugasDudukanPage />} />
+          </Route>
           <Route
             path="/ganti-password-wajib"
             element={

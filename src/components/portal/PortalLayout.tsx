@@ -1,5 +1,5 @@
 import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
-import { HandCoins, Home, LogOut, Wallet } from "lucide-react";
+import { CreditCard, HandCoins, Home, LogOut, Wallet } from "lucide-react";
 import { usePortalAuth } from "../../context/PortalAuthContext";
 import { cn } from "../../lib/utils";
 
@@ -16,6 +16,7 @@ export function PortalLayout() {
 
   const nav = [
     { to: "/portal", label: "Beranda", icon: Home, exact: true },
+    { to: "/portal/kartu", label: "Kartu", icon: CreditCard, exact: false },
     ...(isMipil
       ? [{ to: "/portal/paturunan", label: "Paturunan", icon: Wallet, exact: false }]
       : []),
@@ -51,7 +52,11 @@ export function PortalLayout() {
         <nav
           className={cn(
             "sticky bottom-0 border-t border-copper-200 bg-card grid text-center text-xs",
-            nav.length === 2 ? "grid-cols-2" : "grid-cols-3"
+            nav.length <= 2
+              ? "grid-cols-2"
+              : nav.length === 3
+                ? "grid-cols-3"
+                : "grid-cols-4"
           )}
         >
           {nav.map((item) => {

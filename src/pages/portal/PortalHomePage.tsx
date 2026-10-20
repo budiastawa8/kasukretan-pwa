@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, HandCoins, Wallet } from "lucide-react";
+import { AlertTriangle, CreditCard, HandCoins, Wallet } from "lucide-react";
 import { fetchPortalProfil, type PortalProfil } from "../../lib/api/portal";
 import { usePortalAuth } from "../../context/PortalAuthContext";
 import { Card } from "../../components/ui/Card";
@@ -20,6 +20,16 @@ export function PortalHomePage() {
 
   const isMipil = user.klasifikasiKode === "MIPIL";
   const isPemasih = user.klasifikasiKode === "KRAMA_TAMIU" || user.klasifikasiKode === "TAMIU";
+  const kartuLabel = isMipil
+    ? "Pipil & Kartu"
+    : isPemasih
+      ? "Ilikita & Kartu"
+      : "Kartu Krama";
+  const kartuHint = isMipil
+    ? "Lembar Pipil keluarga & kartu anggota"
+    : isPemasih
+      ? "Lembar Ilikita & kartu anggota"
+      : "Lihat kartu digital anggota keluarga";
 
   return (
     <div className="space-y-4">
@@ -47,6 +57,16 @@ export function PortalHomePage() {
       </Card>
 
       <div className="grid gap-3">
+        <Link
+          to="/portal/kartu"
+          className="flex items-center gap-3 rounded-xl border border-copper-200 bg-copper-50/60 px-4 py-4 hover:border-copper-400 transition-colors"
+        >
+          <CreditCard className="text-copper-700 shrink-0" size={28} />
+          <div>
+            <p className="font-semibold text-copper-900">{kartuLabel}</p>
+            <p className="text-xs text-muted">{kartuHint}</p>
+          </div>
+        </Link>
         {isMipil && (
           <Link
             to="/portal/paturunan"
@@ -70,11 +90,6 @@ export function PortalHomePage() {
               <p className="text-xs text-muted">Kontribusi bulanan & riwayat bayar</p>
             </div>
           </Link>
-        )}
-        {!isMipil && !isPemasih && (
-          <p className="text-xs text-muted text-center px-2">
-            Klasifikasi krama ini belum memiliki menu tagihan online.
-          </p>
         )}
       </div>
 

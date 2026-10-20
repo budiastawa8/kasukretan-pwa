@@ -11,12 +11,13 @@ import {
 } from "../../lib/services/krama-portal";
 import { getCloudApiToken } from "../../lib/sync/cloud-config";
 import { tryAutoPushPortal } from "../../lib/sync/auto-push-portal";
-import { isDesktopApp } from "../../lib/runtime";
+import { canUseStaffApp, isDesktopApp } from "../../lib/runtime";
 import { settingsPath } from "../../lib/settings-routes";
 import { Link } from "react-router-dom";
 
 export function PortalBulkPinPanel() {
   const desktop = isDesktopApp();
+  const staffDb = canUseStaffApp();
   const [activeCount, setActiveCount] = useState(0);
   const [configuredCount, setConfiguredCount] = useState(0);
   const [pin, setPin] = useState("");
@@ -27,14 +28,14 @@ export function PortalBulkPinPanel() {
   const [error, setError] = useState("");
 
   const loadCounts = useCallback(() => {
-    if (!desktop) return;
+    if (!staffDb) return;
     void Promise.all([countActiveKramaForPortal(), countKramaPortalConfigured()]).then(
       ([active, configured]) => {
         setActiveCount(active);
         setConfiguredCount(configured);
       }
     );
-  }, [desktop]);
+  }, [staffDb]);
 
   useEffect(() => {
     loadCounts();
@@ -67,31 +68,39 @@ export function PortalBulkPinPanel() {
       const { updated } = await bulkSetPortalPinForActiveKrama(pin, { aktif: true });
       setPin("");
       setPin2("");
-      setMessage(`PIN portal diterapkan ke ${updated} krama aktif.`);
+      setMessage(
+        desktop
+          ? `PIN portal diterapkan ke ${updated} krama aktif.`
+          : `PIN portal diterapkan ke ${updated} krama aktif di database online.`
+      );
       loadCounts();
 
-      if (!getCloudApiToken()) {
-        setWarning(
-          <>
-            Login API di bawah lalu klik <strong>Kirim portal ke cloud</strong> agar krama bisa
-            login di browser.
-          </>
-        );
-      } else {
-        const push = await tryAutoPushPortal();
-        if (push.ok) {
-          setMessage(`PIN diterapkan ke ${updated} krama & dikirim ke cloud (${push.upserted ?? 0} akun).`);
-        } else if (push.upserted != null && (push.errors?.length ?? 0) > 0) {
-          setMessage(`PIN diterapkan. Cloud: ${push.upserted} akun, ${push.errors!.length} gagal.`);
-          setWarning(push.errors!.slice(0, 3).join(" · "));
-        } else {
+      if (desktop) {
+        if (!getCloudApiToken()) {
           setWarning(
-            push.message ?? (
-              <>
-                PIN tersimpan lokal — coba <strong>Kirim portal ke cloud</strong> di bawah.
-              </>
-            )
+            <>
+              Login API di bawah lalu klik <strong>Kirim portal ke cloud</strong> agar krama bisa
+              login di browser.
+            </>
           );
+        } else {
+          const push = await tryAutoPushPortal();
+          if (push.ok) {
+            setMessage(
+              `PIN diterapkan ke ${updated} krama & dikirim ke cloud (${push.upserted ?? 0} akun).`
+            );
+          } else if (push.upserted != null && (push.errors?.length ?? 0) > 0) {
+            setMessage(`PIN diterapkan. Cloud: ${push.upserted} akun, ${push.errors!.length} gagal.`);
+            setWarning(push.errors!.slice(0, 3).join(" · "));
+          } else {
+            setWarning(
+              push.message ?? (
+                <>
+                  PIN tersimpan lokal — coba <strong>Kirim portal ke cloud</strong> di bawah.
+                </>
+              )
+            );
+          }
         }
       }
     } catch (e) {
@@ -101,7 +110,7 @@ export function PortalBulkPinPanel() {
     }
   }
 
-  if (!desktop) return null;
+  if (!staffDb) return null;
 
   return (
     <Card title="Portal Krama — PIN seragam" className="space-y-3">

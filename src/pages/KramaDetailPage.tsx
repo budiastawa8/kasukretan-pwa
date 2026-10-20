@@ -23,6 +23,7 @@ import { Button } from "../components/ui/Button";
 import { IconLink } from "../components/ui/IconLink";
 import { AnggotaImportExportPanel } from "../components/krama/AnggotaImportExportPanel";
 import { PemasihAnggotaImportExportPanel } from "../components/krama/PemasihAnggotaImportExportPanel";
+import { KramaPortalCard } from "../components/krama/KramaPortalCard";
 import { useIsPhoneClient } from "../hooks/useClientFormFactor";
 import { cn } from "../lib/utils";
 
@@ -157,6 +158,11 @@ export function KramaDetailPage() {
         />
       )}
       <KramaPrintPreviewView krama={krama} />
+      <KramaPortalCard
+        kramaId={krama.id}
+        nomorKartu={krama.nomor_kartu}
+        statusKrama={krama.status_krama}
+      />
       {importFlash && (
         <p
           className={

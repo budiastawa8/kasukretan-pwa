@@ -408,8 +408,9 @@ Di **desktop kantor** → **Pengaturan → tab Modul Online → Sinkronisasi clo
 > URL: `https://nama-desa.pages.dev/portal/login`
 
 1. Krama login dengan akun portal (dibuat & dikirim dari desktop).
-2. **Krama Mipil** melihat tunggakan paturunan.
-3. **Pemasih** melihat tunggakan dudukan.
+2. Semua krama dapat melihat **kartu Pipil/Pemasih** digital (anggota aktif).
+3. **Krama Mipil** melihat tunggakan paturunan.
+4. **Pemasih** melihat tunggakan dudukan.
 
 Portal bersifat **baca saja** — pembayaran tetap dicatat oleh kantor atau petugas.
 
