@@ -35,6 +35,13 @@ function statusTagihan(tagihan: number, dibayar: number, keringanan = 0): string
   return "Belum bayar";
 }
 
+/** Batas jendela dudukan portal: 12 bulan terakhir (termasuk bulan ini). */
+function dudukanWindowStart(): { tahun: number; bulan: number } {
+  const d = new Date();
+  d.setMonth(d.getMonth() - 11);
+  return { tahun: d.getFullYear(), bulan: d.getMonth() + 1 };
+}
+
 async function loadPortalProfil(kramaId: string) {
   const rows = await dbSelect(
     `SELECT k.id AS krama_id, k.nomor_kartu, p.nama_lengkap AS kepala_nama,
@@ -76,38 +83,39 @@ async function loadPortalPaturunan(kramaId: string) {
   if (!kramaRows[0]) throw new HttpError(403, "Paturunan hanya untuk Krama Mipil");
 
   const persen = Number(kramaRows[0].persen) || 0;
+  // Satu query: iuran aktif + aggregate pembayaran krama (hindari N+1).
   const iuranRows = await dbSelect(
-    `SELECT id, nama, COALESCE(nominal, 0) AS nominal
-     FROM iuran_paturunan
-     WHERE aktif = 1
-     ORDER BY tanggal_target DESC, nama`
+    `SELECT i.id, i.nama, COALESCE(i.nominal, 0) AS nominal,
+            COALESCE(SUM(CASE
+              WHEN pp.id IS NULL THEN 0
+              WHEN pp.jenis = 'punia' THEN 0
+              ELSE pp.jumlah
+            END), 0) AS wajib,
+            COALESCE(SUM(CASE WHEN pp.jenis = 'punia' THEN pp.jumlah ELSE 0 END), 0) AS punia
+     FROM iuran_paturunan i
+     LEFT JOIN paturunan_pembayaran pp
+       ON pp.iuran_id = i.id AND pp.krama_id = ?
+     WHERE i.aktif = 1
+     GROUP BY i.id, i.nama, i.nominal, i.tanggal_target
+     ORDER BY i.tanggal_target DESC, i.nama`,
+    [kramaId]
   );
 
-  const iuran = [];
-  for (const i of iuranRows) {
-    const iuranId = String(i.id);
+  const iuran = iuranRows.map((i) => {
     const tagihan = Math.round((Number(i.nominal) || 0) * (persen / 100));
-    const payRows = await dbSelect(
-      `SELECT
-         COALESCE(SUM(CASE WHEN jenis = 'wajib' OR jenis IS NULL OR jenis = '' THEN jumlah ELSE 0 END), 0) AS wajib,
-         COALESCE(SUM(CASE WHEN jenis = 'punia' THEN jumlah ELSE 0 END), 0) AS punia
-       FROM paturunan_pembayaran
-       WHERE krama_id = ? AND iuran_id = ?`,
-      [kramaId, iuranId]
-    );
-    const dibayarWajib = Number(payRows[0]?.wajib) || 0;
-    const punia = Number(payRows[0]?.punia) || 0;
+    const dibayarWajib = Number(i.wajib) || 0;
+    const punia = Number(i.punia) || 0;
     const sisa = Math.max(0, tagihan - dibayarWajib);
-    iuran.push({
-      iuran_id: iuranId,
+    return {
+      iuran_id: String(i.id),
       iuran_nama: String(i.nama),
       tagihan,
       dibayar_wajib: dibayarWajib,
       punia,
       sisa,
       status: statusTagihan(tagihan, dibayarWajib),
-    });
-  }
+    };
+  });
 
   const riwayatRows = await dbSelect(
     `SELECT pp.id, ip.nama AS iuran_nama, COALESCE(pp.jenis, 'wajib') AS jenis,
@@ -146,13 +154,15 @@ async function loadPortalDudukan(kramaId: string) {
   if (!kramaRows[0]) throw new HttpError(403, "Dudukan hanya untuk Pemasih");
 
   const tarif = Number(kramaRows[0].tarif) || 0;
+  const win = dudukanWindowStart();
 
   const bayarRows = await dbSelect(
     `SELECT tahun, bulan, COALESCE(SUM(jumlah), 0) AS dibayar
      FROM dudukan_pembayaran
      WHERE krama_id = ?
+       AND (tahun > ? OR (tahun = ? AND bulan >= ?))
      GROUP BY tahun, bulan`,
-    [kramaId]
+    [kramaId, win.tahun, win.tahun, win.bulan]
   );
   const bayarMap = new Map<string, number>();
   for (const b of bayarRows) {
@@ -163,8 +173,9 @@ async function loadPortalDudukan(kramaId: string) {
     `SELECT tahun, bulan, COALESCE(SUM(jumlah), 0) AS keringanan
      FROM dudukan_keringanan
      WHERE krama_id = ?
+       AND (tahun > ? OR (tahun = ? AND bulan >= ?))
      GROUP BY tahun, bulan`,
-    [kramaId]
+    [kramaId, win.tahun, win.tahun, win.bulan]
   );
   const keringananMap = new Map<string, number>();
   for (const k of keringananRows) {
@@ -198,9 +209,10 @@ async function loadPortalDudukan(kramaId: string) {
     `SELECT id, tahun, bulan, jumlah, tanggal
      FROM dudukan_pembayaran
      WHERE krama_id = ?
+       AND (tahun > ? OR (tahun = ? AND bulan >= ?))
      ORDER BY tanggal DESC, id DESC
      LIMIT 50`,
-    [kramaId]
+    [kramaId, win.tahun, win.tahun, win.bulan]
   );
 
   return {
@@ -244,21 +256,23 @@ async function loadPortalKartu(kramaId: string) {
   const krama = kramaRows[0];
   if (!krama) throw new HttpError(404, "Data krama tidak ditemukan");
 
+  // Tanpa logo/TTD (sering data URL besar) — hemat rows read Turso; UI pakai placeholder.
   const desaRows = await dbSelect(
-    `SELECT nama_desa_adat, nama_kecamatan, nama_kabupaten, logo_url, logo_mda_url,
-            bandesa_nama, bandesa_jabatan, bandesa_ttd_url,
+    `SELECT nama_desa_adat, nama_kecamatan, nama_kabupaten,
+            bandesa_nama, bandesa_jabatan,
             COALESCE(enforce_masa_berlaku_pipil, 1) AS enforce_masa_berlaku_pipil
      FROM desa_adat
      LIMIT 1`
   );
   const desa = desaRows[0] ?? null;
 
+  // Tanpa p.foto_url (sering base64 besar). Portal kartu memakai placeholder.
   const anggotaRows = await dbSelect(
     `SELECT ak.id AS anggota_id, ak.penduduk_id, ak.status_keluarga, ak.urut_dalam_keluarga,
             ak.nika, ak.nrkt, ak.nrt, ak.tanggal_pencatatan, ak.masuk_pada,
             p.nama_lengkap, p.jenis_kelamin, p.tempat_lahir, p.tanggal_lahir,
             p.status_kawin, p.pekerjaan, p.nama_ibu, p.nama_ayah,
-            p.nik_kependudukan, p.nik_atau_nika, p.agama, p.foto_url
+            p.nik_kependudukan, p.nik_atau_nika, p.agama
      FROM anggota_keluarga ak
      JOIN penduduk p ON p.id = ak.penduduk_id
      WHERE ak.krama_id = ? AND ak.status = 'aktif'
@@ -286,11 +300,11 @@ async function loadPortalKartu(kramaId: string) {
           nama_desa_adat: String(desa.nama_desa_adat ?? ""),
           nama_kecamatan: desa.nama_kecamatan != null ? String(desa.nama_kecamatan) : null,
           nama_kabupaten: desa.nama_kabupaten != null ? String(desa.nama_kabupaten) : null,
-          logo_url: desa.logo_url != null ? String(desa.logo_url) : null,
-          logo_mda_url: desa.logo_mda_url != null ? String(desa.logo_mda_url) : null,
+          logo_url: null,
+          logo_mda_url: null,
           bandesa_nama: desa.bandesa_nama != null ? String(desa.bandesa_nama) : null,
           bandesa_jabatan: desa.bandesa_jabatan != null ? String(desa.bandesa_jabatan) : null,
-          bandesa_ttd_url: desa.bandesa_ttd_url != null ? String(desa.bandesa_ttd_url) : null,
+          bandesa_ttd_url: null,
           enforce_masa_berlaku_pipil: Number(desa.enforce_masa_berlaku_pipil) === 1 ? 1 : 0,
         }
       : null,
@@ -338,7 +352,7 @@ async function loadPortalKartu(kramaId: string) {
       agama: a.agama != null ? String(a.agama) : null,
       nik_kependudukan: a.nik_kependudukan != null ? String(a.nik_kependudukan) : null,
       nik_atau_nika: a.nik_atau_nika != null ? String(a.nik_atau_nika) : null,
-      foto_url: a.foto_url != null ? String(a.foto_url) : null,
+      foto_url: null,
     })),
   };
 }
