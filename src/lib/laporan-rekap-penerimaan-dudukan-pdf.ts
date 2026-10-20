@@ -293,10 +293,11 @@ export function buildRekapPenerimaanDudukanPetugasPdfInput(
     sampai?: string;
     banjarNama?: string;
     rtBtn?: string;
+    tipeLabel?: string;
   }
 ): LaporanPdfInput {
   const tableRows = buildRekapPenerimaanDudukanPetugasTableRows(rekap);
-  const rowFontSize = 12;
+  const rowFontSize = 11;
   const boldRows: number[] = [];
   const rowCellMerges: Record<number, Partial<Record<number, number>>> = {};
   const rows: (string | number)[][] = [];
@@ -304,19 +305,42 @@ export function buildRekapPenerimaanDudukanPetugasPdfInput(
 
   for (const row of tableRows) {
     if (row.kind === "data") {
-      rows.push([formatTanggalLahir(row.tanggal), row.uraian, fmtRp(row.jumlah)]);
+      rows.push([formatTanggalLahir(row.tanggal), `  ${row.uraian}`, fmtRp(row.jumlah)]);
       pdfIdx++;
       continue;
     }
 
     boldRows.push(pdfIdx);
-    rowCellMerges[pdfIdx] = { 0: 2 };
-    rows.push(["JUMLAH KESELURUHAN", "", fmtRp(row.total)]);
+    if (row.kind === "banjar-header") {
+      rowCellMerges[pdfIdx] = { 0: 3 };
+      rows.push([formatTanggalLahir(row.tanggal), formatBanjarLaporanNama(row.banjar_nama), ""]);
+    } else if (row.kind === "tipe-header") {
+      rowCellMerges[pdfIdx] = { 0: 3 };
+      rows.push(["", row.label, ""]);
+    } else if (row.kind === "tipe-subtotal") {
+      rows.push(["", row.label, fmtRp(row.total)]);
+    } else if (row.kind === "banjar-subtotal") {
+      rows.push(["", formatBanjarSubtotalLaporan(row.banjar_nama), fmtRp(row.total)]);
+    } else if (row.kind === "tipe-grand-total") {
+      rows.push(["", row.label, fmtRp(row.total)]);
+    } else {
+      rowCellMerges[pdfIdx] = { 0: 2 };
+      rows.push(["JUMLAH KESELURUHAN", "", fmtRp(row.total)]);
+    }
     pdfIdx++;
   }
 
   const footerIdx = rows.length - 1;
   const summaryLines = [`Total penerimaan: ${formatRupiah(rekap.grandTotal)}`];
+  if (rekap.totalsByTipe.banjar > 0) {
+    summaryLines.push(`Tim Banjar: ${formatRupiah(rekap.totalsByTipe.banjar)}`);
+  }
+  if (rekap.totalsByTipe.bantuan > 0) {
+    summaryLines.push(`Tim Bantuan: ${formatRupiah(rekap.totalsByTipe.bantuan)}`);
+  }
+  if (rekap.totalsByTipe.kantor > 0) {
+    summaryLines.push(`Kantor / tanpa petugas: ${formatRupiah(rekap.totalsByTipe.kantor)}`);
+  }
   if (rekap.rowCount > 0) {
     summaryLines.push(`Jumlah baris petugas: ${rekap.rowCount}`);
   }
@@ -326,11 +350,14 @@ export function buildRekapPenerimaanDudukanPetugasPdfInput(
   if (opts.rtBtn?.trim()) {
     summaryLines.push(`RT/BTN: ${opts.rtBtn.trim()}`);
   }
+  if (opts.tipeLabel?.trim()) {
+    summaryLines.push(`Tipe: ${opts.tipeLabel.trim()}`);
+  }
 
   return {
     filename: `rekap-penerimaan-dudukan-petugas-${exportSlug(opts.dari, opts.sampai)}`,
     judul: "Rekap Penerimaan Dudukan",
-    subjudul: "Per Tanggal · Banjar · Petugas",
+    subjudul: "Per Tanggal · Banjar · Tim Banjar / Tim Bantuan",
     periode: formatPeriodeLabel(opts.dari, opts.sampai),
     summaryLines,
     headers: ["Tanggal", "Uraian", "Jumlah"],

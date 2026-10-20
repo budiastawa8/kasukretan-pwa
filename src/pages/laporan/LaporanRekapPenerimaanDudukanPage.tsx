@@ -19,9 +19,11 @@ import {
   formatJenisSubtotalLaporan,
   formatKlasifikasiSubtotalLaporan,
   formatPeriodeTransaksiDudukan,
+  formatRekapPetugasDudukanTipeLabel,
   getRekapPenerimaanDudukan,
   getRekapPenerimaanDudukanTransaksi,
   getRekapPenerimaanDudukanPetugas,
+  REKAP_PETUGAS_TIPE_ORDER,
   type RekapPenerimaanDudukan,
   type RekapPenerimaanDudukanMode,
   type RekapPenerimaanDudukanTableRow,
@@ -29,6 +31,7 @@ import {
   type RekapPenerimaanDudukanTransaksiTableRow,
   type RekapPenerimaanDudukanPetugas,
   type RekapPenerimaanDudukanPetugasTableRow,
+  type RekapPetugasDudukanTipe,
 } from "../../lib/services/laporan-rekap-penerimaan-dudukan";
 import { listRtBtnPemasih } from "../../lib/services/krama";
 import { listBanjar } from "../../lib/services/master";
@@ -146,11 +149,28 @@ function buildExportRowsTransaksi(rekap: RekapPenerimaanDudukanTransaksi): (stri
 
 function buildExportRowsPetugas(rekap: RekapPenerimaanDudukanPetugas): (string | number)[][] {
   return buildRekapPenerimaanDudukanPetugasTableRows(rekap).map((row) => {
-    if (row.kind === "data") {
-      return [formatTanggalLahir(row.tanggal), row.uraian, row.jumlah];
+    switch (row.kind) {
+      case "banjar-header":
+        return [formatTanggalLahir(row.tanggal), formatBanjarLaporanNama(row.banjar_nama), ""];
+      case "tipe-header":
+        return ["", row.label, ""];
+      case "data":
+        return [formatTanggalLahir(row.tanggal), row.uraian, row.jumlah];
+      case "tipe-subtotal":
+        return ["", row.label, row.total];
+      case "banjar-subtotal":
+        return ["", formatBanjarSubtotalLaporan(row.banjar_nama), row.total];
+      case "tipe-grand-total":
+        return ["", row.label, row.total];
+      case "grand-total":
+        return ["JUMLAH KESELURUHAN", "", row.total];
     }
-    return ["JUMLAH KESELURUHAN", "", row.total];
   });
+}
+
+function parsePetugasTipe(value: string): RekapPetugasDudukanTipe | "" {
+  if (value === "banjar" || value === "bantuan" || value === "kantor") return value;
+  return "";
 }
 
 function colSpanBulan(rekap: RekapPenerimaanDudukan | null): number {
@@ -199,6 +219,7 @@ export function LaporanRekapPenerimaanDudukanPage() {
   const [rtBtnOptions, setRtBtnOptions] = useState<string[]>([]);
   const [banjarId, setBanjarId] = usePersistedScalar(PAGE_ID, "banjarId", "");
   const [rtBtn, setRtBtn] = usePersistedScalar(PAGE_ID, "rtBtn", "");
+  const [petugasTipe, setPetugasTipe] = usePersistedScalar(PAGE_ID, "petugasTipe", "");
   const [pageTransaksi, setPageTransaksi] = useState(1);
   const [pageSizeTransaksi, setPageSizeTransaksi] = useState(LIST_PAGE_SIZE);
   const [pagePetugas, setPagePetugas] = useState(1);
@@ -240,6 +261,7 @@ export function LaporanRekapPenerimaanDudukanPage() {
             ...params,
             banjarId: banjarId || undefined,
             rtBtn: rtBtn || undefined,
+            tipe: parsePetugasTipe(petugasTipe),
           })
         );
       } else {
@@ -255,7 +277,7 @@ export function LaporanRekapPenerimaanDudukanPage() {
     } finally {
       setLoading(false);
     }
-  }, [dari, sampai, mode, banjarId, rtBtn]);
+  }, [dari, sampai, mode, banjarId, rtBtn, petugasTipe]);
 
   useEffect(() => {
     void load();
@@ -282,13 +304,24 @@ export function LaporanRekapPenerimaanDudukanPage() {
     () => tableRowsTransaksi.find((r) => r.kind === "grand-total") ?? null,
     [tableRowsTransaksi]
   );
-  const petugasDataRows = useMemo(
-    () => tableRowsPetugas.filter((r) => r.kind === "data"),
+  const petugasBodyRows = useMemo(
+    () =>
+      tableRowsPetugas.filter(
+        (r) => r.kind !== "grand-total" && r.kind !== "tipe-grand-total"
+      ),
     [tableRowsPetugas]
   );
-  const petugasGrandTotal = useMemo(
-    () => tableRowsPetugas.find((r) => r.kind === "grand-total") ?? null,
+  const petugasFooterRows = useMemo(
+    () =>
+      tableRowsPetugas.filter(
+        (r) => r.kind === "tipe-grand-total" || r.kind === "grand-total"
+      ),
     [tableRowsPetugas]
+  );
+
+  const selectedPetugasTipe = useMemo(
+    () => parsePetugasTipe(petugasTipe),
+    [petugasTipe]
   );
 
   const safePageTransaksi = useMemo(
@@ -296,8 +329,8 @@ export function LaporanRekapPenerimaanDudukanPage() {
     [pageTransaksi, transaksiBodyRows.length, pageSizeTransaksi]
   );
   const safePagePetugas = useMemo(
-    () => clampPage(pagePetugas, petugasDataRows.length, pageSizePetugas),
-    [pagePetugas, petugasDataRows.length, pageSizePetugas]
+    () => clampPage(pagePetugas, petugasBodyRows.length, pageSizePetugas),
+    [pagePetugas, petugasBodyRows.length, pageSizePetugas]
   );
 
   const pagedTransaksiRows = useMemo(
@@ -305,8 +338,8 @@ export function LaporanRekapPenerimaanDudukanPage() {
     [transaksiBodyRows, safePageTransaksi, pageSizeTransaksi]
   );
   const pagedPetugasRows = useMemo(
-    () => paginateSlice(petugasDataRows, safePagePetugas, pageSizePetugas),
-    [petugasDataRows, safePagePetugas, pageSizePetugas]
+    () => paginateSlice(petugasBodyRows, safePagePetugas, pageSizePetugas),
+    [petugasBodyRows, safePagePetugas, pageSizePetugas]
   );
 
   const transaksiNomorOffset = useMemo(() => {
@@ -338,6 +371,7 @@ export function LaporanRekapPenerimaanDudukanPage() {
     if (mode === "perPetugas") {
       setBanjarId("");
       setRtBtn("");
+      setPetugasTipe("");
     }
   }
 
@@ -382,6 +416,9 @@ export function LaporanRekapPenerimaanDudukanPage() {
           sampai,
           banjarNama: selectedBanjarNama || undefined,
           rtBtn: rtBtn || undefined,
+          tipeLabel: selectedPetugasTipe
+            ? formatRekapPetugasDudukanTipeLabel(selectedPetugasTipe)
+            : undefined,
         })
       );
       return;
@@ -510,20 +547,76 @@ export function LaporanRekapPenerimaanDudukanPage() {
     );
   }
 
-  function renderPetugasRow(row: RekapPenerimaanDudukanPetugasTableRow, idx: number) {
+  function renderPetugasRow(row: RekapPenerimaanDudukanPetugasTableRow, key: string) {
+    if (row.kind === "banjar-header") {
+      return (
+        <GroupHeaderRow
+          key={key}
+          colSpan={PETUGAS_COLS}
+          className="bg-copper-100/60 font-semibold text-copper-950 py-1.5"
+        >
+          <span className="tabular-nums mr-2">{formatTanggalLahir(row.tanggal)}</span>
+          {formatBanjarLaporanNama(row.banjar_nama)}
+        </GroupHeaderRow>
+      );
+    }
+    if (row.kind === "tipe-header") {
+      return (
+        <GroupHeaderRow key={key} colSpan={PETUGAS_COLS} className="bg-copper-50/80" indent="pl-3">
+          {row.label}
+        </GroupHeaderRow>
+      );
+    }
     if (row.kind === "data") {
       return (
-        <tr key={`p-${idx}`} className={LAPORAN_BODY_ROW}>
+        <tr key={key} className={LAPORAN_BODY_ROW}>
           <td className="pr-3 py-1 tabular-nums whitespace-nowrap text-center">
             {formatTanggalLahir(row.tanggal)}
           </td>
-          <td className="pr-3 py-1">{row.uraian}</td>
+          <td className="pr-3 py-1 pl-5">{row.uraian}</td>
           <td className="py-1 text-right tabular-nums">{formatRupiah(row.jumlah)}</td>
         </tr>
       );
     }
+    if (row.kind === "tipe-subtotal") {
+      return (
+        <tr
+          key={key}
+          className="border-t border-copper-100 bg-copper-50/50 font-semibold text-copper-900"
+        >
+          <td className="pr-3 py-1" />
+          <td className="pr-3 py-1 pl-4">{row.label}</td>
+          <td className="py-1 text-right tabular-nums">{formatRupiah(row.total)}</td>
+        </tr>
+      );
+    }
+    if (row.kind === "banjar-subtotal") {
+      return (
+        <tr
+          key={key}
+          className="border-t border-copper-200 bg-copper-50/70 font-bold text-copper-950"
+        >
+          <td className="pr-3 py-1" />
+          <td className="pr-3 py-1 pl-2">{formatBanjarSubtotalLaporan(row.banjar_nama)}</td>
+          <td className="py-1 text-right tabular-nums">{formatRupiah(row.total)}</td>
+        </tr>
+      );
+    }
+    if (row.kind === "tipe-grand-total") {
+      return (
+        <tr
+          key={key}
+          className="border-t border-copper-200 bg-copper-50/80 font-semibold text-copper-950"
+        >
+          <td className="pr-3 py-1" colSpan={2}>
+            {row.label}
+          </td>
+          <td className="py-1 text-right tabular-nums">{formatRupiah(row.total)}</td>
+        </tr>
+      );
+    }
     return (
-      <tr key={`gt-${idx}`} className="border-t-2 border-copper-300 bg-copper-100/70 font-semibold">
+      <tr key={key} className="border-t-2 border-copper-300 bg-copper-100/70 font-semibold">
         <td className="pr-3 py-1" colSpan={2}>
           JUMLAH KESELURUHAN
         </td>
@@ -537,7 +630,7 @@ export function LaporanRekapPenerimaanDudukanPage() {
       ? "Rekap per Bulan Bayar"
       : mode === "perTransaksi"
         ? "Rekap per Transaksi"
-        : "Rekap per Petugas";
+        : "Rekap per Petugas (Tim Banjar / Tim Bantuan)";
 
   return (
     <div className={LAPORAN_PAGE}>
@@ -552,7 +645,7 @@ export function LaporanRekapPenerimaanDudukanPage() {
           </h2>
           <p className="text-xs text-muted mt-0.5">
             Realisasi pembayaran Krama Tamiu & Tamiu per banjar, klasifikasi, dan jenis — per bulan
-            bayar, per transaksi, atau per petugas (tanggal × banjar).
+            bayar, per transaksi, atau per petugas (tanggal × banjar × Tim Banjar / Tim Bantuan).
           </p>
         </div>
         <LaporanExportButtons
@@ -653,6 +746,21 @@ export function LaporanRekapPenerimaanDudukanPage() {
                   ))}
                 </Select>
               </div>
+              <div>
+                <Label className="text-[11px]">Tipe petugas</Label>
+                <Select
+                  className="h-9 text-xs"
+                  value={petugasTipe}
+                  onChange={(e) => setPetugasTipe(e.target.value)}
+                >
+                  <option value="">Semua</option>
+                  {REKAP_PETUGAS_TIPE_ORDER.map((tipe) => (
+                    <option key={tipe} value={tipe}>
+                      {formatRekapPetugasDudukanTipeLabel(tipe)}
+                    </option>
+                  ))}
+                </Select>
+              </div>
             </>
           )}
           <Button
@@ -703,12 +811,33 @@ export function LaporanRekapPenerimaanDudukanPage() {
           <div className={cn("flex flex-wrap gap-2 mb-3", isPhone && "gap-1.5")}>
             <StatChip label="Baris" value={String(rekapPetugas.rowCount)} />
             <StatChip label="Jumlah" value={formatRupiah(rekapPetugas.grandTotal)} />
+            {rekapPetugas.totalsByTipe.banjar > 0 && (
+              <StatChip label="Tim Banjar" value={formatRupiah(rekapPetugas.totalsByTipe.banjar)} />
+            )}
+            {rekapPetugas.totalsByTipe.bantuan > 0 && (
+              <StatChip
+                label="Tim Bantuan"
+                value={formatRupiah(rekapPetugas.totalsByTipe.bantuan)}
+              />
+            )}
+            {rekapPetugas.totalsByTipe.kantor > 0 && (
+              <StatChip
+                label="Kantor"
+                value={formatRupiah(rekapPetugas.totalsByTipe.kantor)}
+              />
+            )}
             {dari && <StatChip label="Dari" value={formatTanggalLahir(dari)} />}
             {sampai && <StatChip label="Sampai" value={formatTanggalLahir(sampai)} />}
             {selectedBanjarNama && (
               <StatChip label="Banjar" value={formatBanjarLaporanNama(selectedBanjarNama)} />
             )}
             {rtBtn && <StatChip label="RT/BTN" value={rtBtn} />}
+            {selectedPetugasTipe && (
+              <StatChip
+                label="Tipe"
+                value={formatRekapPetugasDudukanTipeLabel(selectedPetugasTipe)}
+              />
+            )}
           </div>
         )}
 
@@ -878,7 +1007,7 @@ export function LaporanRekapPenerimaanDudukanPage() {
                       Memuat…
                     </td>
                   </tr>
-                ) : !rekapPetugas || petugasDataRows.length === 0 || !hasData ? (
+                ) : !rekapPetugas || petugasBodyRows.length === 0 || !hasData ? (
                   <tr>
                     <td colSpan={PETUGAS_COLS} className="py-4 text-center text-muted text-sm">
                       Belum ada penerimaan dudukan pada filter ini.
@@ -886,17 +1015,8 @@ export function LaporanRekapPenerimaanDudukanPage() {
                   </tr>
                 ) : (
                   <>
-                    {pagedPetugasRows.map((row, idx) => renderPetugasRow(row, idx))}
-                    {petugasGrandTotal && petugasGrandTotal.kind === "grand-total" && (
-                      <tr className="border-t-2 border-copper-300 bg-copper-100/70 font-semibold">
-                        <td className="pr-3 py-1" colSpan={2}>
-                          JUMLAH KESELURUHAN
-                        </td>
-                        <td className="py-1 text-right tabular-nums">
-                          {formatRupiah(petugasGrandTotal.total)}
-                        </td>
-                      </tr>
-                    )}
+                    {pagedPetugasRows.map((row, idx) => renderPetugasRow(row, `p-${idx}`))}
+                    {petugasFooterRows.map((row, idx) => renderPetugasRow(row, `pf-${idx}`))}
                   </>
                 )}
               </tbody>
@@ -916,7 +1036,7 @@ export function LaporanRekapPenerimaanDudukanPage() {
         {mode === "perPetugas" && (
           <ListPagination
             page={safePagePetugas}
-            totalItems={petugasDataRows.length}
+            totalItems={petugasBodyRows.length}
             pageSize={pageSizePetugas}
             onPageChange={setPagePetugas}
             onPageSizeChange={setPageSizePetugas}

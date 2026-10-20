@@ -91,6 +91,38 @@ export function formatUraianPetugasDudukan(banjarNama: string, petugasNama: stri
   return `${formatBanjarLaporanNama(banjarNama)} - ${petugasNama.trim() || "—"}`;
 }
 
+/** Kelompok petugas di rekap Dudukan (Tim Banjar / Tim Bantuan / input kantor). */
+export type RekapPetugasDudukanTipe = "banjar" | "bantuan" | "kantor";
+
+export const REKAP_PETUGAS_TIPE_ORDER: RekapPetugasDudukanTipe[] = [
+  "banjar",
+  "bantuan",
+  "kantor",
+];
+
+export function formatRekapPetugasDudukanTipeLabel(tipe: RekapPetugasDudukanTipe): string {
+  switch (tipe) {
+    case "bantuan":
+      return "Tim Bantuan";
+    case "kantor":
+      return "Kantor / tanpa petugas";
+    default:
+      return "Tim Banjar";
+  }
+}
+
+export function formatRekapPetugasDudukanTipeSubtotal(tipe: RekapPetugasDudukanTipe): string {
+  return `Jumlah ${formatRekapPetugasDudukanTipeLabel(tipe)}`;
+}
+
+export function resolveRekapPetugasDudukanTipe(
+  petugasId: string | null | undefined,
+  tipeRaw: string | null | undefined
+): RekapPetugasDudukanTipe {
+  if (!petugasId?.trim()) return "kantor";
+  return tipeRaw === "bantuan" ? "bantuan" : "banjar";
+}
+
 /** Baris subtotal per klasifikasi dalam satu banjar. */
 export function formatKlasifikasiSubtotalLaporan(klasifikasiNama: string): string {
   return `Jumlah ${klasifikasiNama}`;
@@ -769,6 +801,8 @@ export function buildRekapPenerimaanDudukanTransaksiTableRows(
 export type RekapPetugasDudukanRow = {
   petugas_id: string | null;
   petugas_nama: string;
+  /** Tim Banjar, Tim Bantuan, atau input kantor (tanpa petugas). */
+  petugas_tipe: RekapPetugasDudukanTipe;
   jumlah: number;
 };
 
@@ -778,6 +812,7 @@ export type RekapPenerimaanDudukanBanjarGroupPetugas = {
   banjar_kode: string;
   petugasRows: RekapPetugasDudukanRow[];
   total: number;
+  totalByTipe: Record<RekapPetugasDudukanTipe, number>;
 };
 
 export type RekapPenerimaanDudukanTanggalGroup = {
@@ -789,7 +824,9 @@ export type RekapPenerimaanDudukanTanggalGroup = {
 export type RekapPenerimaanDudukanPetugas = {
   groups: RekapPenerimaanDudukanTanggalGroup[];
   grandTotal: number;
+  /** Jumlah baris petugas (bukan termasuk header/subtotal). */
   rowCount: number;
+  totalsByTipe: Record<RekapPetugasDudukanTipe, number>;
 };
 
 type PetugasAggRow = {
@@ -799,14 +836,21 @@ type PetugasAggRow = {
   banjar_nama: string;
   petugas_id: string | null;
   petugas_nama: string;
+  petugas_tipe_raw: string | null;
   jumlah: number;
 };
+
+function emptyTotalsByTipe(): Record<RekapPetugasDudukanTipe, number> {
+  return { banjar: 0, bantuan: 0, kantor: 0 };
+}
 
 export async function getRekapPenerimaanDudukanPetugas(params: {
   dari?: string;
   sampai?: string;
   banjarId?: string;
   rtBtn?: string;
+  /** Filter tipe petugas; kosong = semua. */
+  tipe?: RekapPetugasDudukanTipe | "";
 }): Promise<RekapPenerimaanDudukanPetugas> {
   const db = await getDb();
   let sql = `
@@ -815,7 +859,12 @@ export async function getRekapPenerimaanDudukanPetugas(params: {
            b.kode as banjar_kode,
            b.nama as banjar_nama,
            p.petugas_id,
-           COALESCE(NULLIF(TRIM(t.nama), ''), '—') as petugas_nama,
+           CASE
+             WHEN p.petugas_id IS NULL OR TRIM(COALESCE(p.petugas_id, '')) = ''
+               THEN 'Kantor / tanpa petugas'
+             ELSE COALESCE(NULLIF(TRIM(t.nama), ''), '—')
+           END as petugas_nama,
+           t.tipe as petugas_tipe_raw,
            COALESCE(SUM(p.jumlah), 0) as jumlah
     FROM dudukan_pembayaran p
     JOIN krama k ON k.id = p.krama_id
@@ -850,20 +899,28 @@ export async function getRekapPenerimaanDudukanPetugas(params: {
   `;
 
   const flat = await db.select<PetugasAggRow[]>(sql, args);
+  const tipeFilter = params.tipe?.trim()
+    ? (params.tipe.trim() as RekapPetugasDudukanTipe)
+    : null;
 
   type BanjarAcc = {
     meta: { banjar_nama: string; banjar_kode: string };
     petugasRows: RekapPetugasDudukanRow[];
     total: number;
+    totalByTipe: Record<RekapPetugasDudukanTipe, number>;
   };
 
   const byTanggal = new Map<string, Map<string, BanjarAcc>>();
   let grandTotal = 0;
   let rowCount = 0;
+  const totalsByTipe = emptyTotalsByTipe();
 
   for (const r of flat) {
     const jumlah = roundRp(r.jumlah);
     if (jumlah <= 0) continue;
+
+    const petugas_tipe = resolveRekapPetugasDudukanTipe(r.petugas_id, r.petugas_tipe_raw);
+    if (tipeFilter && petugas_tipe !== tipeFilter) continue;
 
     let byBanjar = byTanggal.get(r.tanggal);
     if (!byBanjar) {
@@ -877,6 +934,7 @@ export async function getRekapPenerimaanDudukanPetugas(params: {
         meta: { banjar_nama: r.banjar_nama, banjar_kode: r.banjar_kode },
         petugasRows: [],
         total: 0,
+        totalByTipe: emptyTotalsByTipe(),
       };
       byBanjar.set(r.banjar_id, banjar);
     }
@@ -884,10 +942,13 @@ export async function getRekapPenerimaanDudukanPetugas(params: {
     banjar.petugasRows.push({
       petugas_id: r.petugas_id,
       petugas_nama: r.petugas_nama?.trim() || "—",
+      petugas_tipe,
       jumlah,
     });
     banjar.total += jumlah;
+    banjar.totalByTipe[petugas_tipe] += jumlah;
     grandTotal += jumlah;
+    totalsByTipe[petugas_tipe] += jumlah;
     rowCount += 1;
   }
 
@@ -901,9 +962,12 @@ export async function getRekapPenerimaanDudukanPetugas(params: {
     for (const [banjar_id, acc] of [...byBanjar.entries()].sort((a, b) =>
       compareBanjarKode(a[1].meta.banjar_kode, b[1].meta.banjar_kode)
     )) {
-      acc.petugasRows.sort((a, b) =>
-        a.petugas_nama.localeCompare(b.petugas_nama, "id", { sensitivity: "base" })
-      );
+      acc.petugasRows.sort((a, b) => {
+        const ti = REKAP_PETUGAS_TIPE_ORDER.indexOf(a.petugas_tipe);
+        const tj = REKAP_PETUGAS_TIPE_ORDER.indexOf(b.petugas_tipe);
+        if (ti !== tj) return ti - tj;
+        return a.petugas_nama.localeCompare(b.petugas_nama, "id", { sensitivity: "base" });
+      });
       tanggalTotal += acc.total;
       banjarGroups.push({
         banjar_id,
@@ -911,17 +975,35 @@ export async function getRekapPenerimaanDudukanPetugas(params: {
         banjar_kode: acc.meta.banjar_kode,
         petugasRows: acc.petugasRows,
         total: acc.total,
+        totalByTipe: acc.totalByTipe,
       });
     }
 
     groups.push({ tanggal, banjarGroups, total: tanggalTotal });
   }
 
-  return { groups, grandTotal, rowCount };
+  return { groups, grandTotal, rowCount, totalsByTipe };
 }
 
 export type RekapPenerimaanDudukanPetugasTableRow =
-  | { kind: "data"; tanggal: string; uraian: string; jumlah: number }
+  | { kind: "banjar-header"; tanggal: string; banjar_nama: string }
+  | { kind: "tipe-header"; tanggal: string; tipe: RekapPetugasDudukanTipe; label: string }
+  | {
+      kind: "data";
+      tanggal: string;
+      uraian: string;
+      tipe: RekapPetugasDudukanTipe;
+      jumlah: number;
+    }
+  | {
+      kind: "tipe-subtotal";
+      tanggal: string;
+      tipe: RekapPetugasDudukanTipe;
+      label: string;
+      total: number;
+    }
+  | { kind: "banjar-subtotal"; tanggal: string; banjar_nama: string; total: number }
+  | { kind: "tipe-grand-total"; tipe: RekapPetugasDudukanTipe; label: string; total: number }
   | { kind: "grand-total"; total: number };
 
 export function buildRekapPenerimaanDudukanPetugasTableRows(
@@ -931,15 +1013,58 @@ export function buildRekapPenerimaanDudukanPetugasTableRows(
 
   for (const tanggalGroup of rekap.groups) {
     for (const banjarGroup of tanggalGroup.banjarGroups) {
-      for (const p of banjarGroup.petugasRows) {
+      out.push({
+        kind: "banjar-header",
+        tanggal: tanggalGroup.tanggal,
+        banjar_nama: banjarGroup.banjar_nama,
+      });
+
+      for (const tipe of REKAP_PETUGAS_TIPE_ORDER) {
+        const rows = banjarGroup.petugasRows.filter((p) => p.petugas_tipe === tipe);
+        if (rows.length === 0) continue;
+
         out.push({
-          kind: "data",
+          kind: "tipe-header",
           tanggal: tanggalGroup.tanggal,
-          uraian: formatUraianPetugasDudukan(banjarGroup.banjar_nama, p.petugas_nama),
-          jumlah: p.jumlah,
+          tipe,
+          label: formatRekapPetugasDudukanTipeLabel(tipe),
+        });
+        for (const p of rows) {
+          out.push({
+            kind: "data",
+            tanggal: tanggalGroup.tanggal,
+            uraian: p.petugas_nama,
+            tipe,
+            jumlah: p.jumlah,
+          });
+        }
+        out.push({
+          kind: "tipe-subtotal",
+          tanggal: tanggalGroup.tanggal,
+          tipe,
+          label: formatRekapPetugasDudukanTipeSubtotal(tipe),
+          total: banjarGroup.totalByTipe[tipe],
         });
       }
+
+      out.push({
+        kind: "banjar-subtotal",
+        tanggal: tanggalGroup.tanggal,
+        banjar_nama: banjarGroup.banjar_nama,
+        total: banjarGroup.total,
+      });
     }
+  }
+
+  for (const tipe of REKAP_PETUGAS_TIPE_ORDER) {
+    const total = rekap.totalsByTipe[tipe];
+    if (total <= 0) continue;
+    out.push({
+      kind: "tipe-grand-total",
+      tipe,
+      label: `Jumlah keseluruhan ${formatRekapPetugasDudukanTipeLabel(tipe)}`,
+      total,
+    });
   }
 
   out.push({ kind: "grand-total", total: rekap.grandTotal });
