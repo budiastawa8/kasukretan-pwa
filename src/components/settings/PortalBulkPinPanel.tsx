@@ -166,11 +166,20 @@ export function PortalBulkPinPanel() {
       {error && <p className="text-xs text-red-600">{error}</p>}
       <p className="text-[11px] text-muted flex items-center gap-1.5">
         <Globe size={14} className="shrink-0" aria-hidden />
-        Setelah menerapkan, pastikan krama sudah di-push ke cloud lalu{" "}
-        <Link to={settingsPath("online")} className="underline">
-          kirim portal
-        </Link>
-        .
+        {desktop ? (
+          <>
+            Setelah menerapkan, pastikan krama sudah di-push ke cloud lalu{" "}
+            <Link to={settingsPath("online")} className="underline">
+              kirim portal
+            </Link>
+            .
+          </>
+        ) : (
+          <>
+            PIN tersimpan di database online. Krama masuk di{" "}
+            <code className="text-[10px]">/portal/login</code> dengan nomor kartu dan PIN ini.
+          </>
+        )}
       </p>
     </Card>
   );

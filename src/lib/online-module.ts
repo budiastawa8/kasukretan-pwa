@@ -5,17 +5,15 @@ import { getLicenseStatus, isCloudModuleLicensed } from "./license";
 let cachedLicensedCloud: boolean | null = null;
 
 /**
- * Modul online (cloud sync, portal, petugas) membutuhkan lisensi desktop+cloud.
- * Di dev/debug build lisensi dilewati; di browser mengikuti env Vite.
+ * Di aplikasi desktop, modul online (sinkronisasi) menunggu langganan cloud.
+ * Di PWA/browser modul itu bagian dari aplikasi: PIN portal dan akun petugas
+ * tidak dikunci lisensi desktop. `VITE_ENABLE_ONLINE=false` mematikan semuanya.
  */
 export function isOnlineModuleEnabled(): boolean {
   const raw = import.meta.env.VITE_ENABLE_ONLINE;
   if (raw === "false") return false;
 
-  if (!isDesktopApp()) {
-    if (raw === "true") return true;
-    return import.meta.env.DEV;
-  }
+  if (!isDesktopApp()) return true;
 
   if (cachedLicensedCloud != null) return cachedLicensedCloud;
   return import.meta.env.DEV;

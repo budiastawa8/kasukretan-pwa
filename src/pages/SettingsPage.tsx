@@ -341,21 +341,23 @@ export function SettingsPage() {
 
       {activeTab === "online" && admin && (
         <div className="space-y-4">
-          <CloudSubscriptionPanel
-            onActivated={() => {
-              void refreshOnlineModuleLicense().then(() => setOnlineBump((n) => n + 1));
-            }}
-          />
+          {desktop && (
+            <CloudSubscriptionPanel
+              onActivated={() => {
+                void refreshOnlineModuleLicense().then(() => setOnlineBump((n) => n + 1));
+              }}
+            />
+          )}
           {onlineEnabled ? (
             <>
               <PortalBulkPinPanel />
               <PetugasAkunPanel />
-              <CloudSyncPanel />
+              {desktop && <CloudSyncPanel />}
             </>
           ) : (
             <p className="text-sm text-muted rounded-lg border border-copper-200 bg-copper-50/60 px-4 py-3">
               Aktifkan langganan cloud di atas agar PIN portal, akun petugas, dan sinkronisasi
-              tersedia. Di mode pengembangan (dev), modul online biasanya sudah terbuka.
+              tersedia.
             </p>
           )}
         </div>
