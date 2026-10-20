@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Check, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import {
   createTimKasukretan,
   deleteTimKasukretan,
@@ -53,6 +53,24 @@ function formFromItem(item: TimKasukretan): TimForm {
     nomor_kontak: item.nomor_kontak?.trim() ?? "",
     tipe: normalizeTimKasukretanTipe(item.tipe),
   };
+}
+
+function matchesTimCari(item: TimKasukretan, q: string): boolean {
+  const needle = q.trim().toLowerCase();
+  if (!needle) return true;
+  const tipe = normalizeTimKasukretanTipe(item.tipe);
+  const hay = [
+    item.nama,
+    item.jabatan,
+    item.banjar_nama,
+    item.banjar_kode,
+    item.nomor_kontak ?? "",
+    timKasukretanTipeLabel(tipe),
+    tipe,
+  ]
+    .join(" ")
+    .toLowerCase();
+  return hay.includes(needle);
 }
 
 function TimFormFields({
@@ -168,6 +186,7 @@ export function TimKasukretanMasterTab({
   const isPhone = useIsPhoneClient();
   const cardClass = cn(MASTER_CARD_TITLED, isPhone && MASTER_CARD_PHONE);
   const [rows, setRows] = useState<TimKasukretan[]>([]);
+  const [cari, setCari] = useState("");
   const [banjar, setBanjar] = useState<Banjar[]>([]);
   const [timBantuanAktif, setTimBantuanAktif] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -272,6 +291,11 @@ export function TimKasukretanMasterTab({
     setEditForm(formFromItem(item));
   }
 
+  const filteredRows = useMemo(
+    () => rows.filter((r) => matchesTimCari(r, cari)),
+    [rows, cari]
+  );
+
   if (loading) {
     return <p className="text-sm text-muted leading-snug">Memuat Tim Kasukretan...</p>;
   }
@@ -322,6 +346,28 @@ export function TimKasukretanMasterTab({
       )}
 
       <Card title="Daftar Tim Kasukretan" compact className={cn(cardClass, MASTER_TABLE)}>
+        {rows.length > 0 && (
+          <div className="mb-2 relative">
+            <Search
+              size={14}
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted pointer-events-none"
+              aria-hidden
+            />
+            <Input
+              className="pl-8 h-10"
+              value={cari}
+              onChange={(e) => setCari(e.target.value)}
+              placeholder="Cari nama, banjar, jabatan, tipe, kontak…"
+              aria-label="Cari anggota tim"
+            />
+            {cari.trim() && (
+              <p className="mt-1 text-[11px] text-muted">
+                Menampilkan {filteredRows.length} dari {rows.length} anggota
+              </p>
+            )}
+          </div>
+        )}
+
         {editingId && canEdit && (
           <form
             onSubmit={handleEditSave}
@@ -365,7 +411,7 @@ export function TimKasukretanMasterTab({
 
         {isPhone ? (
           <ul className="space-y-2">
-            {rows.map((r) =>
+            {filteredRows.map((r) =>
               editingId === r.id ? null : (
                 <li
                   key={r.id}
@@ -408,6 +454,9 @@ export function TimKasukretanMasterTab({
             {!rows.length && (
               <p className="text-center py-6 text-muted leading-snug">Belum ada anggota tim</p>
             )}
+            {rows.length > 0 && !filteredRows.length && (
+              <p className="text-center py-6 text-muted leading-snug">Tidak ada yang cocok dengan pencarian</p>
+            )}
           </ul>
         ) : (
           <div className="overflow-x-auto">
@@ -423,7 +472,7 @@ export function TimKasukretanMasterTab({
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) =>
+                {filteredRows.map((r) =>
                   editingId === r.id ? null : (
                     <tr key={r.id} className={LIST_BODY_ROW}>
                       <td>{r.nama}</td>
@@ -465,6 +514,9 @@ export function TimKasukretanMasterTab({
             </table>
             {!rows.length && (
               <p className="text-center py-6 text-muted leading-snug">Belum ada anggota tim</p>
+            )}
+            {rows.length > 0 && !filteredRows.length && (
+              <p className="text-center py-6 text-muted leading-snug">Tidak ada yang cocok dengan pencarian</p>
             )}
           </div>
         )}
