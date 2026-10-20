@@ -466,7 +466,7 @@ function normalizeNomorKontak(raw?: string | null): string | null {
 export async function listTimKasukretan(banjarId?: string): Promise<TimKasukretan[]> {
   const db = await getDb();
   let sql = `
-    SELECT t.id, t.nama, t.banjar_id, t.jabatan, t.nomor_kontak, t.created_at, t.updated_at,
+    SELECT t.id, t.nama, t.banjar_id, t.jabatan, t.nomor_kontak, t.tipe, t.created_at, t.updated_at,
            b.nama as banjar_nama, b.kode as banjar_kode
     FROM tim_kasukretan t
     JOIN banjar b ON b.id = t.banjar_id AND b.aktif = 1
@@ -476,7 +476,7 @@ export async function listTimKasukretan(banjarId?: string): Promise<TimKasukreta
     sql += ` WHERE t.banjar_id = $1`;
     args.push(banjarId);
   }
-  sql += ` ORDER BY t.nama ASC`;
+  sql += ` ORDER BY CASE WHEN t.tipe = 'bantuan' THEN 1 ELSE 0 END, t.nama ASC`;
   return db.select<TimKasukretan[]>(sql, args);
 }
 
@@ -484,16 +484,32 @@ export async function createTimKasukretan(
   nama: string,
   banjarId: string,
   jabatan: string,
-  nomorKontak?: string | null
+  nomorKontak?: string | null,
+  tipe: "banjar" | "bantuan" = "banjar"
 ): Promise<string> {
   if (!banjarId?.trim()) throw new Error("Banjar wajib dipilih");
   await assertBanjarAktif(banjarId);
+  if (tipe === "bantuan") {
+    const { getDesaAdat } = await import("./desa");
+    const { isTimBantuanFiturAktif } = await import("../tim-bantuan");
+    const desa = await getDesaAdat();
+    if (!isTimBantuanFiturAktif(desa)) {
+      throw new Error("Fitur Tim Bantuan belum diaktifkan di Profil Desa Adat");
+    }
+  }
   const db = await getDb();
   const id = uuid();
   await db.execute(
-    `INSERT INTO tim_kasukretan (id, nama, banjar_id, jabatan, nomor_kontak)
-     VALUES ($1, $2, $3, $4, $5)`,
-    [id, requireNama(nama), banjarId, requireJabatan(jabatan), normalizeNomorKontak(nomorKontak)]
+    `INSERT INTO tim_kasukretan (id, nama, banjar_id, jabatan, nomor_kontak, tipe)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [
+      id,
+      requireNama(nama),
+      banjarId,
+      requireJabatan(jabatan),
+      normalizeNomorKontak(nomorKontak),
+      tipe === "bantuan" ? "bantuan" : "banjar",
+    ]
   );
   return id;
 }
@@ -503,10 +519,19 @@ export async function updateTimKasukretan(
   nama: string,
   banjarId: string,
   jabatan: string,
-  nomorKontak?: string | null
+  nomorKontak?: string | null,
+  tipe: "banjar" | "bantuan" = "banjar"
 ): Promise<void> {
   if (!banjarId?.trim()) throw new Error("Banjar wajib dipilih");
   await assertBanjarAktif(banjarId);
+  if (tipe === "bantuan") {
+    const { getDesaAdat } = await import("./desa");
+    const { isTimBantuanFiturAktif } = await import("../tim-bantuan");
+    const desa = await getDesaAdat();
+    if (!isTimBantuanFiturAktif(desa)) {
+      throw new Error("Fitur Tim Bantuan belum diaktifkan di Profil Desa Adat");
+    }
+  }
   const db = await getDb();
   const rows = await db.select<{ c: number }[]>(
     `SELECT COUNT(*) as c FROM tim_kasukretan WHERE id = $1`,
@@ -515,9 +540,16 @@ export async function updateTimKasukretan(
   if ((rows[0]?.c ?? 0) === 0) throw new Error("Anggota tim tidak ditemukan");
   await db.execute(
     `UPDATE tim_kasukretan SET
-      nama = $1, banjar_id = $2, jabatan = $3, nomor_kontak = $4, updated_at = datetime('now')
-     WHERE id = $5`,
-    [requireNama(nama), banjarId, requireJabatan(jabatan), normalizeNomorKontak(nomorKontak), id]
+      nama = $1, banjar_id = $2, jabatan = $3, nomor_kontak = $4, tipe = $5, updated_at = datetime('now')
+     WHERE id = $6`,
+    [
+      requireNama(nama),
+      banjarId,
+      requireJabatan(jabatan),
+      normalizeNomorKontak(nomorKontak),
+      tipe === "bantuan" ? "bantuan" : "banjar",
+      id,
+    ]
   );
 }
 

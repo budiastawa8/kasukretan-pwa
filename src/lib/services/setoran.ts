@@ -117,6 +117,34 @@ export async function listPembayaranBelumDisetor(
   return selectPembayaranItems(where, where, [petugasId, petugasId]);
 }
 
+/** Semua pembayaran yang dicatat petugas ini (sudah/belum disetor), opsional filter tanggal. */
+export async function listPembayaranOlehPetugas(params: {
+  petugasId: string;
+  dari?: string;
+  sampai?: string;
+  /** Jika true, hanya Dudukan (Tim Bantuan). */
+  hanyaDudukan?: boolean;
+}): Promise<PembayaranSetoranItem[]> {
+  const dari = params.dari ? parseIsoDateString(params.dari) : null;
+  const sampai = params.sampai ? parseIsoDateString(params.sampai) : null;
+  const parts: string[] = ["p.petugas_id IS ?"];
+  const args: unknown[] = [params.petugasId];
+  if (dari) {
+    parts.push("p.tanggal >= ?");
+    args.push(dari);
+  }
+  if (sampai) {
+    parts.push("p.tanggal <= ?");
+    args.push(sampai);
+  }
+  const where = parts.join(" AND ");
+  if (params.hanyaDudukan) {
+    // Paturunan tidak dipakai (tanpa placeholder); argumen hanya untuk Dudukan.
+    return selectPembayaranItems("1 = 0", where, args);
+  }
+  return selectPembayaranItems(where, where, [...args, ...args]);
+}
+
 export async function listPembayaranDalamSetoran(
   setoranId: string
 ): Promise<PembayaranSetoranItem[]> {

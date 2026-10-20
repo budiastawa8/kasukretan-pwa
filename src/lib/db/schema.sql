@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS desa_adat (
   auto_perpanjang_pemasih INTEGER NOT NULL DEFAULT 0,
   auto_perpanjang_pemasih_tamiu INTEGER NOT NULL DEFAULT 0,
   enforce_masa_berlaku_pipil INTEGER NOT NULL DEFAULT 1,
+  tim_bantuan_aktif INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -512,6 +513,8 @@ CREATE TABLE IF NOT EXISTS tim_kasukretan (
   banjar_id TEXT NOT NULL REFERENCES banjar(id),
   jabatan TEXT NOT NULL,
   nomor_kontak TEXT,
+  /** banjar = petugas biasa; bantuan = Tim Bantuan (hanya Dudukan, 1 banjar) */
+  tipe TEXT NOT NULL DEFAULT 'banjar',
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

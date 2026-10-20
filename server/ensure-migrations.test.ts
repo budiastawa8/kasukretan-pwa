@@ -15,10 +15,14 @@ describe("ensureServerMigrations", () => {
     dbExecute.mockReset();
   });
 
-  it("menambah nomor_kontak dan nomor_kartu_norm bila belum ada", async () => {
-    // tableHasColumn tim_kasukretan
+  it("menambah kolom Tim Bantuan dan nomor_kartu_norm bila belum ada", async () => {
+    // tableHasColumn tim_kasukretan (nomor_kontak)
     dbSelect.mockResolvedValueOnce([{ name: "id" }, { name: "nama" }]);
-    // tableHasColumn krama
+    // tableHasColumn desa_adat (tim_bantuan_aktif)
+    dbSelect.mockResolvedValueOnce([{ name: "id" }]);
+    // tableHasColumn tim_kasukretan (tipe)
+    dbSelect.mockResolvedValueOnce([{ name: "id" }, { name: "nama" }, { name: "nomor_kontak" }]);
+    // tableHasColumn krama (nomor_kartu_norm)
     dbSelect.mockResolvedValueOnce([{ name: "id" }, { name: "nomor_kartu" }]);
     dbExecute.mockResolvedValue({ rowsAffected: 0 });
 
@@ -29,15 +33,28 @@ describe("ensureServerMigrations", () => {
       "ALTER TABLE tim_kasukretan ADD COLUMN nomor_kontak TEXT"
     );
     expect(dbExecute).toHaveBeenCalledWith(
+      "ALTER TABLE desa_adat ADD COLUMN tim_bantuan_aktif INTEGER NOT NULL DEFAULT 0"
+    );
+    expect(dbExecute).toHaveBeenCalledWith(
+      "ALTER TABLE tim_kasukretan ADD COLUMN tipe TEXT NOT NULL DEFAULT 'banjar'"
+    );
+    expect(dbExecute).toHaveBeenCalledWith(
       "ALTER TABLE krama ADD COLUMN nomor_kartu_norm TEXT"
     );
   });
 
-  it("tidak ALTER kontak bila sudah ada; tetap backfill kartu norm", async () => {
+  it("tidak ALTER bila kolom sudah ada; tetap backfill kartu norm", async () => {
     dbSelect.mockResolvedValueOnce([
       { name: "id" },
       { name: "nama" },
       { name: "nomor_kontak" },
+    ]);
+    dbSelect.mockResolvedValueOnce([{ name: "id" }, { name: "tim_bantuan_aktif" }]);
+    dbSelect.mockResolvedValueOnce([
+      { name: "id" },
+      { name: "nama" },
+      { name: "nomor_kontak" },
+      { name: "tipe" },
     ]);
     dbSelect.mockResolvedValueOnce([
       { name: "id" },

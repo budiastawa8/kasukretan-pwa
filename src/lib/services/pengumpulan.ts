@@ -3,6 +3,13 @@ import { normalizeNomorKartuKey } from "../kartu-qr";
 import { buildKramaSearchSql, classifySearchQuery } from "../search-query";
 import { hitungSisaPaturunan } from "../paturunan-hitung";
 import { isJabatanPenerimaSemuaBanjar } from "../petugas-jabatan";
+import {
+  isTimBantuanFiturAktif,
+  isTimBantuanTipe,
+  normalizeTimKasukretanTipe,
+  type TimKasukretanTipe,
+} from "../tim-bantuan";
+import { getDesaAdat } from "./desa";
 import type { PetugasStrukPreviewState } from "../petugas-struk-preview";
 import type {
   StrukDudukanPdfPayload,
@@ -22,6 +29,9 @@ export type PetugasLapangan = {
   banjar_id: string;
   banjar_nama: string;
   semua_banjar: boolean;
+  tipe: TimKasukretanTipe;
+  /** Tim Bantuan: hanya Dudukan, 1 banjar, tanpa penerimaan agregat banjar. */
+  is_tim_bantuan: boolean;
 };
 
 export type KramaPengumpulan = {
@@ -78,11 +88,30 @@ export function bolehPengumpulanKrama(petugas: PetugasLapangan, krama: KramaPeng
   return petugas.semua_banjar || krama.banjar_id === petugas.banjar_id;
 }
 
+/** Mode yang boleh dipilih petugas (Tim Bantuan hanya Dudukan). */
+export function modePengumpulanDiizinkan(petugas: PetugasLapangan): ModePengumpulan[] {
+  if (petugas.is_tim_bantuan) return ["dudukan"];
+  return ["paturunan", "dudukan"];
+}
+
+export function bolehModePengumpulan(petugas: PetugasLapangan, mode: ModePengumpulan): boolean {
+  return modePengumpulanDiizinkan(petugas).includes(mode);
+}
+
 /** Profil Tim Kasukretan untuk akun yang sedang login (null = belum dihubungkan admin). */
 export async function getPetugasLapanganSaya(userId: string): Promise<PetugasLapangan | null> {
   const db = await getDb();
-  const rows = await db.select<Omit<PetugasLapangan, "semua_banjar">[]>(
-    `SELECT t.id, t.nama, t.jabatan, t.banjar_id, b.nama as banjar_nama
+  const rows = await db.select<
+    {
+      id: string;
+      nama: string;
+      jabatan: string;
+      banjar_id: string;
+      banjar_nama: string;
+      tipe: string | null;
+    }[]
+  >(
+    `SELECT t.id, t.nama, t.jabatan, t.banjar_id, b.nama as banjar_nama, t.tipe
      FROM user u
      JOIN tim_kasukretan t ON t.id = u.tim_kasukretan_id
      JOIN banjar b ON b.id = t.banjar_id
@@ -91,7 +120,24 @@ export async function getPetugasLapanganSaya(userId: string): Promise<PetugasLap
   );
   const row = rows[0];
   if (!row) return null;
-  return { ...row, semua_banjar: isJabatanPenerimaSemuaBanjar(row.jabatan) };
+
+  const tipe = normalizeTimKasukretanTipe(row.tipe);
+  if (isTimBantuanTipe(tipe)) {
+    const desa = await getDesaAdat();
+    if (!isTimBantuanFiturAktif(desa)) return null;
+  }
+
+  return {
+    id: row.id,
+    nama: row.nama,
+    jabatan: row.jabatan,
+    banjar_id: row.banjar_id,
+    banjar_nama: row.banjar_nama,
+    tipe,
+    is_tim_bantuan: isTimBantuanTipe(tipe),
+    // Tim Bantuan tidak pernah "semua banjar" meskipun jabatan pejabat.
+    semua_banjar: !isTimBantuanTipe(tipe) && isJabatanPenerimaSemuaBanjar(row.jabatan),
+  };
 }
 
 const KRAMA_PENGUMPULAN_SELECT = `

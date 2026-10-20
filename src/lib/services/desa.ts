@@ -24,7 +24,8 @@ const DESA_CORE_COLUMNS = `
   panyarikan_nama, panyarikan_jabatan, patengen_nama, patengen_jabatan,
   pararem_nomor, pararem_tahun, pararem_judul,
   auto_perpanjang_pemasih, auto_perpanjang_pemasih_tamiu,
-  enforce_masa_berlaku_pipil, charge_biaya_admin_pemasih
+  enforce_masa_berlaku_pipil, charge_biaya_admin_pemasih,
+  tim_bantuan_aktif
 `.replace(/\s+/g, " ").trim();
 
 type DesaCacheSlot = { at: number; promise: Promise<DesaAdat | null> };
@@ -254,6 +255,8 @@ export type ProfilDesaAdatInput = PrajuruDesaAdatInput & {
   pararem_nomor?: string;
   pararem_tahun?: string;
   pararem_judul?: string;
+  /** Aktifkan fitur Tim Bantuan. Off → akun login Tim Bantuan dinonaktifkan. */
+  tim_bantuan_aktif?: boolean;
 };
 
 function parseOptionalInt(value: unknown): number | null {
@@ -305,6 +308,9 @@ export async function updateProfilDesaAdat(data: ProfilDesaAdatInput): Promise<D
     throw new Error("Jenis Nyada, Dapukan, dan Balu Nglintik harus berbeda");
   }
 
+  const timBantuanAktif = !!data.tim_bantuan_aktif;
+  const timBantuanDimatikan = !!Number(existing.tim_bantuan_aktif) && !timBantuanAktif;
+
   const db = await getDb();
   const baluDapukanLama = existing.jenis_balu_dapukan_mipil_id?.trim() || null;
   if (baluDapukanLama && dapukanJenisId && baluDapukanLama !== dapukanJenisId) {
@@ -329,6 +335,7 @@ export async function updateProfilDesaAdat(data: ProfilDesaAdatInput): Promise<D
       bandesa_ttd_url = ?, call_center = ?,
       panyarikan_nama = ?, panyarikan_jabatan = ?, panyarikan_ttd_url = ?,
       patengen_nama = ?, patengen_jabatan = ?,
+      tim_bantuan_aktif = ?,
       updated_at = datetime('now')
     WHERE id = ?`,
     [
@@ -360,9 +367,20 @@ export async function updateProfilDesaAdat(data: ProfilDesaAdatInput): Promise<D
       trimOrNull(data.panyarikan_ttd_url ?? undefined),
       trimOrNull(data.patengen_nama),
       trimOrNull(data.patengen_jabatan),
+      timBantuanAktif ? 1 : 0,
       existing.id,
     ]
   );
+
+  if (timBantuanDimatikan) {
+    await db.execute(
+      `UPDATE user SET aktif = 0
+       WHERE tim_kasukretan_id IN (
+         SELECT id FROM tim_kasukretan WHERE tipe = 'bantuan'
+       )`
+    );
+  }
+
   invalidateDesaAdatCache();
   return (await getDesaAdatWithMedia())!;
 }

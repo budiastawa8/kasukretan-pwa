@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowLeft, ClipboardList } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { PenerimaanBanjarCard } from "../components/pengumpulan/PenerimaanBanjarCard";
+import { PembayaranSayaCard } from "../components/pengumpulan/PembayaranSayaCard";
 import { RiwayatSetoranCard } from "../components/pengumpulan/RiwayatSetoranCard";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
@@ -40,12 +41,16 @@ export function PengumpulanRekapPage() {
       return;
     }
     void getPetugasLapanganSaya(user.id)
-      .then(setPetugas)
+      .then((p) => {
+        setPetugas(p);
+        if (p?.is_tim_bantuan) setMode("dudukan");
+      })
       .catch((e) => setError(String(e)))
       .finally(() => setLoaded(true));
   }, [user]);
 
   function pilihMode(m: ModePengumpulan) {
+    if (petugas?.is_tim_bantuan && m !== "dudukan") return;
     setMode(m);
     try {
       localStorage.setItem(MODE_STORAGE_KEY, m);
@@ -73,6 +78,8 @@ export function PengumpulanRekapPage() {
     );
   }
 
+  const isBantuan = petugas.is_tim_bantuan;
+
   return (
     <div className="mx-auto max-w-xl space-y-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -82,7 +89,8 @@ export function PengumpulanRekapPage() {
             Rekap &amp; Riwayat Saya
           </h2>
           <p className="mt-0.5 text-xs text-muted">
-            {petugas.nama} · {petugas.jabatan} ·{" "}
+            {petugas.nama} · {petugas.jabatan}
+            {isBantuan ? " · Tim Bantuan" : ""} ·{" "}
             {petugas.semua_banjar ? "semua banjar" : `Banjar ${petugas.banjar_nama}`}
           </p>
         </div>
@@ -91,33 +99,45 @@ export function PengumpulanRekapPage() {
         </IconLink>
       </div>
 
-      <RiwayatSetoranCard petugasId={petugas.id} petugasJabatan={petugas.jabatan} />
+      {isBantuan ? (
+        <PembayaranSayaCard petugasId={petugas.id} />
+      ) : (
+        <RiwayatSetoranCard petugasId={petugas.id} petugasJabatan={petugas.jabatan} />
+      )}
 
-      <Card title="Jenis penerimaan">
-        <p className="mb-2 text-xs text-muted">
-          Pilih jenis iuran untuk melihat penerimaan banjar pada periode yang dipilih.
-        </p>
-        <div className="grid grid-cols-2 gap-2">
-          <Button
-            type="button"
-            variant={mode === "paturunan" ? "primary" : "secondary"}
-            className={cn("h-11", mode === "paturunan" && "ring-1 ring-copper-700")}
-            onClick={() => pilihMode("paturunan")}
-          >
-            Paturunan
-          </Button>
-          <Button
-            type="button"
-            variant={mode === "dudukan" ? "primary" : "secondary"}
-            className={cn("h-11", mode === "dudukan" && "ring-1 ring-copper-700")}
-            onClick={() => pilihMode("dudukan")}
-          >
-            Dudukan
-          </Button>
-        </div>
-      </Card>
+      {!isBantuan && (
+        <>
+          <Card title="Jenis penerimaan">
+            <p className="mb-2 text-xs text-muted">
+              Pilih jenis iuran untuk melihat penerimaan banjar pada periode yang dipilih.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant={mode === "paturunan" ? "primary" : "secondary"}
+                className={cn("h-11", mode === "paturunan" && "ring-1 ring-copper-700")}
+                onClick={() => pilihMode("paturunan")}
+              >
+                Paturunan
+              </Button>
+              <Button
+                type="button"
+                variant={mode === "dudukan" ? "primary" : "secondary"}
+                className={cn("h-11", mode === "dudukan" && "ring-1 ring-copper-700")}
+                onClick={() => pilihMode("dudukan")}
+              >
+                Dudukan
+              </Button>
+            </div>
+          </Card>
 
-      <PenerimaanBanjarCard petugas={petugas} mode={mode} />
+          <PenerimaanBanjarCard petugas={petugas} mode={mode} />
+        </>
+      )}
+
+      {isBantuan && (
+        <RiwayatSetoranCard petugasId={petugas.id} petugasJabatan={petugas.jabatan} />
+      )}
 
       <p className="px-1 text-center text-[11px] text-muted">
         Untuk mencatat pembayaran baru, buka{" "}

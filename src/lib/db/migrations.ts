@@ -604,6 +604,7 @@ export async function runMasterDataMigrations(db: Database): Promise<void> {
   await migrateSetoranPetugas(db);
   await migrateUserTimKasukretan(db);
   await migrateTimKasukretanKontak(db);
+  await migrateTimBantuan(db);
   await migrateKramaNomorKartuNorm(db);
   await ensureRingkasanIndexes(db);
   await ensureRingkasanCacheTable(db);
@@ -643,6 +644,32 @@ async function migrateTimKasukretanKontak(db: Database): Promise<void> {
   } catch {
     if (!(await tableHasColumn(db, "tim_kasukretan", "nomor_kontak"))) {
       throw new Error("Gagal menambah kolom nomor_kontak pada tim_kasukretan");
+    }
+  }
+}
+
+/** Tim Bantuan: flag desa + tipe anggota tim (banjar | bantuan). */
+async function migrateTimBantuan(db: Database): Promise<void> {
+  if (!(await tableHasColumn(db, "desa_adat", "tim_bantuan_aktif"))) {
+    try {
+      await db.execute(
+        `ALTER TABLE desa_adat ADD COLUMN tim_bantuan_aktif INTEGER NOT NULL DEFAULT 0`
+      );
+    } catch {
+      if (!(await tableHasColumn(db, "desa_adat", "tim_bantuan_aktif"))) {
+        throw new Error("Gagal menambah kolom tim_bantuan_aktif pada desa_adat");
+      }
+    }
+  }
+  if (!(await tableHasColumn(db, "tim_kasukretan", "tipe"))) {
+    try {
+      await db.execute(
+        `ALTER TABLE tim_kasukretan ADD COLUMN tipe TEXT NOT NULL DEFAULT 'banjar'`
+      );
+    } catch {
+      if (!(await tableHasColumn(db, "tim_kasukretan", "tipe"))) {
+        throw new Error("Gagal menambah kolom tipe pada tim_kasukretan");
+      }
     }
   }
 }

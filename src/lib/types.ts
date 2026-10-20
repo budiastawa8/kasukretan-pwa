@@ -67,6 +67,8 @@ export interface DesaAdat {
   enforce_masa_berlaku_pipil?: number | null;
   /** 1 = kenakan biaya administrasi saat pendaftaran/perpanjangan Pemasih */
   charge_biaya_admin_pemasih?: number | null;
+  /** 1 = desa memakai Tim Bantuan (pengumpulan Dudukan terbatas) */
+  tim_bantuan_aktif?: number | null;
 }
 
 export type PrajuruDesaAdatInput = {
@@ -127,6 +129,8 @@ export interface TimKasukretan {
   jabatan: string;
   /** Nomor HP/WhatsApp petugas (opsional). */
   nomor_kontak?: string | null;
+  /** banjar = Tim Banjar; bantuan = Tim Bantuan. */
+  tipe?: "banjar" | "bantuan" | null;
   banjar_nama: string;
   banjar_kode: string;
   created_at?: string;

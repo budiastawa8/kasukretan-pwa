@@ -19,7 +19,14 @@ import {
   type UserRecord,
 } from "../../lib/services/users";
 import { listTimKasukretan } from "../../lib/services/master";
+import { getDesaAdat } from "../../lib/services/desa";
 import type { TimKasukretan } from "../../lib/types";
+import {
+  isTimBantuanFiturAktif,
+  isTimBantuanTipe,
+  normalizeTimKasukretanTipe,
+  timKasukretanTipeLabel,
+} from "../../lib/tim-bantuan";
 import { useIsPhoneClient } from "../../hooks/useClientFormFactor";
 import { LIST_CARD, LIST_CARD_PHONE } from "../ui/list-compact";
 import { cn } from "../../lib/utils";
@@ -28,25 +35,33 @@ function TimKasukretanSelect({
   tim,
   value,
   onChange,
+  timBantuanAktif,
 }: {
   tim: TimKasukretan[];
   value: string;
   onChange: (v: string) => void;
+  timBantuanAktif: boolean;
 }) {
+  const options = tim.filter(
+    (t) => timBantuanAktif || !isTimBantuanTipe(normalizeTimKasukretanTipe(t.tipe))
+  );
   return (
     <div>
       <Label>Nama di Tim Kasukretan</Label>
       <Select value={value} onChange={(e) => onChange(e.target.value)} required>
         <option value="">Pilih petugas</option>
-        {tim.map((t) => (
-          <option key={t.id} value={t.id}>
-            {t.nama} — {t.jabatan}
-          </option>
-        ))}
+        {options.map((t) => {
+          const tipe = normalizeTimKasukretanTipe(t.tipe);
+          return (
+            <option key={t.id} value={t.id}>
+              {t.nama} — {t.jabatan} ({timKasukretanTipeLabel(tipe)} · {t.banjar_nama})
+            </option>
+          );
+        })}
       </Select>
       <p className="mt-1 text-[11px] text-muted leading-snug">
-        Menentukan wilayah pengumpulan: hanya banjar petugas ini, kecuali jabatan Ketua, Sekretaris, atau
-        Bendahara (semua banjar).
+        Tim Banjar: wilayah = banjar petugas (Ketua/Sekretaris/Bendahara = semua banjar). Tim Bantuan:
+        hanya Dudukan di banjar tugas.
       </p>
     </div>
   );
@@ -57,6 +72,7 @@ export function UsersPanel() {
   const { user: session, refreshUser } = useAuth();
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [tim, setTim] = useState<TimKasukretan[]>([]);
+  const [timBantuanAktif, setTimBantuanAktif] = useState(false);
   const [newTimId, setNewTimId] = useState("");
   const [editTimId, setEditTimId] = useState("");
   const [loading, setLoading] = useState(true);
@@ -80,9 +96,10 @@ export function UsersPanel() {
     setLoading(true);
     setError("");
     try {
-      const [u, t] = await Promise.all([listUsers(), listTimKasukretan()]);
+      const [u, t, desa] = await Promise.all([listUsers(), listTimKasukretan(), getDesaAdat()]);
       setUsers(u);
       setTim(t);
+      setTimBantuanAktif(isTimBantuanFiturAktif(desa));
     } catch (e) {
       setError(String(e));
     } finally {
@@ -340,7 +357,12 @@ export function UsersPanel() {
               </Select>
             </div>
             {newPeran === "petugas" && (
-              <TimKasukretanSelect tim={tim} value={newTimId} onChange={setNewTimId} />
+              <TimKasukretanSelect
+                tim={tim}
+                value={newTimId}
+                onChange={setNewTimId}
+                timBantuanAktif={timBantuanAktif}
+              />
             )}
           </div>
           <Button
@@ -488,7 +510,12 @@ export function UsersPanel() {
               <Input value={editNama} onChange={(e) => setEditNama(e.target.value)} />
             </div>
             {users.find((u) => u.id === editUserId)?.peran === "petugas" && (
-              <TimKasukretanSelect tim={tim} value={editTimId} onChange={setEditTimId} />
+              <TimKasukretanSelect
+                tim={tim}
+                value={editTimId}
+                onChange={setEditTimId}
+                timBantuanAktif={timBantuanAktif}
+              />
             )}
           </div>
           <div className={cn("flex gap-2", isPhone && "flex-col")}>

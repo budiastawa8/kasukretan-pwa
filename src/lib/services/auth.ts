@@ -3,6 +3,7 @@ import { getDb } from "../db/client";
 import { normalizeStaffRole } from "../auth-roles";
 import { isDesktopApp } from "../runtime";
 import { isLanClientMode, lanLogin, lanVerifyPassword, probeLanBridge } from "../lan-client";
+import { isTimBantuanLoginDiblokir } from "./tim-bantuan-auth";
 
 export const SESSION_USER_KEY = "kasukretan_user";
 
@@ -42,6 +43,7 @@ export async function login(
   if (!user) return null;
   const ok = await bcrypt.compare(password, user.password_hash);
   if (!ok) return null;
+  if (await isTimBantuanLoginDiblokir(user.id)) return null;
   return {
     id: user.id,
     username: user.username,
@@ -62,6 +64,7 @@ export async function refreshSessionUser(userId: string): Promise<SessionUser | 
   );
   const user = rows[0];
   if (!user) return null;
+  if (await isTimBantuanLoginDiblokir(user.id)) return null;
   return {
     id: user.id,
     username: user.username,

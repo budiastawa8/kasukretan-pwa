@@ -21,6 +21,10 @@ async function runEnsureMigrations(): Promise<void> {
   // Pengingat setoran: kontak WhatsApp Tim Kasukretan
   await ensureColumn("tim_kasukretan", "nomor_kontak", "TEXT");
 
+  // Tim Bantuan (toggle desa + tipe anggota)
+  await ensureColumn("desa_adat", "tim_bantuan_aktif", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn("tim_kasukretan", "tipe", "TEXT NOT NULL DEFAULT 'banjar'");
+
   // Pencarian cepat nomor kartu
   await ensureColumn("krama", "nomor_kartu_norm", "TEXT");
   await dbExecute(

@@ -25,6 +25,7 @@ import {
   type PetugasStrukPreviewState,
 } from "../lib/petugas-struk-preview";
 import {
+  bolehModePengumpulan,
   bolehPengumpulanKrama,
   buildStrukDudukanPengumpulan,
   buildStrukPaturunanPengumpulan,
@@ -35,6 +36,7 @@ import {
   getStrukCetakUlang,
   isKramaMipil,
   isKramaPemasih,
+  modePengumpulanDiizinkan,
   modeUntukKrama,
   type KramaPengumpulan,
   type ModePengumpulan,
@@ -78,19 +80,31 @@ function useModePengumpulan() {
   return [mode, setMode] as const;
 }
 
-function PilihMode({ onPilih }: { onPilih: (m: ModePengumpulan) => void }) {
+function PilihMode({
+  onPilih,
+  allowed,
+}: {
+  onPilih: (m: ModePengumpulan) => void;
+  allowed: ModePengumpulan[];
+}) {
+  const showPaturunan = allowed.includes("paturunan");
+  const showDudukan = allowed.includes("dudukan");
   return (
     <div className="mt-3 space-y-2">
       <p className="text-sm text-copper-950 font-medium">Mau mengumpulkan apa?</p>
-      <div className="grid grid-cols-2 gap-2">
-        <Button type="button" className="h-20 flex-col text-base" onClick={() => onPilih("paturunan")}>
-          Paturunan
-          <span className="block text-[11px] font-normal opacity-90">Krama mipil</span>
-        </Button>
-        <Button type="button" className="h-20 flex-col text-base" onClick={() => onPilih("dudukan")}>
-          Dudukan
-          <span className="block text-[11px] font-normal opacity-90">Krama pemasih</span>
-        </Button>
+      <div className={cn("grid gap-2", showPaturunan && showDudukan ? "grid-cols-2" : "grid-cols-1")}>
+        {showPaturunan && (
+          <Button type="button" className="h-20 flex-col text-base" onClick={() => onPilih("paturunan")}>
+            Paturunan
+            <span className="block text-[11px] font-normal opacity-90">Krama mipil</span>
+          </Button>
+        )}
+        {showDudukan && (
+          <Button type="button" className="h-20 flex-col text-base" onClick={() => onPilih("dudukan")}>
+            Dudukan
+            <span className="block text-[11px] font-normal opacity-90">Krama pemasih</span>
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -128,6 +142,15 @@ export function PengumpulanPage() {
       .catch((e) => setError(String(e)))
       .finally(() => setPetugasLoaded(true));
   }, [user]);
+
+  useEffect(() => {
+    if (!petugas) return;
+    if (petugas.is_tim_bantuan) {
+      if (mode !== "dudukan") setMode("dudukan");
+      return;
+    }
+    if (mode && !bolehModePengumpulan(petugas, mode)) setMode(null);
+  }, [petugas, mode, setMode]);
 
   const loadPegangan = useCallback(async () => {
     if (!petugas) return;
@@ -174,6 +197,7 @@ export function PengumpulanPage() {
   );
 
   function gantiMode(m: ModePengumpulan | null) {
+    if (m && petugas && !bolehModePengumpulan(petugas, m)) return;
     setMode(m);
     setHasilCari([]);
     setError("");
@@ -306,13 +330,18 @@ export function PengumpulanPage() {
     <div className="space-y-3 max-w-xl mx-auto">
       <Card title="Pengumpulan iuran">
         <p className="text-sm text-copper-950 font-medium">
-          {petugas.nama} <span className="text-muted font-normal">· {petugas.jabatan}</span>
+          {petugas.nama}{" "}
+          <span className="text-muted font-normal">
+            · {petugas.jabatan}
+            {petugas.is_tim_bantuan ? " · Tim Bantuan" : ""}
+          </span>
         </p>
         <p className="text-xs text-muted">
           Wilayah: {petugas.semua_banjar ? "semua banjar" : `Banjar ${petugas.banjar_nama}`}
+          {petugas.is_tim_bantuan ? " · hanya Dudukan" : ""}
         </p>
         {!mode ? (
-          <PilihMode onPilih={gantiMode} />
+          <PilihMode onPilih={gantiMode} allowed={modePengumpulanDiizinkan(petugas)} />
         ) : (
           <>
             <div className="mt-3 flex items-center justify-between gap-2 rounded-lg border border-copper-200 bg-copper-50/70 px-3 py-2">
@@ -320,15 +349,17 @@ export function PengumpulanPage() {
                 Mengumpulkan:{" "}
                 <strong className="text-copper-950">{MODE_LABEL[mode]}</strong>
               </p>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                icon={ArrowLeftRight}
-                onClick={() => gantiMode(null)}
-              >
-                Ganti
-              </Button>
+              {!petugas.is_tim_bantuan && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  icon={ArrowLeftRight}
+                  onClick={() => gantiMode(null)}
+                >
+                  Ganti
+                </Button>
+              )}
             </div>
             <Button
               type="button"

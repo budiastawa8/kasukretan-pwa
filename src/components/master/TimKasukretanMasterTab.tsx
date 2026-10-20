@@ -7,7 +7,15 @@ import {
   listTimKasukretan,
   updateTimKasukretan,
 } from "../../lib/services/master";
+import { getDesaAdat } from "../../lib/services/desa";
 import type { Banjar, TimKasukretan } from "../../lib/types";
+import {
+  isTimBantuanFiturAktif,
+  isTimBantuanTipe,
+  normalizeTimKasukretanTipe,
+  timKasukretanTipeLabel,
+  type TimKasukretanTipe,
+} from "../../lib/tim-bantuan";
 import { MASTER_CARD_PHONE, MASTER_CARD_TITLED, MASTER_PAGE, MASTER_TABLE } from "./master-compact";
 import { useIsPhoneClient } from "../../hooks/useClientFormFactor";
 import {
@@ -26,6 +34,7 @@ type TimForm = {
   banjar_id: string;
   jabatan: string;
   nomor_kontak: string;
+  tipe: TimKasukretanTipe;
 };
 
 const emptyForm = (): TimForm => ({
@@ -33,6 +42,7 @@ const emptyForm = (): TimForm => ({
   banjar_id: "",
   jabatan: "",
   nomor_kontak: "",
+  tipe: "banjar",
 });
 
 function formFromItem(item: TimKasukretan): TimForm {
@@ -41,6 +51,7 @@ function formFromItem(item: TimKasukretan): TimForm {
     banjar_id: item.banjar_id,
     jabatan: item.jabatan,
     nomor_kontak: item.nomor_kontak?.trim() ?? "",
+    tipe: normalizeTimKasukretanTipe(item.tipe),
   };
 }
 
@@ -51,6 +62,7 @@ function TimFormFields({
   disabled,
   idPrefix,
   isPhone,
+  timBantuanAktif,
 }: {
   form: TimForm;
   banjar: Banjar[];
@@ -58,9 +70,38 @@ function TimFormFields({
   disabled?: boolean;
   idPrefix: string;
   isPhone?: boolean;
+  timBantuanAktif: boolean;
 }) {
   return (
-    <div className={cn("grid gap-2", isPhone ? "grid-cols-1" : "sm:grid-cols-2 lg:grid-cols-4")}>
+    <div className={cn("grid gap-2", isPhone ? "grid-cols-1" : "sm:grid-cols-2 lg:grid-cols-3")}>
+      {timBantuanAktif && (
+        <div>
+          <Label htmlFor={`${idPrefix}-tipe`}>Tipe</Label>
+          <Select
+            id={`${idPrefix}-tipe`}
+            value={form.tipe}
+            onChange={(e) =>
+              onChange({
+                ...form,
+                tipe: normalizeTimKasukretanTipe(e.target.value),
+                jabatan:
+                  e.target.value === "bantuan" && !form.jabatan.trim()
+                    ? "Tim Bantuan"
+                    : form.jabatan,
+              })
+            }
+            disabled={disabled}
+          >
+            <option value="banjar">Tim Banjar</option>
+            <option value="bantuan">Tim Bantuan</option>
+          </Select>
+          {form.tipe === "bantuan" && (
+            <p className="mt-0.5 text-[11px] text-muted leading-snug">
+              Hanya pengumpulan Dudukan di satu banjar; tanpa lihat penerimaan banjar.
+            </p>
+          )}
+        </div>
+      )}
       <div>
         <Label htmlFor={`${idPrefix}-nama`}>Nama</Label>
         <Input
@@ -95,7 +136,7 @@ function TimFormFields({
           value={form.jabatan}
           onChange={(e) => onChange({ ...form, jabatan: e.target.value })}
           disabled={disabled}
-          placeholder="Mis. Ketua, Anggota"
+          placeholder={form.tipe === "bantuan" ? "Tim Bantuan" : "Mis. Ketua, Anggota"}
           required
         />
       </div>
@@ -128,6 +169,7 @@ export function TimKasukretanMasterTab({
   const cardClass = cn(MASTER_CARD_TITLED, isPhone && MASTER_CARD_PHONE);
   const [rows, setRows] = useState<TimKasukretan[]>([]);
   const [banjar, setBanjar] = useState<Banjar[]>([]);
+  const [timBantuanAktif, setTimBantuanAktif] = useState(false);
   const [loading, setLoading] = useState(true);
   const [addForm, setAddForm] = useState<TimForm>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -137,9 +179,10 @@ export function TimKasukretanMasterTab({
   const [deleteBusy, setDeleteBusy] = useState(false);
 
   const refresh = useCallback(async () => {
-    const [tim, b] = await Promise.all([listTimKasukretan(), listBanjar()]);
+    const [tim, b, desa] = await Promise.all([listTimKasukretan(), listBanjar(), getDesaAdat()]);
     setRows(tim);
     setBanjar(b);
+    setTimBantuanAktif(isTimBantuanFiturAktif(desa));
   }, []);
 
   useEffect(() => {
@@ -155,10 +198,21 @@ export function TimKasukretanMasterTab({
     setSaving(true);
     onError("");
     try {
-      await createTimKasukretan(addForm.nama, addForm.banjar_id, addForm.jabatan, addForm.nomor_kontak);
+      const tipe = timBantuanAktif ? addForm.tipe : "banjar";
+      await createTimKasukretan(
+        addForm.nama,
+        addForm.banjar_id,
+        addForm.jabatan,
+        addForm.nomor_kontak,
+        tipe
+      );
       setAddForm(emptyForm());
       await refresh();
-      onSaved("Anggota Tim Kasukretan berhasil ditambahkan");
+      onSaved(
+        tipe === "bantuan"
+          ? "Anggota Tim Bantuan berhasil ditambahkan"
+          : "Anggota Tim Kasukretan berhasil ditambahkan"
+      );
     } catch (err) {
       onError(String(err));
     } finally {
@@ -172,12 +226,14 @@ export function TimKasukretanMasterTab({
     setSaving(true);
     onError("");
     try {
+      const tipe = timBantuanAktif ? editForm.tipe : normalizeTimKasukretanTipe(editForm.tipe);
       await updateTimKasukretan(
         editingId,
         editForm.nama,
         editForm.banjar_id,
         editForm.jabatan,
-        editForm.nomor_kontak
+        editForm.nomor_kontak,
+        tipe
       );
       setEditingId(null);
       await refresh();
@@ -223,8 +279,16 @@ export function TimKasukretanMasterTab({
   return (
     <div className={MASTER_PAGE}>
       <p className="text-sm text-muted leading-snug">
-        Tim yang memungut <strong>Paturunan</strong> (Krama Mipil) dan{" "}
-        <strong>Dudukan</strong> (Krama Tamiu &amp; Tamiu), per banjar.
+        Tim Banjar memungut <strong>Paturunan</strong> dan <strong>Dudukan</strong> per banjar.
+        {timBantuanAktif ? (
+          <>
+            {" "}
+            <strong>Tim Bantuan</strong> hanya mengumpulkan Dudukan di banjar tugas (aktifkan di
+            Profil Desa).
+          </>
+        ) : (
+          <> Aktifkan Tim Bantuan di Profil Desa bila desa memakainya.</>
+        )}
       </p>
 
       {canEdit && (
@@ -242,6 +306,7 @@ export function TimKasukretanMasterTab({
                 disabled={saving}
                 idPrefix="tim-add"
                 isPhone={isPhone}
+                timBantuanAktif={timBantuanAktif}
               />
               <Button
                 type="submit"
@@ -273,6 +338,7 @@ export function TimKasukretanMasterTab({
               disabled={saving}
               idPrefix="tim-edit"
               isPhone={isPhone}
+              timBantuanAktif={timBantuanAktif || isTimBantuanTipe(editForm.tipe)}
             />
             <div className={cn("flex flex-wrap gap-2", isPhone && "flex-col")}>
               <Button
@@ -306,6 +372,9 @@ export function TimKasukretanMasterTab({
                   className="rounded-lg border border-copper-200/90 bg-card px-3 py-2.5 shadow-sm shadow-copper-950/5"
                 >
                   <p className="text-sm font-semibold text-copper-950">{r.nama}</p>
+                  <p className="text-[11px] text-copper-700 mt-0.5">
+                    {timKasukretanTipeLabel(normalizeTimKasukretanTipe(r.tipe))}
+                  </p>
                   <p className="text-xs text-copper-800 mt-0.5">
                     {r.banjar_kode} — {r.banjar_nama}
                   </p>
@@ -346,6 +415,7 @@ export function TimKasukretanMasterTab({
               <thead>
                 <tr className={LIST_HEAD_ROW}>
                   <th>Nama</th>
+                  <th>Tipe</th>
                   <th>Banjar</th>
                   <th>Jabatan</th>
                   <th>Kontak</th>
@@ -357,6 +427,7 @@ export function TimKasukretanMasterTab({
                   editingId === r.id ? null : (
                     <tr key={r.id} className={LIST_BODY_ROW}>
                       <td>{r.nama}</td>
+                      <td>{timKasukretanTipeLabel(normalizeTimKasukretanTipe(r.tipe))}</td>
                       <td>
                         {r.banjar_kode} — {r.banjar_nama}
                       </td>

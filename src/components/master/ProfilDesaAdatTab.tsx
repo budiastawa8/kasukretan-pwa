@@ -40,6 +40,7 @@ type ProfilForm = {
   jenis_balu_nglintik_mipil_id: string;
   yowana_umur_min: string;
   yowana_umur_max: string;
+  tim_bantuan_aktif: boolean;
   bandesa_nama: string;
   bandesa_jabatan: string;
   bandesa_nik: string;
@@ -71,6 +72,7 @@ const emptyForm = (): ProfilForm => ({
   jenis_balu_nglintik_mipil_id: "",
   yowana_umur_min: "",
   yowana_umur_max: "",
+  tim_bantuan_aktif: false,
   bandesa_nama: "",
   bandesa_jabatan: "",
   bandesa_nik: "",
@@ -116,6 +118,7 @@ function formFromDesa(d: DesaAdat | null): ProfilForm {
       d.yowana_umur_max != null && Number.isFinite(d.yowana_umur_max)
         ? String(d.yowana_umur_max)
         : "",
+    tim_bantuan_aktif: !!Number(d.tim_bantuan_aktif),
     bandesa_nama: d.bandesa_nama ?? "",
     bandesa_jabatan: d.bandesa_jabatan ?? "",
     bandesa_nik: d.bandesa_nik ?? "",
@@ -312,6 +315,7 @@ export function ProfilDesaAdatTab({
         jenis_balu_nglintik_mipil_id: form.jenis_balu_nglintik_mipil_id || null,
         yowana_umur_min: yowanaMin ? parseInt(yowanaMin, 10) : null,
         yowana_umur_max: yowanaMax ? parseInt(yowanaMax, 10) : null,
+        tim_bantuan_aktif: form.tim_bantuan_aktif,
         bandesa_nama: form.bandesa_nama,
         bandesa_jabatan: form.bandesa_jabatan,
         bandesa_nik: form.bandesa_nik.replace(/\D/g, "").slice(0, 16),
@@ -525,6 +529,34 @@ export function ProfilDesaAdatTab({
             </div>
           </ProfilSection>
         </div>
+
+        <ProfilSection
+          title="Tim Bantuan"
+          description="Opsional. Anggota dari luar Tim Banjar yang membantu pengumpulan Dudukan di satu banjar tugas, tanpa melihat total penerimaan banjar."
+        >
+          <label className="flex items-start gap-2 text-sm text-copper-900">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={form.tim_bantuan_aktif}
+              onChange={(e) => setField("tim_bantuan_aktif", e.target.checked)}
+              disabled={fieldDisabled}
+            />
+            <span>
+              <strong>Desa Adat memakai Tim Bantuan</strong>
+              {form.tim_bantuan_aktif ? (
+                <span className="block text-[11px] text-copper-600">
+                  Tambah anggota di Master → Tim Kasukretan (tipe Tim Bantuan), lalu buat akun petugas
+                  di Pengaturan → Pengguna.
+                </span>
+              ) : (
+                <span className="block text-[11px] text-copper-600">
+                  Menonaktifkan akan mematikan login semua akun yang terhubung ke Tim Bantuan.
+                </span>
+              )}
+            </span>
+          </label>
+        </ProfilSection>
 
         <ProfilSection
           title="Krama Dapukan"
