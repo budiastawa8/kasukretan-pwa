@@ -98,8 +98,8 @@ export function drawFullHeader(
   });
 
   const logoY = bodyTop + (headerH - logoMm) / 2;
-  /** Geser logo ke dalam: MDA +10pt kanan, Desa Adat +10pt kiri. */
-  const logoInsetShift = 10;
+  /** Geser logo ke dalam: MDA +15pt kanan, Desa Adat +15pt kiri. */
+  const logoInsetShift = 15;
   if (images.mdaLogo) {
     page.drawImage(images.mdaLogo, {
       x: padX + logoInsetShift,
