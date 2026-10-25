@@ -27,8 +27,10 @@ import {
 } from "./pdf-common";
 import { drawImageContain } from "./surat-dinas-pdf-common";
 
-export const BODY_PAD_X = 5 * MM;
-export const BODY_PAD_TOP = 3.5 * MM;
+/** Padding horizontal isi di bawah kop (dikurangi 10pt dari 5mm). */
+export const BODY_PAD_X = 5 * MM - 10;
+/** Jarak bawah kop → judul (+1 baris dari sebelumnya). */
+export const BODY_PAD_TOP = 3.5 * MM + ILIKITA_FOOTER_LINE_STEP_PT;
 export const FIELD_SIZE = 10.5;
 export const TABLE_SIZE = 8;
 export const TABLE_HEADER_SIZE = 8;
@@ -96,9 +98,11 @@ export function drawFullHeader(
   });
 
   const logoY = bodyTop + (headerH - logoMm) / 2;
+  /** Geser logo ke dalam: MDA +10pt kanan, Desa Adat +10pt kiri. */
+  const logoInsetShift = 10;
   if (images.mdaLogo) {
     page.drawImage(images.mdaLogo, {
-      x: padX,
+      x: padX + logoInsetShift,
       y: logoY,
       width: logoMm,
       height: logoMm,
@@ -106,7 +110,7 @@ export function drawFullHeader(
   }
   if (images.desaLogo) {
     page.drawImage(images.desaLogo, {
-      x: PAGE_LANDSCAPE_W - padX - logoMm,
+      x: PAGE_LANDSCAPE_W - padX - logoMm - logoInsetShift,
       y: logoY,
       width: logoMm,
       height: logoMm,
