@@ -3,6 +3,7 @@ import { rgb } from "pdf-lib";
 import {
   ILIKITA_FOOTER_GAP_AFTER_TABLE_PT,
   ILIKITA_FOOTER_LINE_STEP_PT,
+  ILIKITA_FOOTER_SIGN_DROP_PT,
   ILIKITA_FOOTER_QR_GAP_BEFORE_PT,
   ILIKITA_FOOTER_QR_OFFSET_X_PT,
   ILIKITA_FOOTER_QR_OFFSET_Y_PT,
@@ -571,6 +572,7 @@ function fitTextToWidth(
 /** Jarak tabel → blok tanda tangan (setara margin-top di pratinjau HTML). */
 const FOOTER_GAP_AFTER_TABLE = ILIKITA_FOOTER_GAP_AFTER_TABLE_PT;
 const FOOTER_LINE_STEP = ILIKITA_FOOTER_LINE_STEP_PT;
+const FOOTER_SIGN_DROP = ILIKITA_FOOTER_SIGN_DROP_PT;
 /** Ruang teks antara jabatan dan nama (~56px di pratinjau HTML). */
 const FOOTER_SIGN_SPACE = 15 * MM;
 const FOOTER_ALIGN_LINE_H = 4 * MM;
@@ -618,7 +620,7 @@ export function drawThreeColumnFooter(
     }
   }
 
-  let cy = fy;
+  let cy = fy - FOOTER_SIGN_DROP;
   if (blocks.center.placeDate) {
     drawCentered(page, blocks.center.placeDate, x1, third, cy, FIELD_SIZE, fonts.regular, COLOR_TEXT);
     cy -= FOOTER_LINE_STEP;
@@ -639,7 +641,7 @@ export function drawThreeColumnFooter(
     COLOR_TEXT
   );
 
-  let ry = fy;
+  let ry = fy - FOOTER_SIGN_DROP;
   drawCentered(page, blocks.right.placeDate, x2, third, ry, FIELD_SIZE, fonts.regular, COLOR_TEXT);
   ry -= FOOTER_LINE_STEP;
   const rightRoleY = ry;

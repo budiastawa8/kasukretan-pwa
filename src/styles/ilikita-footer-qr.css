@@ -14,6 +14,13 @@
   margin-top: var(--ilikita-footer-gap-after-table) !important;
 }
 
+.pipil-below-col--center,
+.pipil-below-col--right,
+.kt-below-col--center,
+.kt-below-col--right {
+  margin-top: var(--ilikita-footer-line-step);
+}
+
 .pipil-below-col .pipil-field,
 .kt-below-col:first-child .kt-field {
   min-height: var(--ilikita-footer-line-step);
