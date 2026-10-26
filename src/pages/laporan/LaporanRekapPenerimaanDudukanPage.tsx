@@ -155,10 +155,10 @@ function buildExportRowsPetugas(rekap: RekapPenerimaanDudukanPetugas): (string |
         return [row.label, "", ""];
       case "triwulan-subtotal":
         return ["", row.label, row.total];
+      case "spacer":
+        return ["", "", ""];
       case "banjar-header":
         return [formatTanggalLahir(row.tanggal), formatBanjarLaporanNama(row.banjar_nama), ""];
-      case "tipe-header":
-        return ["", row.label, ""];
       case "data":
         return [formatTanggalLahir(row.tanggal), row.uraian, row.jumlah];
       case "tipe-subtotal":
@@ -587,6 +587,13 @@ export function LaporanRekapPenerimaanDudukanPage() {
         </tr>
       );
     }
+    if (row.kind === "spacer") {
+      return (
+        <tr key={key} aria-hidden="true">
+          <td colSpan={PETUGAS_COLS} className="h-3 p-0 border-0" />
+        </tr>
+      );
+    }
     if (row.kind === "banjar-header") {
       return (
         <GroupHeaderRow
@@ -596,13 +603,6 @@ export function LaporanRekapPenerimaanDudukanPage() {
         >
           <span className="tabular-nums mr-2">{formatTanggalLahir(row.tanggal)}</span>
           {formatBanjarLaporanNama(row.banjar_nama)}
-        </GroupHeaderRow>
-      );
-    }
-    if (row.kind === "tipe-header") {
-      return (
-        <GroupHeaderRow key={key} colSpan={PETUGAS_COLS} className="bg-copper-50/80" indent="pl-3">
-          {row.label}
         </GroupHeaderRow>
       );
     }

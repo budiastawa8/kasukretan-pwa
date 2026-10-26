@@ -1034,8 +1034,8 @@ export async function getRekapPenerimaanDudukanPetugas(params: {
 export type RekapPenerimaanDudukanPetugasTableRow =
   | { kind: "triwulan-header"; triwulan: string; label: string }
   | { kind: "triwulan-subtotal"; triwulan: string; label: string; total: number }
+  | { kind: "spacer" }
   | { kind: "banjar-header"; tanggal: string; banjar_nama: string }
-  | { kind: "tipe-header"; tanggal: string; tipe: RekapPetugasDudukanTipe; label: string }
   | {
       kind: "data";
       tanggal: string;
@@ -1061,6 +1061,7 @@ export function buildRekapPenerimaanDudukanPetugasTableRows(
   const wrapTriwulan = rekap.kelompok === "perTriwulan";
   let currentTriwulan = "";
   let triwulanTotal = 0;
+  let pendingSpacerBeforeBanjarHeader = false;
 
   const flushTriwulanSubtotal = () => {
     if (!wrapTriwulan || !currentTriwulan) return;
@@ -1070,6 +1071,7 @@ export function buildRekapPenerimaanDudukanPetugasTableRows(
       label: formatTriwulanSubtotalLaporan(currentTriwulan),
       total: triwulanTotal,
     });
+    pendingSpacerBeforeBanjarHeader = false;
   };
 
   for (const tanggalGroup of rekap.groups) {
@@ -1089,6 +1091,11 @@ export function buildRekapPenerimaanDudukanPetugasTableRows(
     }
 
     for (const banjarGroup of tanggalGroup.banjarGroups) {
+      if (pendingSpacerBeforeBanjarHeader) {
+        out.push({ kind: "spacer" });
+        pendingSpacerBeforeBanjarHeader = false;
+      }
+
       out.push({
         kind: "banjar-header",
         tanggal: tanggalGroup.tanggal,
@@ -1099,12 +1106,6 @@ export function buildRekapPenerimaanDudukanPetugasTableRows(
         const rows = banjarGroup.petugasRows.filter((p) => p.petugas_tipe === tipe);
         if (rows.length === 0) continue;
 
-        out.push({
-          kind: "tipe-header",
-          tanggal: tanggalGroup.tanggal,
-          tipe,
-          label: formatRekapPetugasDudukanTipeLabel(tipe),
-        });
         for (const p of rows) {
           out.push({
             kind: "data",
@@ -1129,6 +1130,7 @@ export function buildRekapPenerimaanDudukanPetugasTableRows(
         banjar_nama: banjarGroup.banjar_nama,
         total: banjarGroup.total,
       });
+      pendingSpacerBeforeBanjarHeader = true;
     }
   }
 
