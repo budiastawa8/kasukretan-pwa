@@ -18,6 +18,7 @@ import {
   formatBanjarSubtotalLaporan,
   formatJenisSubtotalLaporan,
   formatKlasifikasiSubtotalLaporan,
+  formatPeriodePetugasDudukan,
   formatPeriodeTransaksiDudukan,
   formatRekapPetugasDudukanTipeLabel,
   getRekapPenerimaanDudukan,
@@ -26,6 +27,7 @@ import {
   REKAP_PETUGAS_TIPE_ORDER,
   type RekapPenerimaanDudukan,
   type RekapPenerimaanDudukanMode,
+  type RekapPenerimaanDudukanPetugasKelompok,
   type RekapPenerimaanDudukanTableRow,
   type RekapPenerimaanDudukanTransaksi,
   type RekapPenerimaanDudukanTransaksiTableRow,
@@ -148,14 +150,16 @@ function buildExportRowsTransaksi(rekap: RekapPenerimaanDudukanTransaksi): (stri
 }
 
 function buildExportRowsPetugas(rekap: RekapPenerimaanDudukanPetugas): (string | number)[][] {
+  const periodeLabel = (periode: string) =>
+    formatPeriodePetugasDudukan(periode, rekap.kelompok);
   return buildRekapPenerimaanDudukanPetugasTableRows(rekap).map((row) => {
     switch (row.kind) {
       case "banjar-header":
-        return [formatTanggalLahir(row.tanggal), formatBanjarLaporanNama(row.banjar_nama), ""];
+        return [periodeLabel(row.tanggal), formatBanjarLaporanNama(row.banjar_nama), ""];
       case "tipe-header":
         return ["", row.label, ""];
       case "data":
-        return [formatTanggalLahir(row.tanggal), row.uraian, row.jumlah];
+        return [periodeLabel(row.tanggal), row.uraian, row.jumlah];
       case "tipe-subtotal":
         return ["", row.label, row.total];
       case "banjar-subtotal":
@@ -171,6 +175,10 @@ function buildExportRowsPetugas(rekap: RekapPenerimaanDudukanPetugas): (string |
 function parsePetugasTipe(value: string): RekapPetugasDudukanTipe | "" {
   if (value === "banjar" || value === "bantuan" || value === "kantor") return value;
   return "";
+}
+
+function parsePetugasKelompok(value: string): RekapPenerimaanDudukanPetugasKelompok {
+  return value === "perTriwulan" ? "perTriwulan" : "perTanggal";
 }
 
 function colSpanBulan(rekap: RekapPenerimaanDudukan | null): number {
@@ -220,6 +228,7 @@ export function LaporanRekapPenerimaanDudukanPage() {
   const [banjarId, setBanjarId] = usePersistedScalar(PAGE_ID, "banjarId", "");
   const [rtBtn, setRtBtn] = usePersistedScalar(PAGE_ID, "rtBtn", "");
   const [petugasTipe, setPetugasTipe] = usePersistedScalar(PAGE_ID, "petugasTipe", "");
+  const [petugasKelompok, setPetugasKelompok] = usePersistedScalar(PAGE_ID, "petugasKelompok", "perTanggal");
   const [pageTransaksi, setPageTransaksi] = useState(1);
   const [pageSizeTransaksi, setPageSizeTransaksi] = useState(LIST_PAGE_SIZE);
   const [pagePetugas, setPagePetugas] = useState(1);
@@ -262,6 +271,7 @@ export function LaporanRekapPenerimaanDudukanPage() {
             banjarId: banjarId || undefined,
             rtBtn: rtBtn || undefined,
             tipe: parsePetugasTipe(petugasTipe),
+            kelompok: parsePetugasKelompok(petugasKelompok),
           })
         );
       } else {
@@ -277,7 +287,7 @@ export function LaporanRekapPenerimaanDudukanPage() {
     } finally {
       setLoading(false);
     }
-  }, [dari, sampai, mode, banjarId, rtBtn, petugasTipe]);
+  }, [dari, sampai, mode, banjarId, rtBtn, petugasTipe, petugasKelompok]);
 
   useEffect(() => {
     void load();
@@ -322,6 +332,10 @@ export function LaporanRekapPenerimaanDudukanPage() {
   const selectedPetugasTipe = useMemo(
     () => parsePetugasTipe(petugasTipe),
     [petugasTipe]
+  );
+  const selectedPetugasKelompok = useMemo(
+    () => parsePetugasKelompok(petugasKelompok),
+    [petugasKelompok]
   );
 
   const safePageTransaksi = useMemo(
@@ -372,6 +386,7 @@ export function LaporanRekapPenerimaanDudukanPage() {
       setBanjarId("");
       setRtBtn("");
       setPetugasTipe("");
+      setPetugasKelompok("perTanggal");
     }
   }
 
@@ -388,7 +403,11 @@ export function LaporanRekapPenerimaanDudukanPage() {
     if (mode === "perPetugas" && rekapPetugas) {
       await downloadExcel(`rekap-penerimaan-dudukan-petugas-${slug}`, {
         name: "Per Petugas",
-        headers: ["Tanggal", "Uraian", "Jumlah"],
+        headers: [
+          rekapPetugas.kelompok === "perTriwulan" ? "Triwulan" : "Tanggal",
+          "Uraian",
+          "Jumlah",
+        ],
         rows: buildExportRowsPetugas(rekapPetugas),
       });
       return;
@@ -548,6 +567,8 @@ export function LaporanRekapPenerimaanDudukanPage() {
   }
 
   function renderPetugasRow(row: RekapPenerimaanDudukanPetugasTableRow, key: string) {
+    const kelompok = rekapPetugas?.kelompok ?? selectedPetugasKelompok;
+    const formatPeriode = (periode: string) => formatPeriodePetugasDudukan(periode, kelompok);
     if (row.kind === "banjar-header") {
       return (
         <GroupHeaderRow
@@ -555,7 +576,7 @@ export function LaporanRekapPenerimaanDudukanPage() {
           colSpan={PETUGAS_COLS}
           className="bg-copper-100/60 font-semibold text-copper-950 py-1.5"
         >
-          <span className="tabular-nums mr-2">{formatTanggalLahir(row.tanggal)}</span>
+          <span className="mr-2">{formatPeriode(row.tanggal)}</span>
           {formatBanjarLaporanNama(row.banjar_nama)}
         </GroupHeaderRow>
       );
@@ -570,8 +591,15 @@ export function LaporanRekapPenerimaanDudukanPage() {
     if (row.kind === "data") {
       return (
         <tr key={key} className={LAPORAN_BODY_ROW}>
-          <td className="pr-3 py-1 tabular-nums whitespace-nowrap text-center">
-            {formatTanggalLahir(row.tanggal)}
+          <td
+            className={cn(
+              "pr-3 py-1 text-center",
+              kelompok === "perTriwulan"
+                ? "whitespace-normal min-w-[9rem]"
+                : "tabular-nums whitespace-nowrap"
+            )}
+          >
+            {formatPeriode(row.tanggal)}
           </td>
           <td className="pr-3 py-1 pl-5">{row.uraian}</td>
           <td className="py-1 text-right tabular-nums">{formatRupiah(row.jumlah)}</td>
@@ -630,7 +658,9 @@ export function LaporanRekapPenerimaanDudukanPage() {
       ? "Rekap per Bulan Bayar"
       : mode === "perTransaksi"
         ? "Rekap per Transaksi"
-        : "Rekap per Petugas (Tim Banjar / Tim Bantuan)";
+        : selectedPetugasKelompok === "perTriwulan"
+          ? "Rekap per Petugas · Per Triwulan"
+          : "Rekap per Petugas · Per Tanggal";
 
   return (
     <div className={LAPORAN_PAGE}>
@@ -645,7 +675,8 @@ export function LaporanRekapPenerimaanDudukanPage() {
           </h2>
           <p className="text-xs text-muted mt-0.5">
             Realisasi pembayaran Krama Tamiu & Tamiu per banjar, klasifikasi, dan jenis — per bulan
-            bayar, per transaksi, atau per petugas (tanggal × banjar × Tim Banjar / Tim Bantuan).
+            bayar, per transaksi, atau per petugas (tanggal/triwulan × banjar × Tim Banjar / Tim
+            Bantuan).
           </p>
         </div>
         <LaporanExportButtons
@@ -717,6 +748,17 @@ export function LaporanRekapPenerimaanDudukanPage() {
           </div>
           {mode === "perPetugas" && (
             <>
+              <div>
+                <Label className="text-[11px]">Kelompokkan</Label>
+                <Select
+                  className="h-9 text-xs"
+                  value={selectedPetugasKelompok}
+                  onChange={(e) => setPetugasKelompok(parsePetugasKelompok(e.target.value))}
+                >
+                  <option value="perTanggal">Per tanggal</option>
+                  <option value="perTriwulan">Per triwulan</option>
+                </Select>
+              </div>
               <div>
                 <Label className="text-[11px]">Banjar</Label>
                 <Select
@@ -811,6 +853,10 @@ export function LaporanRekapPenerimaanDudukanPage() {
           <div className={cn("flex flex-wrap gap-2 mb-3", isPhone && "gap-1.5")}>
             <StatChip label="Baris" value={String(rekapPetugas.rowCount)} />
             <StatChip label="Jumlah" value={formatRupiah(rekapPetugas.grandTotal)} />
+            <StatChip
+              label="Kelompok"
+              value={rekapPetugas.kelompok === "perTriwulan" ? "Per triwulan" : "Per tanggal"}
+            />
             {rekapPetugas.totalsByTipe.banjar > 0 && (
               <StatChip label="Tim Banjar" value={formatRupiah(rekapPetugas.totalsByTipe.banjar)} />
             )}
@@ -995,7 +1041,11 @@ export function LaporanRekapPenerimaanDudukanPage() {
             <table className={LAPORAN_TABLE_ELEMENT}>
               <thead>
                 <tr className={LAPORAN_HEAD_ROW}>
-                  <th className="pr-3 whitespace-nowrap text-center">Tanggal</th>
+                  <th className="pr-3 whitespace-nowrap text-center">
+                    {(rekapPetugas?.kelompok ?? selectedPetugasKelompok) === "perTriwulan"
+                      ? "Triwulan"
+                      : "Tanggal"}
+                  </th>
                   <th className="pr-3 min-w-[14rem]">Uraian</th>
                   <th className="text-right">Jumlah</th>
                 </tr>

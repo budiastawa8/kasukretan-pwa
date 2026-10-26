@@ -8,6 +8,7 @@ import {
   formatBanjarSubtotalLaporan,
   formatJenisSubtotalLaporan,
   formatKlasifikasiSubtotalLaporan,
+  formatPeriodePetugasDudukan,
   formatPeriodeTransaksiDudukan,
   type RekapPenerimaanDudukan,
   type RekapPenerimaanDudukanTableRow,
@@ -297,6 +298,9 @@ export function buildRekapPenerimaanDudukanPetugasPdfInput(
   }
 ): LaporanPdfInput {
   const tableRows = buildRekapPenerimaanDudukanPetugasTableRows(rekap);
+  const periodeLabel = (periode: string) =>
+    formatPeriodePetugasDudukan(periode, rekap.kelompok);
+  const isTriwulan = rekap.kelompok === "perTriwulan";
   const rowFontSize = 11;
   const boldRows: number[] = [];
   const rowCellMerges: Record<number, Partial<Record<number, number>>> = {};
@@ -305,7 +309,7 @@ export function buildRekapPenerimaanDudukanPetugasPdfInput(
 
   for (const row of tableRows) {
     if (row.kind === "data") {
-      rows.push([formatTanggalLahir(row.tanggal), `  ${row.uraian}`, fmtRp(row.jumlah)]);
+      rows.push([periodeLabel(row.tanggal), `  ${row.uraian}`, fmtRp(row.jumlah)]);
       pdfIdx++;
       continue;
     }
@@ -313,7 +317,7 @@ export function buildRekapPenerimaanDudukanPetugasPdfInput(
     boldRows.push(pdfIdx);
     if (row.kind === "banjar-header") {
       rowCellMerges[pdfIdx] = { 0: 3 };
-      rows.push([formatTanggalLahir(row.tanggal), formatBanjarLaporanNama(row.banjar_nama), ""]);
+      rows.push([periodeLabel(row.tanggal), formatBanjarLaporanNama(row.banjar_nama), ""]);
     } else if (row.kind === "tipe-header") {
       rowCellMerges[pdfIdx] = { 0: 3 };
       rows.push(["", row.label, ""]);
@@ -357,12 +361,14 @@ export function buildRekapPenerimaanDudukanPetugasPdfInput(
   return {
     filename: `rekap-penerimaan-dudukan-petugas-${exportSlug(opts.dari, opts.sampai)}`,
     judul: "Rekap Penerimaan Dudukan",
-    subjudul: "Per Tanggal · Banjar · Tim Banjar / Tim Bantuan",
+    subjudul: isTriwulan
+      ? "Per Triwulan · Banjar · Tim Banjar / Tim Bantuan"
+      : "Per Tanggal · Banjar · Tim Banjar / Tim Bantuan",
     periode: formatPeriodeLabel(opts.dari, opts.sampai),
     summaryLines,
-    headers: ["Tanggal", "Uraian", "Jumlah"],
+    headers: [isTriwulan ? "Triwulan" : "Tanggal", "Uraian", "Jumlah"],
     rows,
-    columnFractions: [0.18, 0.57, 0.25],
+    columnFractions: isTriwulan ? [0.28, 0.47, 0.25] : [0.18, 0.57, 0.25],
     alignRight: [2],
     rowCellMerges,
     boldRows,
@@ -370,7 +376,7 @@ export function buildRekapPenerimaanDudukanPetugasPdfInput(
     orientation: "portrait",
     rowFontSize,
     headerFontSize: 12,
-    wrapColumns: [1],
+    wrapColumns: isTriwulan ? [0, 1] : [1],
     tableBottomMarginMm: 5,
     rowLineLeading: 1.2,
     rowPadMm: 1,
