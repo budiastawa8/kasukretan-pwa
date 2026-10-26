@@ -1063,7 +1063,7 @@ export function buildRekapPenerimaanDudukanPetugasTableRows(
   let triwulanTotal = 0;
   let pendingSpacerBeforeBanjarHeader = false;
 
-  const flushTriwulanSubtotal = () => {
+  const flushTriwulanSubtotal = (opts?: { spacerBeforeNextTw?: boolean }) => {
     if (!wrapTriwulan || !currentTriwulan) return;
     out.push({
       kind: "triwulan-subtotal",
@@ -1072,13 +1072,17 @@ export function buildRekapPenerimaanDudukanPetugasTableRows(
       total: triwulanTotal,
     });
     pendingSpacerBeforeBanjarHeader = false;
+    if (opts?.spacerBeforeNextTw) {
+      out.push({ kind: "spacer" });
+    }
   };
 
   for (const tanggalGroup of rekap.groups) {
     if (wrapTriwulan) {
       const tw = triwulanKeyFromTanggal(tanggalGroup.tanggal);
       if (tw !== currentTriwulan) {
-        flushTriwulanSubtotal();
+        // Baris kosong antara Jumlah TW… dan judul TW berikutnya.
+        flushTriwulanSubtotal({ spacerBeforeNextTw: Boolean(currentTriwulan) });
         currentTriwulan = tw;
         triwulanTotal = 0;
         out.push({
