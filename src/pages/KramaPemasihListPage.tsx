@@ -21,9 +21,10 @@ import { downloadPemasihExport } from "../lib/import/pemasih-template";
 import {
   deleteKrama,
   listKrama,
-  listKramaPageWithMeta,
+  listKramaPage,
   listRtBtnPemasih,
   reaktivasiKrama,
+  summarizeKramaByJenis,
 } from "../lib/services/krama";
 import { kramaEditPath } from "../lib/krama-routes";
 import { listBanjar, listJenisKramaTamiu, listJenisTamiu, listTempek } from "../lib/services/master";
@@ -164,23 +165,30 @@ export function KramaPemasihListPage() {
   const reloadList = useCallback(async () => {
     const offset = (Math.max(1, page) - 1) * pageSize;
     const filter = { ...listFilter, klasifikasiIn: [...listFilter.klasifikasiIn] };
-    const { rows: pageRows, total, summary } = await listKramaPageWithMeta({
+    const pageParams = {
       ...filter,
       limit: pageSize,
       offset,
       orderBy: sortKey && sortKey in KRAMA_PEMASIH_SORT ? sortKey : undefined,
       orderDir: sortKey ? sortDir : undefined,
-    });
+    };
+    const { rows: pageRows, total } = await listKramaPage(pageParams);
     setRows(pageRows);
     setTotalItems(total);
-    setJenisRingkasan(
-      summary.map((s) => {
-        const label = s.jenis_nama?.trim()
-          ? `${s.klasifikasi_nama}: ${s.jenis_nama.trim()}`
-          : s.klasifikasi_nama;
-        return [label, Number(s.count)] as [string, number];
+    void summarizeKramaByJenis(filter)
+      .then((summary) => {
+        setJenisRingkasan(
+          summary.map((s) => {
+            const label = s.jenis_nama?.trim()
+              ? `${s.klasifikasi_nama}: ${s.jenis_nama.trim()}`
+              : s.klasifikasi_nama;
+            return [label, Number(s.count)] as [string, number];
+          })
+        );
       })
-    );
+      .catch(() => {
+        /* daftar sudah tampil; ringkasan opsional */
+      });
   }, [listFilter, page, pageSize, sortKey, sortDir]);
 
   useEffect(() => {

@@ -24,6 +24,8 @@ describe("ensureServerMigrations", () => {
     dbSelect.mockResolvedValueOnce([{ name: "id" }, { name: "nama" }, { name: "nomor_kontak" }]);
     // tableHasColumn krama (nomor_kartu_norm)
     dbSelect.mockResolvedValueOnce([{ name: "id" }, { name: "nomor_kartu" }]);
+    // probe baris stale nomor_kartu_norm
+    dbSelect.mockResolvedValueOnce([{ x: 1 }]);
     dbExecute.mockResolvedValue({ rowsAffected: 0 });
 
     const { ensureServerMigrations } = await import("./ensure-migrations.js");
@@ -43,7 +45,7 @@ describe("ensureServerMigrations", () => {
     );
   });
 
-  it("tidak ALTER bila kolom sudah ada; tetap backfill kartu norm", async () => {
+  it("tidak ALTER bila kolom sudah ada; backfill hanya jika ada baris stale", async () => {
     dbSelect.mockResolvedValueOnce([
       { name: "id" },
       { name: "nama" },
@@ -61,6 +63,8 @@ describe("ensureServerMigrations", () => {
       { name: "nomor_kartu" },
       { name: "nomor_kartu_norm" },
     ]);
+    // ada baris yang perlu di-backfill
+    dbSelect.mockResolvedValueOnce([{ x: 1 }]);
     dbExecute.mockResolvedValue({ rowsAffected: 0 });
 
     const { ensureServerMigrations } = await import("./ensure-migrations.js");
@@ -70,8 +74,41 @@ describe("ensureServerMigrations", () => {
       (c) => typeof c[0] === "string" && String(c[0]).startsWith("ALTER TABLE")
     );
     expect(alters).toHaveLength(0);
-    expect(dbExecute.mock.calls.some((c) => String(c[0]).includes("nomor_kartu_norm"))).toBe(
-      true
-    );
+    expect(
+      dbExecute.mock.calls.some(
+        (c) => typeof c[0] === "string" && String(c[0]).startsWith("UPDATE krama SET nomor_kartu_norm")
+      )
+    ).toBe(true);
+  });
+
+  it("melewati UPDATE nomor_kartu_norm jika tidak ada baris stale", async () => {
+    dbSelect.mockResolvedValueOnce([
+      { name: "id" },
+      { name: "nama" },
+      { name: "nomor_kontak" },
+    ]);
+    dbSelect.mockResolvedValueOnce([{ name: "id" }, { name: "tim_bantuan_aktif" }]);
+    dbSelect.mockResolvedValueOnce([
+      { name: "id" },
+      { name: "nama" },
+      { name: "nomor_kontak" },
+      { name: "tipe" },
+    ]);
+    dbSelect.mockResolvedValueOnce([
+      { name: "id" },
+      { name: "nomor_kartu" },
+      { name: "nomor_kartu_norm" },
+    ]);
+    dbSelect.mockResolvedValueOnce([]);
+    dbExecute.mockResolvedValue({ rowsAffected: 0 });
+
+    const { ensureServerMigrations } = await import("./ensure-migrations.js");
+    await ensureServerMigrations();
+
+    expect(
+      dbExecute.mock.calls.some(
+        (c) => typeof c[0] === "string" && String(c[0]).startsWith("UPDATE krama SET nomor_kartu_norm")
+      )
+    ).toBe(false);
   });
 });

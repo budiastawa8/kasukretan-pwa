@@ -268,10 +268,33 @@ export function AppShell() {
   }, []);
 
   useEffect(() => {
-    if (canUseStaffApp() && !isPetugasLapangan(user?.peran)) {
+    if (!canUseStaffApp() || isPetugasLapangan(user?.peran)) return;
+    // Tunda sampai setelah first paint / daftar menu pertama sempat dimuat,
+    // agar sync tulis tidak bersaing dan mengosongkan cache SELECT.
+    const run = () => {
       runBatchSyncStatusIlikitaBackground();
       runSyncNyadaOtomatisBackground();
-    }
+    };
+    let idleId: number | undefined;
+    const timeoutId = window.setTimeout(() => {
+      const ric = (
+        window as Window & {
+          requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+        }
+      ).requestIdleCallback;
+      if (typeof ric === "function") {
+        idleId = ric(run, { timeout: 4000 });
+      } else {
+        run();
+      }
+    }, 3500);
+    return () => {
+      window.clearTimeout(timeoutId);
+      const cic = (
+        window as Window & { cancelIdleCallback?: (id: number) => void }
+      ).cancelIdleCallback;
+      if (idleId != null && typeof cic === "function") cic(idleId);
+    };
   }, [user?.peran]);
 
   useEffect(() => {

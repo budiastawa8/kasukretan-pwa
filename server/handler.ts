@@ -234,19 +234,31 @@ async function handleRoute(path: string, req: ApiRequest, res: ServerResponse): 
     if (!raw || raw.length === 0) throw new HttpError(400, "queries kosong");
     if (raw.length > 40) throw new HttpError(400, "Maksimal 40 query per batch");
 
-    const timing: DbTiming = { ms: 0, attempts: 0 };
-    const results: unknown[] = [];
+    type BatchItem = { kind: "noop" } | { kind: "run"; sql: string; bind?: unknown[] };
+    const prepared: BatchItem[] = [];
     for (const item of raw) {
       if (!item || typeof item !== "object") throw new HttpError(400, "Query batch tidak valid");
       const { sql, bind } = sqlFromBody(item as Record<string, unknown>);
       const auth = await authorizeOrThrow(user, sql);
       if (auth === "noop") {
-        results.push([]);
+        prepared.push({ kind: "noop" });
         continue;
       }
       if (auth !== "run") throw new HttpError(403, "Perintah tulis tidak boleh lewat sql/select-batch.");
-      results.push(await dbSelect(sql, bind, timing));
+      prepared.push({ kind: "run", sql, bind });
     }
+
+    const perQueryTiming = prepared.map(() => ({ ms: 0, attempts: 0 } satisfies DbTiming));
+    const results = await Promise.all(
+      prepared.map(async (item, i) => {
+        if (item.kind === "noop") return [];
+        return dbSelect(item.sql, item.bind, perQueryTiming[i]);
+      })
+    );
+    const timing: DbTiming = {
+      ms: Math.max(0, ...perQueryTiming.map((t) => t.ms)),
+      attempts: perQueryTiming.reduce((sum, t) => sum + t.attempts, 0),
+    };
     res.setHeader("Server-Timing", `db;dur=${timing.ms};desc="${timing.attempts}x"`);
     send(res, 200, { results });
     return;

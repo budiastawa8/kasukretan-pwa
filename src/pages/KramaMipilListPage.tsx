@@ -22,8 +22,9 @@ import { getDesaAdat } from "../lib/services/desa";
 import {
   deleteKrama,
   listKrama,
-  listKramaPageWithMeta,
+  listKramaPage,
   reaktivasiKrama,
+  summarizeKramaByJenis,
 } from "../lib/services/krama";
 import { kramaEditPath } from "../lib/krama-routes";
 import { listArahan, listBanjar, listJenisMipil, listTempek } from "../lib/services/master";
@@ -159,7 +160,7 @@ export function KramaMipilListPage() {
 
   const reloadList = useCallback(async () => {
     const offset = (Math.max(1, page) - 1) * pageSize;
-    const { rows: pageRows, total, summary } = await listKramaPageWithMeta({
+    const { rows: pageRows, total } = await listKramaPage({
       ...listFilter,
       limit: pageSize,
       offset,
@@ -168,9 +169,15 @@ export function KramaMipilListPage() {
     });
     setRows(pageRows);
     setTotalItems(total);
-    setJenisRingkasan(
-      summary.map((s) => [s.jenis_nama?.trim() || "—", Number(s.count)] as [string, number])
-    );
+    void summarizeKramaByJenis(listFilter)
+      .then((summary) => {
+        setJenisRingkasan(
+          summary.map((s) => [s.jenis_nama?.trim() || "—", Number(s.count)] as [string, number])
+        );
+      })
+      .catch(() => {
+        /* daftar sudah tampil; ringkasan opsional */
+      });
   }, [listFilter, page, pageSize, sortKey, sortDir]);
 
   useEffect(() => {

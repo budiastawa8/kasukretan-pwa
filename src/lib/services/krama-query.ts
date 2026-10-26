@@ -309,6 +309,22 @@ export async function listKrama(params?: KramaListParams): Promise<KramaListItem
 
 const KRAMA_PAGE_CACHE_TTL_MS = 45_000;
 
+/** Halaman daftar + total saja (tanpa ringkasan jenis) — untuk tampil cepat. */
+export async function listKramaPage(params?: KramaListParams): Promise<{
+  rows: KramaListItem[];
+  total: number;
+}> {
+  const key = `krama:page-only:${JSON.stringify({
+    ...params,
+    q: params?.q?.trim() || undefined,
+  })}`;
+  return cachedQuery(
+    key,
+    () => listKramaInternal({ ...params, withTotal: true }),
+    KRAMA_PAGE_CACHE_TTL_MS
+  );
+}
+
 /** List + total (window) + ringkasan jenis — cache singkat, 2 query filter (bukan 3). */
 export async function listKramaPageWithMeta(params?: KramaListParams): Promise<{
   rows: KramaListItem[];

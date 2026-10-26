@@ -192,22 +192,44 @@ export function PaturunanPage() {
         // desa tanpa iuran paturunan akan memicu load berulang (pagination blink / UI stuck).
         const needFull = opts?.force === true || lastFullLoadKey.current !== filterKey;
         let iuran = iuranListRef.current;
-        if (needFull) {
-          const [r, b, j, iuranRows, peringatan] = await Promise.all([
-            getPaturunanRingkasan(),
-            listBanjar(),
-            listJenisMipil(),
-            listIuranPaturunan(),
-            listPeringatanIuranAktif(),
-          ]);
-          iuran = iuranRows;
-          setRingkasan(r);
-          setBanjar(b);
-          setJenisMipil(j);
-          setIuranList(iuranRows);
-          setPeringatanList(peringatan);
-          lastFullLoadKey.current = filterKey;
+
+        const mastersPromise = needFull
+          ? Promise.all([listBanjar(), listJenisMipil(), listIuranPaturunan()]).then(
+              ([b, j, iuranRows]) => {
+                setBanjar(b);
+                setJenisMipil(j);
+                setIuranList(iuranRows);
+                iuranListRef.current = iuranRows;
+                return iuranRows;
+              }
+            )
+          : null;
+
+        const ringkasanBg =
+          needFull
+            ? Promise.all([getPaturunanRingkasan(), listPeringatanIuranAktif()]).then(
+                ([r, peringatan]) => {
+                  setRingkasan(r);
+                  setPeringatanList(peringatan);
+                }
+              )
+            : null;
+
+        if (iuran.length === 0) {
+          iuran = mastersPromise
+            ? await mastersPromise
+            : await listIuranPaturunan().then((rows) => {
+                setIuranList(rows);
+                iuranListRef.current = rows;
+                return rows;
+              });
+        } else if (mastersPromise) {
+          void mastersPromise.catch(() => {
+            /* filter master gagal — daftar tetap jalan */
+          });
         }
+
+        if (needFull) lastFullLoadKey.current = filterKey;
 
         const effectiveIuranId = iuranId || iuran[0]?.id || "";
         const filter = {
@@ -218,26 +240,34 @@ export function PaturunanPage() {
           iuranId: effectiveIuranId || undefined,
         };
         const offset = (Math.max(1, page) - 1) * pageSize;
-        const listPromise = listKramaPaturunan({
-          ...filter,
-          limit: pageSize,
-          offset,
-          orderBy: sortKey && sortKey in PATURUNAN_SORT ? sortKey : undefined,
-          orderDir: sortKey ? sortDir : undefined,
-        });
-        const countPromise = countKramaPaturunan(filter);
-        const ringPromise =
-          needFull && effectiveIuranId
-            ? getRingkasanIuran(effectiveIuranId)
-            : Promise.resolve(undefined as RingkasanIuran | null | undefined);
-
-        const [list, total, ringI] = await Promise.all([listPromise, countPromise, ringPromise]);
+        const [list, total] = await Promise.all([
+          listKramaPaturunan({
+            ...filter,
+            limit: pageSize,
+            offset,
+            orderBy: sortKey && sortKey in PATURUNAN_SORT ? sortKey : undefined,
+            orderDir: sortKey ? sortDir : undefined,
+          }),
+          countKramaPaturunan(filter),
+        ]);
         setRows(list);
         setTotalItems(total);
-        if (ringI !== undefined) setRingkasanIuran(ringI);
+        setLoading(false);
+
+        if (ringkasanBg) {
+          void ringkasanBg.catch(() => {
+            /* chip ringkasan opsional */
+          });
+        }
+        if (needFull && effectiveIuranId) {
+          void getRingkasanIuran(effectiveIuranId)
+            .then((ringI) => setRingkasanIuran(ringI))
+            .catch(() => {
+              /* chip iuran opsional */
+            });
+        }
       } catch (e) {
         setError(String(e));
-      } finally {
         setLoading(false);
       }
     },

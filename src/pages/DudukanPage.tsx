@@ -201,8 +201,8 @@ export function DudukanPage() {
       const serverPage = !sortKey && !punyaTunggakan;
       const offset = (Math.max(1, page) - 1) * pageSize;
 
-      const [r, { list, ringkasanBulan: ringkasanB, totalCount }, b, jkt, jt] = await Promise.all([
-        getDudukanRingkasan(),
+      const ringkasanBg = getDudukanRingkasan();
+      const [{ list, ringkasanBulan: ringkasanB, totalCount }, b, jkt, jt] = await Promise.all([
         loadDudukanListAndRingkasanBulan(
           {
             q: debouncedQ || undefined,
@@ -223,16 +223,21 @@ export function DudukanPage() {
         listJenisKramaTamiu(),
         listJenisTamiu(),
       ]);
-      setRingkasan(r);
       setRows(list);
       setTotalItems(totalCount);
       setBanjar(b);
       setJenisKt(jkt);
       setJenisT(jt);
       setRingkasanBulan(ringkasanB);
+      setLoading(false);
+
+      void ringkasanBg
+        .then((r) => setRingkasan(r))
+        .catch(() => {
+          /* chip ringkasan opsional */
+        });
     } catch (e) {
       setError(String(e));
-    } finally {
       setLoading(false);
     }
   }, [

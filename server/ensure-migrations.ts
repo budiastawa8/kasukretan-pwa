@@ -27,11 +27,19 @@ async function runEnsureMigrations(): Promise<void> {
 
   // Pencarian cepat nomor kartu
   await ensureColumn("krama", "nomor_kartu_norm", "TEXT");
-  await dbExecute(
-    `UPDATE krama SET nomor_kartu_norm = lower(replace(nomor_kartu, '-', ''))
+  const staleNorm = await dbSelect(
+    `SELECT 1 AS x FROM krama
      WHERE nomor_kartu_norm IS NULL OR nomor_kartu_norm = ''
-        OR nomor_kartu_norm <> lower(replace(nomor_kartu, '-', ''))`
+        OR nomor_kartu_norm <> lower(replace(nomor_kartu, '-', ''))
+     LIMIT 1`
   );
+  if (staleNorm.length > 0) {
+    await dbExecute(
+      `UPDATE krama SET nomor_kartu_norm = lower(replace(nomor_kartu, '-', ''))
+       WHERE nomor_kartu_norm IS NULL OR nomor_kartu_norm = ''
+          OR nomor_kartu_norm <> lower(replace(nomor_kartu, '-', ''))`
+    );
+  }
   await dbExecute(
     `CREATE INDEX IF NOT EXISTS idx_krama_nomor_kartu_norm ON krama (nomor_kartu_norm)`
   );
