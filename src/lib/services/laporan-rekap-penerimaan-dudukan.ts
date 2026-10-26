@@ -91,6 +91,13 @@ const TRIWULAN_RANGE_LABEL: Record<1 | 2 | 3 | 4, string> = {
   4: "Oktober – Desember",
 };
 
+const TRIWULAN_ROMAN: Record<1 | 2 | 3 | 4, string> = {
+  1: "I",
+  2: "II",
+  3: "III",
+  4: "IV",
+};
+
 /** Kunci triwulan dari tanggal ISO (`YYYY-MM-DD` → `YYYY-T1` … `YYYY-T4`). */
 export function triwulanKeyFromTanggal(tanggal: string): string {
   const m = /^(\d{4})-(\d{2})/.exec(tanggal.trim());
@@ -100,21 +107,17 @@ export function triwulanKeyFromTanggal(tanggal: string): string {
   return `${m[1]}-T${q}`;
 }
 
-/** Label tampilan triwulan, mis. `Januari – Maret 2026`. */
+/** Label tampilan triwulan, mis. `TW I — Januari – Maret 2026`. */
 export function formatTriwulanLabel(key: string): string {
   const m = /^(\d{4})-T([1-4])$/.exec(key.trim());
   if (!m) return key.trim() || "—";
   const q = Number(m[2]) as 1 | 2 | 3 | 4;
-  return `${TRIWULAN_RANGE_LABEL[q]} ${m[1]}`;
+  return `TW ${TRIWULAN_ROMAN[q]} — ${TRIWULAN_RANGE_LABEL[q]} ${m[1]}`;
 }
 
-/** Label kolom periode rekap per petugas (tanggal atau triwulan). */
-export function formatPeriodePetugasDudukan(
-  periode: string,
-  kelompok: RekapPenerimaanDudukanPetugasKelompok = "perTanggal"
-): string {
-  if (kelompok === "perTriwulan") return formatTriwulanLabel(periode);
-  return formatTanggalLahir(periode);
+/** Subtotal per triwulan di rekap per petugas. */
+export function formatTriwulanSubtotalLaporan(key: string): string {
+  return `Jumlah ${formatTriwulanLabel(key)}`;
 }
 
 /** Baris subtotal per tanggal di rekap per petugas. */
@@ -852,7 +855,7 @@ export type RekapPenerimaanDudukanBanjarGroupPetugas = {
 };
 
 export type RekapPenerimaanDudukanTanggalGroup = {
-  /** Tanggal ISO atau kunci triwulan (`YYYY-T1` … `YYYY-T4`). */
+  /** Tanggal setor ISO (`YYYY-MM-DD`). */
   tanggal: string;
   banjarGroups: RekapPenerimaanDudukanBanjarGroupPetugas[];
   total: number;
@@ -947,13 +950,15 @@ export async function getRekapPenerimaanDudukanPetugas(params: {
 
   type BanjarAcc = {
     meta: { banjar_nama: string; banjar_kode: string };
-    petugasByKey: Map<string, RekapPetugasDudukanRow>;
+    petugasRows: RekapPetugasDudukanRow[];
     total: number;
     totalByTipe: Record<RekapPetugasDudukanTipe, number>;
   };
 
-  const byPeriode = new Map<string, Map<string, BanjarAcc>>();
+  /** Selalu per tanggal setor; mode triwulan hanya membungkus di builder tabel. */
+  const byTanggal = new Map<string, Map<string, BanjarAcc>>();
   let grandTotal = 0;
+  let rowCount = 0;
   const totalsByTipe = emptyTotalsByTipe();
 
   for (const r of flat) {
@@ -963,68 +968,58 @@ export async function getRekapPenerimaanDudukanPetugas(params: {
     const petugas_tipe = resolveRekapPetugasDudukanTipe(r.petugas_id, r.petugas_tipe_raw);
     if (tipeFilter && petugas_tipe !== tipeFilter) continue;
 
-    const periodeKey =
-      kelompok === "perTriwulan" ? triwulanKeyFromTanggal(r.tanggal) : r.tanggal;
-
-    let byBanjar = byPeriode.get(periodeKey);
+    let byBanjar = byTanggal.get(r.tanggal);
     if (!byBanjar) {
       byBanjar = new Map();
-      byPeriode.set(periodeKey, byBanjar);
+      byTanggal.set(r.tanggal, byBanjar);
     }
 
     let banjar = byBanjar.get(r.banjar_id);
     if (!banjar) {
       banjar = {
         meta: { banjar_nama: r.banjar_nama, banjar_kode: r.banjar_kode },
-        petugasByKey: new Map(),
+        petugasRows: [],
         total: 0,
         totalByTipe: emptyTotalsByTipe(),
       };
       byBanjar.set(r.banjar_id, banjar);
     }
 
-    const petugasKey = r.petugas_id?.trim() || `__kantor__\0${petugas_tipe}`;
-    const existing = banjar.petugasByKey.get(petugasKey);
-    if (existing) {
-      existing.jumlah = roundRp(existing.jumlah + jumlah);
-    } else {
-      banjar.petugasByKey.set(petugasKey, {
-        petugas_id: r.petugas_id,
-        petugas_nama: r.petugas_nama?.trim() || "—",
-        petugas_tipe,
-        jumlah,
-      });
-    }
+    banjar.petugasRows.push({
+      petugas_id: r.petugas_id,
+      petugas_nama: r.petugas_nama?.trim() || "—",
+      petugas_tipe,
+      jumlah,
+    });
     banjar.total = roundRp(banjar.total + jumlah);
     banjar.totalByTipe[petugas_tipe] = roundRp(banjar.totalByTipe[petugas_tipe] + jumlah);
     grandTotal = roundRp(grandTotal + jumlah);
     totalsByTipe[petugas_tipe] = roundRp(totalsByTipe[petugas_tipe] + jumlah);
+    rowCount += 1;
   }
 
   const groups: RekapPenerimaanDudukanTanggalGroup[] = [];
-  let rowCount = 0;
 
-  for (const tanggal of [...byPeriode.keys()].sort()) {
-    const byBanjar = byPeriode.get(tanggal)!;
+  for (const tanggal of [...byTanggal.keys()].sort()) {
+    const byBanjar = byTanggal.get(tanggal)!;
     const banjarGroups: RekapPenerimaanDudukanBanjarGroupPetugas[] = [];
     let tanggalTotal = 0;
 
     for (const [banjar_id, acc] of [...byBanjar.entries()].sort((a, b) =>
       compareBanjarKode(a[1].meta.banjar_kode, b[1].meta.banjar_kode)
     )) {
-      const petugasRows = [...acc.petugasByKey.values()].sort((a, b) => {
+      acc.petugasRows.sort((a, b) => {
         const ti = REKAP_PETUGAS_TIPE_ORDER.indexOf(a.petugas_tipe);
         const tj = REKAP_PETUGAS_TIPE_ORDER.indexOf(b.petugas_tipe);
         if (ti !== tj) return ti - tj;
         return a.petugas_nama.localeCompare(b.petugas_nama, "id", { sensitivity: "base" });
       });
-      rowCount += petugasRows.length;
       tanggalTotal = roundRp(tanggalTotal + acc.total);
       banjarGroups.push({
         banjar_id,
         banjar_nama: acc.meta.banjar_nama,
         banjar_kode: acc.meta.banjar_kode,
-        petugasRows,
+        petugasRows: acc.petugasRows,
         total: acc.total,
         totalByTipe: acc.totalByTipe,
       });
@@ -1037,6 +1032,8 @@ export async function getRekapPenerimaanDudukanPetugas(params: {
 }
 
 export type RekapPenerimaanDudukanPetugasTableRow =
+  | { kind: "triwulan-header"; triwulan: string; label: string }
+  | { kind: "triwulan-subtotal"; triwulan: string; label: string; total: number }
   | { kind: "banjar-header"; tanggal: string; banjar_nama: string }
   | { kind: "tipe-header"; tanggal: string; tipe: RekapPetugasDudukanTipe; label: string }
   | {
@@ -1061,8 +1058,36 @@ export function buildRekapPenerimaanDudukanPetugasTableRows(
   rekap: RekapPenerimaanDudukanPetugas
 ): RekapPenerimaanDudukanPetugasTableRow[] {
   const out: RekapPenerimaanDudukanPetugasTableRow[] = [];
+  const wrapTriwulan = rekap.kelompok === "perTriwulan";
+  let currentTriwulan = "";
+  let triwulanTotal = 0;
+
+  const flushTriwulanSubtotal = () => {
+    if (!wrapTriwulan || !currentTriwulan) return;
+    out.push({
+      kind: "triwulan-subtotal",
+      triwulan: currentTriwulan,
+      label: formatTriwulanSubtotalLaporan(currentTriwulan),
+      total: triwulanTotal,
+    });
+  };
 
   for (const tanggalGroup of rekap.groups) {
+    if (wrapTriwulan) {
+      const tw = triwulanKeyFromTanggal(tanggalGroup.tanggal);
+      if (tw !== currentTriwulan) {
+        flushTriwulanSubtotal();
+        currentTriwulan = tw;
+        triwulanTotal = 0;
+        out.push({
+          kind: "triwulan-header",
+          triwulan: tw,
+          label: formatTriwulanLabel(tw),
+        });
+      }
+      triwulanTotal = roundRp(triwulanTotal + tanggalGroup.total);
+    }
+
     for (const banjarGroup of tanggalGroup.banjarGroups) {
       out.push({
         kind: "banjar-header",
@@ -1106,6 +1131,8 @@ export function buildRekapPenerimaanDudukanPetugasTableRows(
       });
     }
   }
+
+  flushTriwulanSubtotal();
 
   for (const tipe of REKAP_PETUGAS_TIPE_ORDER) {
     const total = rekap.totalsByTipe[tipe];

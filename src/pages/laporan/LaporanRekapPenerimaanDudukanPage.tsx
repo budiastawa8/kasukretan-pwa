@@ -18,7 +18,6 @@ import {
   formatBanjarSubtotalLaporan,
   formatJenisSubtotalLaporan,
   formatKlasifikasiSubtotalLaporan,
-  formatPeriodePetugasDudukan,
   formatPeriodeTransaksiDudukan,
   formatRekapPetugasDudukanTipeLabel,
   getRekapPenerimaanDudukan,
@@ -150,16 +149,18 @@ function buildExportRowsTransaksi(rekap: RekapPenerimaanDudukanTransaksi): (stri
 }
 
 function buildExportRowsPetugas(rekap: RekapPenerimaanDudukanPetugas): (string | number)[][] {
-  const periodeLabel = (periode: string) =>
-    formatPeriodePetugasDudukan(periode, rekap.kelompok);
   return buildRekapPenerimaanDudukanPetugasTableRows(rekap).map((row) => {
     switch (row.kind) {
+      case "triwulan-header":
+        return [row.label, "", ""];
+      case "triwulan-subtotal":
+        return ["", row.label, row.total];
       case "banjar-header":
-        return [periodeLabel(row.tanggal), formatBanjarLaporanNama(row.banjar_nama), ""];
+        return [formatTanggalLahir(row.tanggal), formatBanjarLaporanNama(row.banjar_nama), ""];
       case "tipe-header":
         return ["", row.label, ""];
       case "data":
-        return [periodeLabel(row.tanggal), row.uraian, row.jumlah];
+        return [formatTanggalLahir(row.tanggal), row.uraian, row.jumlah];
       case "tipe-subtotal":
         return ["", row.label, row.total];
       case "banjar-subtotal":
@@ -403,11 +404,7 @@ export function LaporanRekapPenerimaanDudukanPage() {
     if (mode === "perPetugas" && rekapPetugas) {
       await downloadExcel(`rekap-penerimaan-dudukan-petugas-${slug}`, {
         name: "Per Petugas",
-        headers: [
-          rekapPetugas.kelompok === "perTriwulan" ? "Triwulan" : "Tanggal",
-          "Uraian",
-          "Jumlah",
-        ],
+        headers: ["Tanggal", "Uraian", "Jumlah"],
         rows: buildExportRowsPetugas(rekapPetugas),
       });
       return;
@@ -567,8 +564,29 @@ export function LaporanRekapPenerimaanDudukanPage() {
   }
 
   function renderPetugasRow(row: RekapPenerimaanDudukanPetugasTableRow, key: string) {
-    const kelompok = rekapPetugas?.kelompok ?? selectedPetugasKelompok;
-    const formatPeriode = (periode: string) => formatPeriodePetugasDudukan(periode, kelompok);
+    if (row.kind === "triwulan-header") {
+      return (
+        <GroupHeaderRow
+          key={key}
+          colSpan={PETUGAS_COLS}
+          className="bg-copper-200/70 font-bold text-copper-950 py-2"
+        >
+          {row.label}
+        </GroupHeaderRow>
+      );
+    }
+    if (row.kind === "triwulan-subtotal") {
+      return (
+        <tr
+          key={key}
+          className="border-t-2 border-copper-300 bg-copper-100/80 font-bold text-copper-950"
+        >
+          <td className="pr-3 py-1" />
+          <td className="pr-3 py-1">{row.label}</td>
+          <td className="py-1 text-right tabular-nums">{formatRupiah(row.total)}</td>
+        </tr>
+      );
+    }
     if (row.kind === "banjar-header") {
       return (
         <GroupHeaderRow
@@ -576,7 +594,7 @@ export function LaporanRekapPenerimaanDudukanPage() {
           colSpan={PETUGAS_COLS}
           className="bg-copper-100/60 font-semibold text-copper-950 py-1.5"
         >
-          <span className="mr-2">{formatPeriode(row.tanggal)}</span>
+          <span className="tabular-nums mr-2">{formatTanggalLahir(row.tanggal)}</span>
           {formatBanjarLaporanNama(row.banjar_nama)}
         </GroupHeaderRow>
       );
@@ -591,15 +609,8 @@ export function LaporanRekapPenerimaanDudukanPage() {
     if (row.kind === "data") {
       return (
         <tr key={key} className={LAPORAN_BODY_ROW}>
-          <td
-            className={cn(
-              "pr-3 py-1 text-center",
-              kelompok === "perTriwulan"
-                ? "whitespace-normal min-w-[9rem]"
-                : "tabular-nums whitespace-nowrap"
-            )}
-          >
-            {formatPeriode(row.tanggal)}
+          <td className="pr-3 py-1 tabular-nums whitespace-nowrap text-center">
+            {formatTanggalLahir(row.tanggal)}
           </td>
           <td className="pr-3 py-1 pl-5">{row.uraian}</td>
           <td className="py-1 text-right tabular-nums">{formatRupiah(row.jumlah)}</td>
@@ -1041,11 +1052,7 @@ export function LaporanRekapPenerimaanDudukanPage() {
             <table className={LAPORAN_TABLE_ELEMENT}>
               <thead>
                 <tr className={LAPORAN_HEAD_ROW}>
-                  <th className="pr-3 whitespace-nowrap text-center">
-                    {(rekapPetugas?.kelompok ?? selectedPetugasKelompok) === "perTriwulan"
-                      ? "Triwulan"
-                      : "Tanggal"}
-                  </th>
+                  <th className="pr-3 whitespace-nowrap text-center">Tanggal</th>
                   <th className="pr-3 min-w-[14rem]">Uraian</th>
                   <th className="text-right">Jumlah</th>
                 </tr>
