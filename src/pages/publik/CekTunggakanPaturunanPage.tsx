@@ -248,11 +248,21 @@ function DetailView({
 
           {data && (
             <>
-              <Card className="text-sm">
-                <p className="text-xs text-muted">Total sisa tagihan</p>
-                <p className="text-lg font-semibold text-copper-900 tabular-nums">
-                  {formatRupiah(data.total_sisa)}
-                </p>
+              <Card className="text-sm space-y-1">
+                <div>
+                  <p className="text-xs text-muted">Total sisa tagihan</p>
+                  <p className="text-lg font-semibold text-copper-900 tabular-nums">
+                    {formatRupiah(data.total_sisa)}
+                  </p>
+                </div>
+                {(data.total_punia ?? 0) > 0 && (
+                  <div>
+                    <p className="text-xs text-muted">Total punia</p>
+                    <p className="text-sm font-semibold text-copper-900 tabular-nums">
+                      {formatRupiah(data.total_punia)}
+                    </p>
+                  </div>
+                )}
               </Card>
 
               <div className="space-y-2">
@@ -273,6 +283,14 @@ function DetailView({
                       <dd className="text-right text-copper-900 tabular-nums">
                         {formatRupiah(i.dibayar_wajib)}
                       </dd>
+                      {(i.punia ?? 0) > 0 && (
+                        <>
+                          <dt>Punia</dt>
+                          <dd className="text-right text-copper-900 tabular-nums">
+                            {formatRupiah(i.punia)}
+                          </dd>
+                        </>
+                      )}
                       <dt>Sisa</dt>
                       <dd className="text-right font-medium text-copper-900 tabular-nums">
                         {formatRupiah(i.sisa)}

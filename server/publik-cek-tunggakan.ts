@@ -170,7 +170,12 @@ async function loadDetail(kramaId: string) {
               WHEN pp.id IS NULL THEN 0
               WHEN COALESCE(pp.jenis, 'wajib') = 'punia' THEN 0
               ELSE pp.jumlah
-            END), 0) AS wajib
+            END), 0) AS wajib,
+            COALESCE(SUM(CASE
+              WHEN pp.id IS NULL THEN 0
+              WHEN COALESCE(pp.jenis, 'wajib') = 'punia' THEN pp.jumlah
+              ELSE 0
+            END), 0) AS punia
      FROM iuran_paturunan i
      LEFT JOIN paturunan_pembayaran pp
        ON pp.iuran_id = i.id AND pp.krama_id = ?
@@ -192,18 +197,21 @@ async function loadDetail(kramaId: string) {
     });
     const tagihan = hitungTagihanPaturunan(Number(i.nominal) || 0, persen);
     const dibayarWajib = Number(i.wajib) || 0;
+    const punia = Number(i.punia) || 0;
     const sisa = hitungSisaPaturunan(tagihan, dibayarWajib);
     return {
       iuran_id: String(i.id),
       iuran_nama: String(i.nama),
       tagihan,
       dibayar_wajib: dibayarWajib,
+      punia,
       sisa,
       status: statusTagihan(tagihan, dibayarWajib),
     };
   });
 
   const totalSisa = iuran.reduce((s, row) => s + row.sisa, 0);
+  const totalPunia = iuran.reduce((s, row) => s + row.punia, 0);
 
   return {
     krama: {
@@ -215,6 +223,7 @@ async function loadDetail(kramaId: string) {
       jenis_nama: krama.jenis_nama != null ? String(krama.jenis_nama) : null,
     },
     total_sisa: totalSisa,
+    total_punia: totalPunia,
     iuran,
   };
 }

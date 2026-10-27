@@ -19,6 +19,7 @@ export type PublikCekTunggakanIuran = {
   iuran_nama: string;
   tagihan: number;
   dibayar_wajib: number;
+  punia: number;
   sisa: number;
   status: string;
 };
@@ -33,6 +34,7 @@ export type PublikCekTunggakanDetail = {
     jenis_nama: string | null;
   };
   total_sisa: number;
+  total_punia: number;
   iuran: PublikCekTunggakanIuran[];
 };
 
