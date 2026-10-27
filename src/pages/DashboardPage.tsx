@@ -6,8 +6,11 @@ import {
   type LaporanEksekutifDemografi,
 } from "../lib/services/laporan-eksekutif";
 import { Card } from "../components/ui/Card";
+import { Button } from "../components/ui/Button";
 import { cn } from "../lib/utils";
-import { canUseStaffApp } from "../lib/runtime";
+import { canUseStaffApp, isDesktopApp } from "../lib/runtime";
+import { getLastLanProbe, probeLanBridge } from "../lib/lan-client";
+import { initLanClientDatabase } from "../lib/db/init";
 import { useIsPhoneClient } from "../hooks/useClientFormFactor";
 import { DashboardMetricCard } from "../components/dashboard/DashboardMetricCard";
 import { DashboardKomposisiBanjarChart } from "../components/dashboard/DashboardKomposisiBanjarChart";
@@ -57,15 +60,31 @@ export function DashboardPage() {
   const [desaOk, setDesaOk] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [connectError, setConnectError] = useState("");
 
   const isPhone = useIsPhoneClient();
-  const staffApp = canUseStaffApp();
 
   const load = useCallback(async () => {
-    if (!staffApp) return;
     setLoading(true);
     setError("");
+    setConnectError("");
     try {
+      if (!canUseStaffApp()) {
+        const ok = await probeLanBridge(true);
+        if (!ok) {
+          const probe = getLastLanProbe();
+          const detail = probe?.dbError?.trim();
+          setConnectError(
+            detail
+              ? `Server belum siap: ${detail}`
+              : "Tidak dapat terhubung ke server. Periksa koneksi internet lalu coba lagi."
+          );
+          setData(null);
+          return;
+        }
+        await initLanClientDatabase();
+      }
+
       const [demografi, desa] = await Promise.all([
         getDemografiKrama(),
         getDesaAdatWithMedia(),
@@ -79,7 +98,7 @@ export function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [staffApp]);
+  }, []);
 
   useEffect(() => {
     void load();
@@ -93,15 +112,21 @@ export function DashboardPage() {
     return () => window.removeEventListener(DESA_ADAT_UPDATED_EVENT, onDesaUpdated);
   }, [load]);
 
-  if (!staffApp) {
+  if (connectError) {
     return (
-      <div className="space-y-5">
-        <p className="text-muted text-sm">Pratinjau browser — gunakan aplikasi desktop atau klien LAN</p>
-        <Card className="!p-5">
-          <p className="text-sm text-muted leading-relaxed">
-            Ringkasan krama membutuhkan PC server Electron, atau HP yang membuka URL
-            LAN (scan QR di Pengaturan → Jaringan LAN).
-          </p>
+      <div className="space-y-4">
+        <Card className="!p-5 space-y-3">
+          <p className="text-sm text-copper-900 font-medium">Ringkasan belum dapat dimuat</p>
+          <p className="text-sm text-muted leading-relaxed">{connectError}</p>
+          {!isDesktopApp() && (
+            <p className="text-[11px] text-muted leading-relaxed">
+              Buka aplikasi desktop, atau pastikan URL web/PWA mengarah ke server yang sama
+              (API <code className="text-[10px]">/api/health</code> harus merespons).
+            </p>
+          )}
+          <Button type="button" variant="secondary" onClick={() => void load()}>
+            Coba lagi
+          </Button>
         </Card>
       </div>
     );
