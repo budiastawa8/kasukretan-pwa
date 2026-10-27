@@ -5,13 +5,43 @@
 
 import { dbSelect } from "./db.js";
 import { HttpError } from "./auth.js";
-import {
-  hitungSisaPaturunan,
-  hitungTagihanPaturunan,
-  resolvePersenPaturunanIuran,
-} from "../src/lib/paturunan-hitung.js";
 
 type Send = (status: number, data: unknown) => void;
+
+/** Salinan ringan dari paturunan-hitung — hindari tarik utils/clsx ke bundle API. */
+function hitungTagihanPaturunan(nominal: number, persen: number): number {
+  const n = Number(nominal);
+  const p = Number(persen);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  if (!Number.isFinite(p) || p <= 0) return 0;
+  return Math.round((n * p) / 100);
+}
+
+function hitungSisaPaturunan(tagihan: number, dibayarWajib: number): number {
+  return Math.max(0, Math.round(Number(tagihan) || 0) - Math.round(Number(dibayarWajib) || 0));
+}
+
+function resolvePersenPaturunanIuran(params: {
+  persen: number | null | undefined;
+  persenSebelumNyada?: number | null;
+  nyadaSejak?: string | null;
+  persenNyada?: number | null;
+  nyadaSampai?: string | null;
+  tanggalTarget?: string | null;
+}): number {
+  const persen = Number(params.persen) || 0;
+  const target = params.tanggalTarget?.trim().slice(0, 10) || "";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(target)) return persen;
+  const sejak = params.nyadaSejak?.trim().slice(0, 10) || "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(sejak) && target < sejak) {
+    return params.persenSebelumNyada == null ? persen : Number(params.persenSebelumNyada) || 0;
+  }
+  const sampai = params.nyadaSampai?.trim().slice(0, 10) || "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(sampai) && target < sampai && params.persenNyada != null) {
+    return Number(params.persenNyada) || 0;
+  }
+  return persen;
+}
 
 const MIN_QUERY_LEN = 3;
 const SEARCH_LIMIT = 25;
