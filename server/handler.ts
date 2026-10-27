@@ -112,12 +112,15 @@ async function handleRoute(path: string, req: ApiRequest, res: ServerResponse): 
   const method = (req.method ?? "GET").toUpperCase();
 
   if (path === "health" && method === "GET") {
+    // Health harus cepat & selalu 200 JSON — jangan jalankan migrasi di sini
+    // (migrasi bisa hang / timeout → Vercel FUNCTION_INVOCATION_FAILED).
     let dbReady = false;
     let dbError: string | undefined;
     try {
-      await ensureServerMigrations();
-      await dbSelect("SELECT 1 AS ok");
+      const timing: DbTiming = { ms: 0, attempts: 0 };
+      await dbSelect("SELECT 1 AS ok", undefined, timing);
       dbReady = true;
+      res.setHeader("Server-Timing", `db;dur=${timing.ms};desc="${timing.attempts}x"`);
     } catch (err) {
       console.error("[health] database:", err);
       dbError = (err instanceof Error ? err.message : String(err)).replace(/eyJ[\w.-]+/g, "***");

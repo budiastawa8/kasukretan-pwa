@@ -70,7 +70,7 @@ export async function dbSelect(
   bind?: unknown[],
   timing?: DbTiming
 ): Promise<Record<string, unknown>[]> {
-  const client = await getClient();
+  const client = await withTimeout(getClient(), SELECT_TIMEOUT_MS);
   const { sql: converted, args } = convertSql(sql, bind);
   const retryable = READ_ONLY_RE.test(converted) && !WRITE_KEYWORD_RE.test(converted);
   const start = Date.now();
@@ -79,12 +79,11 @@ export async function dbSelect(
     for (;;) {
       attempts++;
       try {
-        const rs = retryable && attempts === 1
-          ? await withTimeout(client.execute({ sql: converted, args }), SELECT_TIMEOUT_MS)
-          : await client.execute({ sql: converted, args });
+        // Selalu pakai timeout — retry tanpa batas waktu bisa menggantung fungsi Vercel.
+        const rs = await withTimeout(client.execute({ sql: converted, args }), SELECT_TIMEOUT_MS);
         return rowsToObjects(rs);
       } catch (err) {
-        if (!(err instanceof QueryTimeoutError)) throw err;
+        if (!(err instanceof QueryTimeoutError) || attempts >= 2) throw err;
       }
     }
   } finally {
