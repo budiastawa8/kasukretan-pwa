@@ -11,6 +11,7 @@ import {
 import { CEK_TUNGGAKAN_PATURUNAN_PATH } from "../../lib/cek-tunggakan-publik";
 import { formatRupiah } from "../../lib/paturunan-hitung";
 import { ApiError } from "../../lib/api/client";
+import { PaturunanStatusBadge } from "../../components/paturunan/PaturunanStatusBadge";
 import { AppLogo } from "../../components/ui/AppLogo";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
@@ -268,10 +269,14 @@ function DetailView({
               <div className="space-y-2">
                 {data.iuran.map((i) => (
                   <Card key={i.iuran_id} className="text-sm">
-                    <div className="flex justify-between gap-2">
+                    <div className="flex justify-between gap-2 items-start">
                       <p className="font-medium text-copper-900">{i.iuran_nama}</p>
-                      <span className="text-xs font-medium text-copper-800 shrink-0">
-                        {i.status}
+                      <span className="shrink-0">
+                        <PaturunanStatusBadge
+                          tagihan={i.tagihan}
+                          dibayarWajib={i.dibayar_wajib}
+                          punia={i.punia ?? 0}
+                        />
                       </span>
                     </div>
                     <dl className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-xs text-muted mt-2">
