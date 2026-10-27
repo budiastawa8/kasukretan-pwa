@@ -69,6 +69,8 @@ export interface DesaAdat {
   charge_biaya_admin_pemasih?: number | null;
   /** 1 = desa memakai Tim Bantuan (pengumpulan Dudukan terbatas) */
   tim_bantuan_aktif?: number | null;
+  /** 1 = halaman publik cek tunggakan Paturunan (tanpa login) aktif */
+  cek_tunggakan_paturunan_publik?: number | null;
 }
 
 export type PrajuruDesaAdatInput = {

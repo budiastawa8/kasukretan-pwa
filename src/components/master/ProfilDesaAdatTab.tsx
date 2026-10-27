@@ -1,5 +1,5 @@
 ﻿import { useEffect, useState, type ReactNode } from "react";
-import { Check } from "lucide-react";
+import { Check, Copy, Link2 } from "lucide-react";
 import {
   DESA_ADAT_UPDATED_EVENT,
   getDesaAdatWithMedia,
@@ -12,6 +12,10 @@ import {
   syncNyadaOtomatis,
   type KramaDapukanRingkas,
 } from "../../lib/services/nyada-otomatis";
+import {
+  CEK_TUNGGAKAN_PATURUNAN_PATH,
+  publicCekTunggakanPaturunanUrl,
+} from "../../lib/cek-tunggakan-publik";
 import { MatikanDapukanDialog } from "./MatikanDapukanDialog";
 import { normalizeTanggalIsoForInput } from "../../lib/date-iso";
 import { DateInput } from "../ui/DateInput";
@@ -41,6 +45,7 @@ type ProfilForm = {
   yowana_umur_min: string;
   yowana_umur_max: string;
   tim_bantuan_aktif: boolean;
+  cek_tunggakan_paturunan_publik: boolean;
   bandesa_nama: string;
   bandesa_jabatan: string;
   bandesa_nik: string;
@@ -73,6 +78,7 @@ const emptyForm = (): ProfilForm => ({
   yowana_umur_min: "",
   yowana_umur_max: "",
   tim_bantuan_aktif: false,
+  cek_tunggakan_paturunan_publik: false,
   bandesa_nama: "",
   bandesa_jabatan: "",
   bandesa_nik: "",
@@ -119,6 +125,7 @@ function formFromDesa(d: DesaAdat | null): ProfilForm {
         ? String(d.yowana_umur_max)
         : "",
     tim_bantuan_aktif: !!Number(d.tim_bantuan_aktif),
+    cek_tunggakan_paturunan_publik: !!Number(d.cek_tunggakan_paturunan_publik),
     bandesa_nama: d.bandesa_nama ?? "",
     bandesa_jabatan: d.bandesa_jabatan ?? "",
     bandesa_nik: d.bandesa_nik ?? "",
@@ -133,6 +140,79 @@ function formFromDesa(d: DesaAdat | null): ProfilForm {
     pararem_tahun: d.pararem_tahun ?? "",
     pararem_judul: d.pararem_judul ?? "",
   };
+}
+
+function CekTunggakanPublikSection({
+  checked,
+  onChange,
+  disabled,
+}: {
+  checked: boolean;
+  onChange: (value: boolean) => void;
+  disabled?: boolean;
+}) {
+  const [copyMsg, setCopyMsg] = useState("");
+  const publicUrl = publicCekTunggakanPaturunanUrl();
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(publicUrl);
+      setCopyMsg("Link disalin — siap dibagikan ke grup WA.");
+    } catch {
+      setCopyMsg("Gagal menyalin. Salin manual dari kolom di bawah.");
+    }
+    window.setTimeout(() => setCopyMsg(""), 2500);
+  }
+
+  return (
+    <ProfilSection
+      title="Cek tunggakan Paturunan (publik)"
+      description="Halaman tanpa login untuk dibagikan ke krama atau grup WA. Matikan toggle bila periode publik selesai."
+    >
+      <label className="flex items-start gap-2 text-sm text-copper-900">
+        <input
+          type="checkbox"
+          className="mt-0.5"
+          checked={checked}
+          onChange={(e) => onChange(e.target.checked)}
+          disabled={disabled}
+        />
+        <span>
+          <strong>Izinkan siapa saja membuka halaman pencarian tunggakan Paturunan tanpa login</strong>
+          <span className="block text-[11px] text-copper-600 mt-0.5">
+            {checked
+              ? "Krama dapat mencari nama dan melihat sisa tagihan (read-only). Setelah push/sync ke cloud, link langsung aktif."
+              : "Default mati. Saat dimatikan, link lama menampilkan pesan bahwa fitur ditutup — API publik juga menolak."}
+          </span>
+        </span>
+      </label>
+      <div className="mt-3 space-y-2 rounded-lg border border-copper-100 bg-copper-50/50 px-3 py-2.5">
+        <p className="text-[11px] text-muted flex items-center gap-1.5">
+          <Link2 size={14} className="shrink-0" aria-hidden />
+          Link stabil: <code className="text-[10px]">{CEK_TUNGGAKAN_PATURUNAN_PATH}</code>
+        </p>
+        <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+          <Input
+            readOnly
+            value={publicUrl}
+            className="text-xs font-mono"
+            aria-label="URL halaman publik cek tunggakan"
+            onFocus={(e) => e.target.select()}
+          />
+          <Button
+            type="button"
+            variant="secondary"
+            icon={Copy}
+            onClick={() => void copyLink()}
+            className="shrink-0"
+          >
+            Salin link
+          </Button>
+        </div>
+        {copyMsg ? <p className="text-[11px] text-emerald-800">{copyMsg}</p> : null}
+      </div>
+    </ProfilSection>
+  );
 }
 
 function ProfilSection({
@@ -316,6 +396,7 @@ export function ProfilDesaAdatTab({
         yowana_umur_min: yowanaMin ? parseInt(yowanaMin, 10) : null,
         yowana_umur_max: yowanaMax ? parseInt(yowanaMax, 10) : null,
         tim_bantuan_aktif: form.tim_bantuan_aktif,
+        cek_tunggakan_paturunan_publik: form.cek_tunggakan_paturunan_publik,
         bandesa_nama: form.bandesa_nama,
         bandesa_jabatan: form.bandesa_jabatan,
         bandesa_nik: form.bandesa_nik.replace(/\D/g, "").slice(0, 16),
@@ -557,6 +638,12 @@ export function ProfilDesaAdatTab({
             </span>
           </label>
         </ProfilSection>
+
+        <CekTunggakanPublikSection
+          checked={form.cek_tunggakan_paturunan_publik}
+          onChange={(v) => setField("cek_tunggakan_paturunan_publik", v)}
+          disabled={fieldDisabled}
+        />
 
         <ProfilSection
           title="Krama Dapukan"

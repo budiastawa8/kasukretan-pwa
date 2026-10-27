@@ -28,6 +28,7 @@ import {
   handlePortalLoginRoute,
   handlePortalSyncPush,
 } from "./portal-routes.js";
+import { handlePublikCekTunggakanRoute } from "./publik-cek-tunggakan.js";
 
 type ApiRequest = IncomingMessage & { body?: unknown };
 
@@ -148,9 +149,19 @@ async function handleRoute(path: string, req: ApiRequest, res: ServerResponse): 
     return;
   }
 
-  // Skema cloud perlu mutakhir sebelum login/portal/sync.
-  if (path.startsWith("portal/") || path === "sync/portal/push") {
+  // Skema cloud perlu mutakhir sebelum login/portal/publik/sync.
+  if (
+    path.startsWith("portal/") ||
+    path.startsWith("publik/") ||
+    path === "sync/portal/push"
+  ) {
     await ensureServerMigrations();
+  }
+
+  if (
+    await handlePublikCekTunggakanRoute(path, method, req, (status, data) => send(res, status, data))
+  ) {
+    return;
   }
 
   if (await handlePortalLoginRoute(path, method, () => readBody(req), (status, data) => send(res, status, data))) {

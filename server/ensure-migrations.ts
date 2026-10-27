@@ -25,6 +25,9 @@ async function runEnsureMigrations(): Promise<void> {
   await ensureColumn("desa_adat", "tim_bantuan_aktif", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("tim_kasukretan", "tipe", "TEXT NOT NULL DEFAULT 'banjar'");
 
+  // Halaman publik cek tunggakan Paturunan (default off)
+  await ensureColumn("desa_adat", "cek_tunggakan_paturunan_publik", "INTEGER NOT NULL DEFAULT 0");
+
   // Pencarian cepat nomor kartu
   await ensureColumn("krama", "nomor_kartu_norm", "TEXT");
   const staleNorm = await dbSelect(

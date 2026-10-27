@@ -15,13 +15,15 @@ describe("ensureServerMigrations", () => {
     dbExecute.mockReset();
   });
 
-  it("menambah kolom Tim Bantuan dan nomor_kartu_norm bila belum ada", async () => {
+  it("menambah kolom Tim Bantuan, cek tunggakan publik, dan nomor_kartu_norm bila belum ada", async () => {
     // tableHasColumn tim_kasukretan (nomor_kontak)
     dbSelect.mockResolvedValueOnce([{ name: "id" }, { name: "nama" }]);
     // tableHasColumn desa_adat (tim_bantuan_aktif)
     dbSelect.mockResolvedValueOnce([{ name: "id" }]);
     // tableHasColumn tim_kasukretan (tipe)
     dbSelect.mockResolvedValueOnce([{ name: "id" }, { name: "nama" }, { name: "nomor_kontak" }]);
+    // tableHasColumn desa_adat (cek_tunggakan_paturunan_publik)
+    dbSelect.mockResolvedValueOnce([{ name: "id" }, { name: "tim_bantuan_aktif" }]);
     // tableHasColumn krama (nomor_kartu_norm)
     dbSelect.mockResolvedValueOnce([{ name: "id" }, { name: "nomor_kartu" }]);
     // probe baris stale nomor_kartu_norm
@@ -41,6 +43,9 @@ describe("ensureServerMigrations", () => {
       "ALTER TABLE tim_kasukretan ADD COLUMN tipe TEXT NOT NULL DEFAULT 'banjar'"
     );
     expect(dbExecute).toHaveBeenCalledWith(
+      "ALTER TABLE desa_adat ADD COLUMN cek_tunggakan_paturunan_publik INTEGER NOT NULL DEFAULT 0"
+    );
+    expect(dbExecute).toHaveBeenCalledWith(
       "ALTER TABLE krama ADD COLUMN nomor_kartu_norm TEXT"
     );
   });
@@ -57,6 +62,11 @@ describe("ensureServerMigrations", () => {
       { name: "nama" },
       { name: "nomor_kontak" },
       { name: "tipe" },
+    ]);
+    dbSelect.mockResolvedValueOnce([
+      { name: "id" },
+      { name: "tim_bantuan_aktif" },
+      { name: "cek_tunggakan_paturunan_publik" },
     ]);
     dbSelect.mockResolvedValueOnce([
       { name: "id" },
@@ -93,6 +103,11 @@ describe("ensureServerMigrations", () => {
       { name: "nama" },
       { name: "nomor_kontak" },
       { name: "tipe" },
+    ]);
+    dbSelect.mockResolvedValueOnce([
+      { name: "id" },
+      { name: "tim_bantuan_aktif" },
+      { name: "cek_tunggakan_paturunan_publik" },
     ]);
     dbSelect.mockResolvedValueOnce([
       { name: "id" },

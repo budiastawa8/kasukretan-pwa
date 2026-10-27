@@ -15,6 +15,7 @@ import { PortalHomePage } from "./pages/portal/PortalHomePage";
 import { PortalKartuPage } from "./pages/portal/PortalKartuPage";
 import { PortalPaturunanPage } from "./pages/portal/PortalPaturunanPage";
 import { PortalDudukanPage } from "./pages/portal/PortalDudukanPage";
+import { CekTunggakanPaturunanPage } from "./pages/publik/CekTunggakanPaturunanPage";
 import { PetugasLoginPage } from "./pages/petugas/PetugasLoginPage";
 import { PetugasHomePage } from "./pages/petugas/PetugasHomePage";
 import { PetugasPaturunanPage } from "./pages/petugas/PetugasPaturunanPage";
@@ -99,6 +100,8 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/cek-tunggakan-paturunan" element={<CekTunggakanPaturunanPage />} />
+          <Route path="/cek-tunggakan-paturunan/:kramaId" element={<CekTunggakanPaturunanPage />} />
           <Route
             path="/portal/login"
             element={

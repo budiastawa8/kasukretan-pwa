@@ -25,7 +25,7 @@ const DESA_CORE_COLUMNS = `
   pararem_nomor, pararem_tahun, pararem_judul,
   auto_perpanjang_pemasih, auto_perpanjang_pemasih_tamiu,
   enforce_masa_berlaku_pipil, charge_biaya_admin_pemasih,
-  tim_bantuan_aktif
+  tim_bantuan_aktif, cek_tunggakan_paturunan_publik
 `.replace(/\s+/g, " ").trim();
 
 type DesaCacheSlot = { at: number; promise: Promise<DesaAdat | null> };
@@ -257,6 +257,11 @@ export type ProfilDesaAdatInput = PrajuruDesaAdatInput & {
   pararem_judul?: string;
   /** Aktifkan fitur Tim Bantuan. Off → akun login Tim Bantuan dinonaktifkan. */
   tim_bantuan_aktif?: boolean;
+  /**
+   * Izinkan siapa saja membuka halaman pencarian tunggakan Paturunan tanpa login.
+   * Off → link lama menampilkan pesan ditutup; API publik menolak.
+   */
+  cek_tunggakan_paturunan_publik?: boolean;
 };
 
 function parseOptionalInt(value: unknown): number | null {
@@ -310,6 +315,7 @@ export async function updateProfilDesaAdat(data: ProfilDesaAdatInput): Promise<D
 
   const timBantuanAktif = !!data.tim_bantuan_aktif;
   const timBantuanDimatikan = !!Number(existing.tim_bantuan_aktif) && !timBantuanAktif;
+  const cekTunggakanPublikAktif = !!data.cek_tunggakan_paturunan_publik;
 
   const db = await getDb();
   const baluDapukanLama = existing.jenis_balu_dapukan_mipil_id?.trim() || null;
@@ -336,6 +342,7 @@ export async function updateProfilDesaAdat(data: ProfilDesaAdatInput): Promise<D
       panyarikan_nama = ?, panyarikan_jabatan = ?, panyarikan_ttd_url = ?,
       patengen_nama = ?, patengen_jabatan = ?,
       tim_bantuan_aktif = ?,
+      cek_tunggakan_paturunan_publik = ?,
       updated_at = datetime('now')
     WHERE id = ?`,
     [
@@ -368,6 +375,7 @@ export async function updateProfilDesaAdat(data: ProfilDesaAdatInput): Promise<D
       trimOrNull(data.patengen_nama),
       trimOrNull(data.patengen_jabatan),
       timBantuanAktif ? 1 : 0,
+      cekTunggakanPublikAktif ? 1 : 0,
       existing.id,
     ]
   );
