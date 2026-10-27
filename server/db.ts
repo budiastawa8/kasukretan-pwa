@@ -83,7 +83,7 @@ export async function dbSelect(
         const rs = await withTimeout(client.execute({ sql: converted, args }), SELECT_TIMEOUT_MS);
         return rowsToObjects(rs);
       } catch (err) {
-        if (!(err instanceof QueryTimeoutError) || attempts >= 2) throw err;
+        if (!(err instanceof QueryTimeoutError) || !retryable || attempts >= 2) throw err;
       }
     }
   } finally {
