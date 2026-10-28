@@ -11,7 +11,7 @@
  * - keuangan — tulis data krama + keuangan (paturunan, dudukan, buku kas)
  * - prajuru  — hanya baca
  * - petugas  — baca + catat/hapus pembayaran miliknya sendiri yang belum disetor
- *              (baris diperiksa di handler: petugas, banjar, status setor)
+ *              (boleh beberapa bulan dalam satu INSERT; tiap baris diperiksa di handler)
  * Tabel yang tidak terdaftar (master, pengguna, lembaga) hanya untuk admin.
  */
 
@@ -209,8 +209,9 @@ const PETUGAS_DELETE_RE = /^\s*DELETE\s+FROM\s+(\w+)\s+WHERE\s+id\s*=\s*(\?|\$1)
 const PETUGAS_INSERT_RE = /^\s*INSERT\s+INTO\s+(\w+)\s*\([^)]*\)\s*VALUES\s*\(/i;
 
 /**
- * Petugas hanya boleh INSERT ... VALUES satu baris atau DELETE ... WHERE id = ? pada tabel
- * pembayaran; isi barisnya divalidasi handler sebelum commit.
+ * Petugas boleh INSERT ... VALUES (satu atau beberapa baris sekaligus) atau
+ * DELETE ... WHERE id = ? pada tabel pembayaran. Bukan INSERT ... SELECT.
+ * Isi setiap baris divalidasi handler sebelum commit.
  */
 function petugasPaymentGuard(stripped: string): PetugasGuard | null {
   const del = stripped.match(PETUGAS_DELETE_RE);

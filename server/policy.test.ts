@@ -33,7 +33,19 @@ describe("authorizeSql — petugas lapangan", () => {
     expect(d.allow).toBe(false);
   });
 
-  it("menolak DELETE massal dan INSERT ... SELECT", () => {
+  it("INSERT pembayaran beberapa baris lolos dengan guard yang sama", () => {
+    const sql = `INSERT INTO dudukan_pembayaran
+      (id, krama_id, tahun, bulan, jumlah, tanggal, petugas_id, akun_keuangan_id, keterangan,
+       jenis_krama_tamiu_id, jenis_tamiu_id, jenis_nama, tanggal_setor, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, datetime('now')),
+            ($14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, datetime('now'))`;
+    expect(authorizeSql("petugas", sql)).toEqual({
+      allow: true,
+      petugasGuard: { verb: "insert", table: "dudukan_pembayaran" },
+    });
+  });
+
+  it("menolak DELETE massal, INSERT ... SELECT, dan beberapa perintah", () => {
     expect(authorizeSql("petugas", "DELETE FROM paturunan_pembayaran WHERE krama_id = ?").allow).toBe(
       false
     );
@@ -41,6 +53,12 @@ describe("authorizeSql — petugas lapangan", () => {
       authorizeSql(
         "petugas",
         "INSERT INTO dudukan_pembayaran (id, krama_id) SELECT id, krama_id FROM dudukan_pembayaran"
+      ).allow
+    ).toBe(false);
+    expect(
+      authorizeSql(
+        "petugas",
+        "INSERT INTO dudukan_pembayaran (id, krama_id, jumlah) VALUES (?, ?, ?); INSERT INTO dudukan_pembayaran (id, krama_id, jumlah) VALUES (?, ?, ?)"
       ).allow
     ).toBe(false);
   });

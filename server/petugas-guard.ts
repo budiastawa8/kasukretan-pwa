@@ -39,9 +39,24 @@ function alasanTolakBaruPetugas(
   return null;
 }
 
+const PESAN_BARIS_TIDAK_JELAS =
+  "Perintah pembayaran tidak menghasilkan baris yang bisa diverifikasi.";
+
+/** `0` berarti tidak ada INSERT yang berhasil (termasuk ON CONFLICT yang tidak menyisipkan). */
+function rowidBarisTerakhir(value: bigint | undefined): bigint | null {
+  if (value == null || value <= 0n) return null;
+  return value;
+}
+
 /**
- * Tulis pembayaran oleh peran petugas. INSERT dijalankan dalam transaksi lalu baris
- * hasilnya diperiksa sebelum commit; DELETE dibatasi ke milik sendiri yang belum disetor.
+ * Tulis pembayaran oleh peran petugas. INSERT (satu atau beberapa baris dalam satu
+ * perintah) dijalankan dalam transaksi lalu setiap baris baru diperiksa sebelum commit.
+ * DELETE dibatasi ke milik sendiri yang belum disetor.
+ *
+ * Baris baru dikenali lewat rentang rowid `(lastInsertRowid - rowsAffected, lastInsertRowid]`.
+ * SQLite mengisi rowid berurutan untuk INSERT ... VALUES pada tabel rowid biasa selama
+ * perintah tidak menyebut rowid. Trigger yang menyisipkan baris ke tabel yang sama akan
+ * merusak rentang itu; skema `paturunan_pembayaran` dan `dudukan_pembayaran` tidak punya trigger.
  */
 export async function executePetugasPaymentWrite(
   user: PublicUser,
@@ -77,20 +92,28 @@ export async function executePetugasPaymentWrite(
   const tx = await client.transaction("write");
   try {
     const rs = await tx.execute({ sql: converted, args });
-    if (rs.rowsAffected !== 1 || rs.lastInsertRowid == null) {
-      throw new HttpError(403, "Petugas hanya boleh mencatat satu pembayaran per perintah.");
+    const last = rowidBarisTerakhir(rs.lastInsertRowid);
+    if (rs.rowsAffected < 1 || last == null) {
+      throw new HttpError(403, PESAN_BARIS_TIDAK_JELAS);
     }
     const check = await tx.execute({
       sql: `SELECT p.petugas_id, p.tanggal_setor, p.setoran_id, p.jumlah, k.banjar_id
             FROM ${guard.table} p
             LEFT JOIN krama k ON k.id = p.krama_id
-            WHERE p.rowid = ?`,
-      args: [rs.lastInsertRowid],
+            WHERE p.rowid > ? AND p.rowid <= ?
+            ORDER BY p.rowid`,
+      args: [last - BigInt(rs.rowsAffected), last],
     });
-    const alasan = alasanTolakBaruPetugas(rowsToObjects(check)[0], tim);
-    if (alasan) throw new HttpError(403, alasan);
+    const rows = rowsToObjects(check);
+    if (rows.length !== rs.rowsAffected) {
+      throw new HttpError(403, PESAN_BARIS_TIDAK_JELAS);
+    }
+    for (const row of rows) {
+      const alasan = alasanTolakBaruPetugas(row, tim);
+      if (alasan) throw new HttpError(403, alasan);
+    }
     await tx.commit();
-    return { rowsAffected: 1 };
+    return { rowsAffected: rs.rowsAffected };
   } catch (err) {
     await tx.rollback().catch(() => {});
     throw err;
