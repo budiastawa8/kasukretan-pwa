@@ -515,6 +515,12 @@ CREATE TABLE IF NOT EXISTS tim_kasukretan (
   nomor_kontak TEXT,
   /** banjar = petugas biasa; bantuan = Tim Bantuan (hanya Dudukan, 1 banjar) */
   tipe TEXT NOT NULL DEFAULT 'banjar',
+  /** Nomor anggota kartu petugas (unik, mis. 001) */
+  nomor_pengenal TEXT,
+  /** Foto untuk kartu tanda pengenal (data URL) */
+  foto_url TEXT,
+  /** 1 = aktif (QR sah); 0 = nonaktif (QR tidak terdeteksi) */
+  aktif INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

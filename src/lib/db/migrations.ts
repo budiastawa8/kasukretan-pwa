@@ -605,6 +605,7 @@ export async function runMasterDataMigrations(db: Database): Promise<void> {
   await migrateUserTimKasukretan(db);
   await migrateTimKasukretanKontak(db);
   await migrateTimBantuan(db);
+  await migrateTimKasukretanKartu(db);
   await migrateCekTunggakanPaturunanPublik(db);
   await migrateKramaNomorKartuNorm(db);
   await ensureRingkasanIndexes(db);
@@ -647,6 +648,78 @@ async function migrateTimKasukretanKontak(db: Database): Promise<void> {
       throw new Error("Gagal menambah kolom nomor_kontak pada tim_kasukretan");
     }
   }
+}
+
+/** Kartu tanda pengenal Tim Kasukretan: nomor, foto, status aktif. */
+async function migrateTimKasukretanKartu(db: Database): Promise<void> {
+  if (!(await tableHasColumn(db, "tim_kasukretan", "nomor_pengenal"))) {
+    try {
+      await db.execute(`ALTER TABLE tim_kasukretan ADD COLUMN nomor_pengenal TEXT`);
+    } catch {
+      if (!(await tableHasColumn(db, "tim_kasukretan", "nomor_pengenal"))) {
+        throw new Error("Gagal menambah kolom nomor_pengenal pada tim_kasukretan");
+      }
+    }
+  }
+  if (!(await tableHasColumn(db, "tim_kasukretan", "foto_url"))) {
+    try {
+      await db.execute(`ALTER TABLE tim_kasukretan ADD COLUMN foto_url TEXT`);
+    } catch {
+      if (!(await tableHasColumn(db, "tim_kasukretan", "foto_url"))) {
+        throw new Error("Gagal menambah kolom foto_url pada tim_kasukretan");
+      }
+    }
+  }
+  if (!(await tableHasColumn(db, "tim_kasukretan", "aktif"))) {
+    try {
+      await db.execute(
+        `ALTER TABLE tim_kasukretan ADD COLUMN aktif INTEGER NOT NULL DEFAULT 1`
+      );
+    } catch {
+      if (!(await tableHasColumn(db, "tim_kasukretan", "aktif"))) {
+        throw new Error("Gagal menambah kolom aktif pada tim_kasukretan");
+      }
+    }
+  }
+
+  const {
+    formatNomorPengenal,
+    isNomorPengenalFormatBaru,
+    parseNomorPengenalUrut,
+    resolveKodeDesaAdat,
+  } = await import("../penomoran-petugas");
+  const kode = await resolveKodeDesaAdat(db);
+
+  const allRows = await db.select<{ id: string; nomor_pengenal: string | null }[]>(
+    `SELECT id, nomor_pengenal FROM tim_kasukretan ORDER BY created_at ASC, nama ASC`
+  );
+  let maxUrut = 0;
+  for (const r of allRows) {
+    if (r.nomor_pengenal?.trim()) {
+      maxUrut = Math.max(maxUrut, parseNomorPengenalUrut(r.nomor_pengenal));
+    }
+  }
+  for (const row of allRows) {
+    const current = row.nomor_pengenal?.trim() || "";
+    if (current && isNomorPengenalFormatBaru(current, kode)) continue;
+    let urut = current ? parseNomorPengenalUrut(current) : 0;
+    if (!urut) {
+      maxUrut += 1;
+      urut = maxUrut;
+    } else {
+      maxUrut = Math.max(maxUrut, urut);
+    }
+    const nomor = formatNomorPengenal(kode, urut);
+    await db.execute(
+      `UPDATE tim_kasukretan SET nomor_pengenal = $1, updated_at = datetime('now') WHERE id = $2`,
+      [nomor, row.id]
+    );
+  }
+
+  await db.execute(
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_tim_kasukretan_nomor_pengenal
+     ON tim_kasukretan (nomor_pengenal)`
+  );
 }
 
 /** Tim Bantuan: flag desa + tipe anggota tim (banjar | bantuan). */

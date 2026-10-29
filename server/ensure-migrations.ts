@@ -25,6 +25,52 @@ async function runEnsureMigrations(): Promise<void> {
   await ensureColumn("desa_adat", "tim_bantuan_aktif", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("tim_kasukretan", "tipe", "TEXT NOT NULL DEFAULT 'banjar'");
 
+  // Kartu tanda pengenal Tim Kasukretan
+  await ensureColumn("tim_kasukretan", "nomor_pengenal", "TEXT");
+  await ensureColumn("tim_kasukretan", "foto_url", "TEXT");
+  await ensureColumn("tim_kasukretan", "aktif", "INTEGER NOT NULL DEFAULT 1");
+  // Normalisasi string kosong → NULL agar UNIQUE index aman
+  await dbExecute(
+    `UPDATE tim_kasukretan SET nomor_pengenal = NULL
+     WHERE nomor_pengenal IS NOT NULL AND trim(nomor_pengenal) = ''`
+  );
+  const desaRows = await dbSelect(`SELECT kode_desa_adat FROM desa_adat LIMIT 1`);
+  const kodeRaw = String(desaRows[0]?.kode_desa_adat ?? "").replace(/\D/g, "");
+  const kodeDesa = (kodeRaw.length >= 4 ? kodeRaw.slice(0, 4) : kodeRaw.padStart(4, "0")) || "0000";
+  const allTim = await dbSelect(
+    `SELECT id, nomor_pengenal FROM tim_kasukretan ORDER BY created_at ASC, nama ASC`
+  );
+  let maxUrut = 0;
+  for (const r of allTim) {
+    const digits = String(r.nomor_pengenal ?? "").replace(/\D/g, "");
+    if (!digits) continue;
+    const urut = Number.parseInt(digits.length >= 7 ? digits.slice(-3) : digits.slice(-3), 10);
+    if (Number.isFinite(urut) && urut > maxUrut) maxUrut = urut;
+  }
+  for (const row of allTim) {
+    const digits = String(row.nomor_pengenal ?? "").replace(/\D/g, "");
+    const already = digits.length === 7 && digits.slice(0, 4) === kodeDesa;
+    if (already) continue;
+    let urut = digits
+      ? Number.parseInt(digits.length >= 7 ? digits.slice(-3) : digits.slice(-3), 10)
+      : 0;
+    if (!Number.isFinite(urut) || urut <= 0) {
+      maxUrut += 1;
+      urut = maxUrut;
+    } else {
+      maxUrut = Math.max(maxUrut, urut);
+    }
+    const nomor = `${kodeDesa}${String(urut).padStart(3, "0")}`;
+    await dbExecute(
+      `UPDATE tim_kasukretan SET nomor_pengenal = ?, updated_at = datetime('now') WHERE id = ?`,
+      [nomor, row.id]
+    );
+  }
+  await dbExecute(
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_tim_kasukretan_nomor_pengenal
+     ON tim_kasukretan (nomor_pengenal)`
+  );
+
   // Halaman publik cek tunggakan Paturunan (default off)
   await ensureColumn("desa_adat", "cek_tunggakan_paturunan_publik", "INTEGER NOT NULL DEFAULT 0");
 

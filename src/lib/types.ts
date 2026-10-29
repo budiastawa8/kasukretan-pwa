@@ -133,6 +133,12 @@ export interface TimKasukretan {
   nomor_kontak?: string | null;
   /** banjar = Tim Banjar; bantuan = Tim Bantuan. */
   tipe?: "banjar" | "bantuan" | null;
+  /** Nomor anggota di kartu (unik, mis. 001). */
+  nomor_pengenal?: string | null;
+  /** Foto kartu tanda pengenal (data URL). */
+  foto_url?: string | null;
+  /** 1 = aktif (QR sah); 0 = nonaktif. */
+  aktif?: number | null;
   banjar_nama: string;
   banjar_kode: string;
   created_at?: string;

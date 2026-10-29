@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Check, IdCard, Pencil, Plus, RotateCcw, Search, UserX, X } from "lucide-react";
 import {
   createTimKasukretan,
-  deleteTimKasukretan,
   listBanjar,
   listTimKasukretan,
+  setTimKasukretanAktif,
   updateTimKasukretan,
 } from "../../lib/services/master";
 import { getDesaAdat } from "../../lib/services/desa";
+import { formatNomorPengenalDisplay } from "../../lib/penomoran-petugas";
 import type { Banjar, TimKasukretan } from "../../lib/types";
 import {
   isTimBantuanFiturAktif,
@@ -27,7 +29,12 @@ import { cn } from "../../lib/utils";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
+import { FotoUploadField } from "../ui/FotoUploadField";
 import { Input, Label, Select } from "../ui/Input";
+
+function isTimAktif(item: TimKasukretan): boolean {
+  return Number(item.aktif ?? 1) === 1;
+}
 
 type TimForm = {
   nama: string;
@@ -35,6 +42,7 @@ type TimForm = {
   jabatan: string;
   nomor_kontak: string;
   tipe: TimKasukretanTipe;
+  foto_url: string;
 };
 
 const emptyForm = (): TimForm => ({
@@ -43,6 +51,7 @@ const emptyForm = (): TimForm => ({
   jabatan: "",
   nomor_kontak: "",
   tipe: "banjar",
+  foto_url: "",
 });
 
 function formFromItem(item: TimKasukretan): TimForm {
@@ -52,6 +61,7 @@ function formFromItem(item: TimKasukretan): TimForm {
     jabatan: item.jabatan,
     nomor_kontak: item.nomor_kontak?.trim() ?? "",
     tipe: normalizeTimKasukretanTipe(item.tipe),
+    foto_url: item.foto_url?.trim() ?? "",
   };
 }
 
@@ -65,8 +75,10 @@ function matchesTimCari(item: TimKasukretan, q: string): boolean {
     item.banjar_nama,
     item.banjar_kode,
     item.nomor_kontak ?? "",
+    item.nomor_pengenal ?? "",
     timKasukretanTipeLabel(tipe),
     tipe,
+    isTimAktif(item) ? "aktif" : "nonaktif",
   ]
     .join(" ")
     .toLowerCase();
@@ -170,6 +182,12 @@ function TimFormFields({
           placeholder="08…"
         />
       </div>
+      <FotoUploadField
+        label="Foto kartu tanda pengenal"
+        value={form.foto_url}
+        onChange={(dataUrl) => onChange({ ...form, foto_url: dataUrl })}
+        disabled={disabled}
+      />
     </div>
   );
 }
@@ -194,8 +212,8 @@ export function TimKasukretanMasterTab({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<TimForm>(emptyForm);
   const [saving, setSaving] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<TimKasukretan | null>(null);
-  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [statusTarget, setStatusTarget] = useState<TimKasukretan | null>(null);
+  const [statusBusy, setStatusBusy] = useState(false);
 
   const refresh = useCallback(async () => {
     const [tim, b, desa] = await Promise.all([listTimKasukretan(), listBanjar(), getDesaAdat()]);
@@ -223,7 +241,8 @@ export function TimKasukretanMasterTab({
         addForm.banjar_id,
         addForm.jabatan,
         addForm.nomor_kontak,
-        tipe
+        tipe,
+        addForm.foto_url || null
       );
       setAddForm(emptyForm());
       await refresh();
@@ -252,7 +271,8 @@ export function TimKasukretanMasterTab({
         editForm.banjar_id,
         editForm.jabatan,
         editForm.nomor_kontak,
-        tipe
+        tipe,
+        editForm.foto_url || null
       );
       setEditingId(null);
       await refresh();
@@ -264,25 +284,30 @@ export function TimKasukretanMasterTab({
     }
   }
 
-  function requestDelete(item: TimKasukretan) {
+  function requestToggleStatus(item: TimKasukretan) {
     if (!canEdit) return;
-    setDeleteTarget(item);
+    setStatusTarget(item);
   }
 
-  async function handleConfirmDelete() {
-    if (!deleteTarget) return;
-    setDeleteBusy(true);
+  async function handleConfirmStatus() {
+    if (!statusTarget) return;
+    const nextAktif = !isTimAktif(statusTarget);
+    setStatusBusy(true);
     onError("");
     try {
-      await deleteTimKasukretan(deleteTarget.id);
-      if (editingId === deleteTarget.id) setEditingId(null);
+      await setTimKasukretanAktif(statusTarget.id, nextAktif);
+      if (editingId === statusTarget.id) setEditingId(null);
       await refresh();
-      setDeleteTarget(null);
-      onSaved("Anggota tim berhasil dihapus");
+      setStatusTarget(null);
+      onSaved(
+        nextAktif
+          ? `${statusTarget.nama} diaktifkan kembali — QR kartu sah.`
+          : `${statusTarget.nama} dinonaktifkan — QR kartu tidak terdeteksi.`
+      );
     } catch (err) {
       onError(String(err));
     } finally {
-      setDeleteBusy(false);
+      setStatusBusy(false);
     }
   }
 
@@ -417,9 +442,21 @@ export function TimKasukretanMasterTab({
                   key={r.id}
                   className="rounded-lg border border-copper-200/90 bg-card px-3 py-2.5 shadow-sm shadow-copper-950/5"
                 >
-                  <p className="text-sm font-semibold text-copper-950">{r.nama}</p>
+                  <p
+                    className={cn(
+                      "text-sm font-semibold",
+                      isTimAktif(r) ? "text-copper-950" : "text-muted line-through"
+                    )}
+                  >
+                    {r.nama}
+                  </p>
                   <p className="text-[11px] text-copper-700 mt-0.5">
+                    {isTimAktif(r) ? "Aktif" : "Nonaktif"}
+                    {" · "}
                     {timKasukretanTipeLabel(normalizeTimKasukretanTipe(r.tipe))}
+                    {r.nomor_pengenal?.trim()
+                      ? ` · No. ${formatNomorPengenalDisplay(r.nomor_pengenal)}`
+                      : ""}
                   </p>
                   <p className="text-xs text-copper-800 mt-0.5">
                     {r.banjar_kode} — {r.banjar_nama}
@@ -428,26 +465,38 @@ export function TimKasukretanMasterTab({
                   {r.nomor_kontak?.trim() ? (
                     <p className="text-xs text-copper-800 mt-0.5">{r.nomor_kontak.trim()}</p>
                   ) : null}
-                  {canEdit && (
-                    <div className="flex gap-2 mt-2">
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        className="h-10 flex-1 text-xs"
-                        onClick={() => startEdit(r)}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="h-10 flex-1 text-xs text-red-600"
-                        onClick={() => requestDelete(r)}
-                      >
-                        Hapus
-                      </Button>
-                    </div>
-                  )}
+                  <div className="flex gap-2 mt-2">
+                    <Link
+                      to={`/master/tim-kasukretan/${r.id}/cetak-kartu`}
+                      className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-md border border-copper-200 bg-copper-100 px-3 text-xs font-medium text-copper-900 hover:bg-copper-200"
+                    >
+                      <IdCard size={16} aria-hidden />
+                      Kartu
+                    </Link>
+                    {canEdit && (
+                      <>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          className="h-10 flex-1 text-xs"
+                          onClick={() => startEdit(r)}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className={cn(
+                            "h-10 flex-1 text-xs",
+                            isTimAktif(r) ? "text-red-600" : "text-emerald-700"
+                          )}
+                          onClick={() => requestToggleStatus(r)}
+                        >
+                          {isTimAktif(r) ? "Nonaktifkan" : "Aktifkan"}
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </li>
               )
             )}
@@ -464,49 +513,74 @@ export function TimKasukretanMasterTab({
               <thead>
                 <tr className={LIST_HEAD_ROW}>
                   <th>Nama</th>
+                  <th>No.</th>
+                  <th>Status</th>
                   <th>Tipe</th>
                   <th>Banjar</th>
                   <th>Jabatan</th>
                   <th>Kontak</th>
-                  {canEdit && <th>Aksi</th>}
+                  <th>Aksi</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredRows.map((r) =>
                   editingId === r.id ? null : (
-                    <tr key={r.id} className={LIST_BODY_ROW}>
-                      <td>{r.nama}</td>
+                    <tr
+                      key={r.id}
+                      className={cn(LIST_BODY_ROW, !isTimAktif(r) && "opacity-70")}
+                    >
+                      <td className={cn(!isTimAktif(r) && "text-muted line-through")}>{r.nama}</td>
+                      <td className="tabular-nums">
+                        {r.nomor_pengenal?.trim()
+                          ? formatNomorPengenalDisplay(r.nomor_pengenal)
+                          : "—"}
+                      </td>
+                      <td>{isTimAktif(r) ? "Aktif" : "Nonaktif"}</td>
                       <td>{timKasukretanTipeLabel(normalizeTimKasukretanTipe(r.tipe))}</td>
                       <td>
                         {r.banjar_kode} — {r.banjar_nama}
                       </td>
                       <td>{r.jabatan}</td>
                       <td className="text-muted">{r.nomor_kontak?.trim() || "—"}</td>
-                      {canEdit && (
-                        <td>
-                          <div className="flex gap-0.5">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              icon={Pencil}
-                              iconOnly
-                              title="Edit"
-                              aria-label="Edit"
-                              onClick={() => startEdit(r)}
-                            />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              icon={Trash2}
-                              iconOnly
-                              title="Hapus"
-                              aria-label="Hapus"
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              onClick={() => requestDelete(r)}
-                            />
-                          </div>
-                        </td>
-                      )}
+                      <td>
+                        <div className="flex gap-0.5">
+                          <Link
+                            to={`/master/tim-kasukretan/${r.id}/cetak-kartu`}
+                            className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-md p-2 text-copper-800 hover:bg-copper-100"
+                            title="Cetak kartu"
+                            aria-label="Cetak kartu"
+                          >
+                            <IdCard size={18} aria-hidden />
+                          </Link>
+                          {canEdit && (
+                            <>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                icon={Pencil}
+                                iconOnly
+                                title="Edit"
+                                aria-label="Edit"
+                                onClick={() => startEdit(r)}
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                icon={isTimAktif(r) ? UserX : RotateCcw}
+                                iconOnly
+                                title={isTimAktif(r) ? "Nonaktifkan" : "Aktifkan kembali"}
+                                aria-label={isTimAktif(r) ? "Nonaktifkan" : "Aktifkan kembali"}
+                                className={
+                                  isTimAktif(r)
+                                    ? "text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    : "text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50"
+                                }
+                                onClick={() => requestToggleStatus(r)}
+                              />
+                            </>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   )
                 )}
@@ -526,16 +600,18 @@ export function TimKasukretanMasterTab({
       </Card>
 
       <ConfirmDialog
-        open={deleteTarget != null}
+        open={statusTarget != null}
         message={
-          deleteTarget
-            ? `Hapus ${deleteTarget.nama} dari Tim Kasukretan? Tindakan ini tidak dapat dibatalkan.`
+          statusTarget
+            ? isTimAktif(statusTarget)
+              ? `Nonaktifkan ${statusTarget.nama}? QR kartu tidak akan terdeteksi sebagai sah.`
+              : `Aktifkan kembali ${statusTarget.nama}? QR kartu akan sah lagi.`
             : ""
         }
-        busy={deleteBusy}
-        onConfirm={handleConfirmDelete}
+        busy={statusBusy}
+        onConfirm={handleConfirmStatus}
         onCancel={() => {
-          if (!deleteBusy) setDeleteTarget(null);
+          if (!statusBusy) setStatusTarget(null);
         }}
       />
     </div>

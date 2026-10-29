@@ -8,6 +8,31 @@ vi.mock("./db.js", () => ({
   dbExecute: (...args: unknown[]) => dbExecute(...args),
 }));
 
+const TIM_FULL = [
+  { name: "id" },
+  { name: "nama" },
+  { name: "nomor_kontak" },
+  { name: "tipe" },
+  { name: "nomor_pengenal" },
+  { name: "foto_url" },
+  { name: "aktif" },
+];
+const DESA_FULL = [
+  { name: "id" },
+  { name: "tim_bantuan_aktif" },
+  { name: "cek_tunggakan_paturunan_publik" },
+];
+const KRAMA_FULL = [{ name: "id" }, { name: "nomor_kartu" }, { name: "nomor_kartu_norm" }];
+
+/** Setelah kolom kartu: SELECT desa kode, SELECT all tim, lalu cek tunggakan + krama. */
+function mockAfterKartuColumns(opts: { staleNorm: unknown[] }) {
+  dbSelect.mockResolvedValueOnce([{ kode_desa_adat: "9999" }]);
+  dbSelect.mockResolvedValueOnce([]); // allTim kosong
+  dbSelect.mockResolvedValueOnce(DESA_FULL);
+  dbSelect.mockResolvedValueOnce(KRAMA_FULL);
+  dbSelect.mockResolvedValueOnce(opts.staleNorm);
+}
+
 describe("ensureServerMigrations", () => {
   beforeEach(() => {
     vi.resetModules();
@@ -15,18 +40,30 @@ describe("ensureServerMigrations", () => {
     dbExecute.mockReset();
   });
 
-  it("menambah kolom Tim Bantuan, cek tunggakan publik, dan nomor_kartu_norm bila belum ada", async () => {
-    // tableHasColumn tim_kasukretan (nomor_kontak)
+  it("menambah kolom Tim Bantuan, kartu petugas, cek tunggakan publik, dan nomor_kartu_norm bila belum ada", async () => {
     dbSelect.mockResolvedValueOnce([{ name: "id" }, { name: "nama" }]);
-    // tableHasColumn desa_adat (tim_bantuan_aktif)
     dbSelect.mockResolvedValueOnce([{ name: "id" }]);
-    // tableHasColumn tim_kasukretan (tipe)
     dbSelect.mockResolvedValueOnce([{ name: "id" }, { name: "nama" }, { name: "nomor_kontak" }]);
-    // tableHasColumn desa_adat (cek_tunggakan_paturunan_publik)
+    dbSelect.mockResolvedValueOnce([{ name: "id" }, { name: "nama" }, { name: "nomor_kontak" }, { name: "tipe" }]);
+    dbSelect.mockResolvedValueOnce([
+      { name: "id" },
+      { name: "nama" },
+      { name: "nomor_kontak" },
+      { name: "tipe" },
+      { name: "nomor_pengenal" },
+    ]);
+    dbSelect.mockResolvedValueOnce([
+      { name: "id" },
+      { name: "nama" },
+      { name: "nomor_kontak" },
+      { name: "tipe" },
+      { name: "nomor_pengenal" },
+      { name: "foto_url" },
+    ]);
+    dbSelect.mockResolvedValueOnce([{ kode_desa_adat: "9999" }]);
+    dbSelect.mockResolvedValueOnce([{ id: "t1", nomor_pengenal: null }]);
     dbSelect.mockResolvedValueOnce([{ name: "id" }, { name: "tim_bantuan_aktif" }]);
-    // tableHasColumn krama (nomor_kartu_norm)
     dbSelect.mockResolvedValueOnce([{ name: "id" }, { name: "nomor_kartu" }]);
-    // probe baris stale nomor_kartu_norm
     dbSelect.mockResolvedValueOnce([{ x: 1 }]);
     dbExecute.mockResolvedValue({ rowsAffected: 0 });
 
@@ -34,47 +71,27 @@ describe("ensureServerMigrations", () => {
     await ensureServerMigrations();
 
     expect(dbExecute).toHaveBeenCalledWith(
-      "ALTER TABLE tim_kasukretan ADD COLUMN nomor_kontak TEXT"
+      "ALTER TABLE tim_kasukretan ADD COLUMN nomor_pengenal TEXT"
+    );
+    expect(dbExecute).toHaveBeenCalledWith("ALTER TABLE tim_kasukretan ADD COLUMN foto_url TEXT");
+    expect(dbExecute).toHaveBeenCalledWith(
+      "ALTER TABLE tim_kasukretan ADD COLUMN aktif INTEGER NOT NULL DEFAULT 1"
     );
     expect(dbExecute).toHaveBeenCalledWith(
-      "ALTER TABLE desa_adat ADD COLUMN tim_bantuan_aktif INTEGER NOT NULL DEFAULT 0"
-    );
-    expect(dbExecute).toHaveBeenCalledWith(
-      "ALTER TABLE tim_kasukretan ADD COLUMN tipe TEXT NOT NULL DEFAULT 'banjar'"
-    );
-    expect(dbExecute).toHaveBeenCalledWith(
-      "ALTER TABLE desa_adat ADD COLUMN cek_tunggakan_paturunan_publik INTEGER NOT NULL DEFAULT 0"
-    );
-    expect(dbExecute).toHaveBeenCalledWith(
-      "ALTER TABLE krama ADD COLUMN nomor_kartu_norm TEXT"
+      "UPDATE tim_kasukretan SET nomor_pengenal = ?, updated_at = datetime('now') WHERE id = ?",
+      ["9999001", "t1"]
     );
   });
 
   it("tidak ALTER bila kolom sudah ada; backfill hanya jika ada baris stale", async () => {
-    dbSelect.mockResolvedValueOnce([
-      { name: "id" },
-      { name: "nama" },
-      { name: "nomor_kontak" },
-    ]);
-    dbSelect.mockResolvedValueOnce([{ name: "id" }, { name: "tim_bantuan_aktif" }]);
-    dbSelect.mockResolvedValueOnce([
-      { name: "id" },
-      { name: "nama" },
-      { name: "nomor_kontak" },
-      { name: "tipe" },
-    ]);
-    dbSelect.mockResolvedValueOnce([
-      { name: "id" },
-      { name: "tim_bantuan_aktif" },
-      { name: "cek_tunggakan_paturunan_publik" },
-    ]);
-    dbSelect.mockResolvedValueOnce([
-      { name: "id" },
-      { name: "nomor_kartu" },
-      { name: "nomor_kartu_norm" },
-    ]);
-    // ada baris yang perlu di-backfill
-    dbSelect.mockResolvedValueOnce([{ x: 1 }]);
+    dbSelect
+      .mockResolvedValueOnce(TIM_FULL)
+      .mockResolvedValueOnce([{ name: "id" }, { name: "tim_bantuan_aktif" }])
+      .mockResolvedValueOnce(TIM_FULL)
+      .mockResolvedValueOnce(TIM_FULL)
+      .mockResolvedValueOnce(TIM_FULL)
+      .mockResolvedValueOnce(TIM_FULL);
+    mockAfterKartuColumns({ staleNorm: [{ x: 1 }] });
     dbExecute.mockResolvedValue({ rowsAffected: 0 });
 
     const { ensureServerMigrations } = await import("./ensure-migrations.js");
@@ -92,29 +109,14 @@ describe("ensureServerMigrations", () => {
   });
 
   it("melewati UPDATE nomor_kartu_norm jika tidak ada baris stale", async () => {
-    dbSelect.mockResolvedValueOnce([
-      { name: "id" },
-      { name: "nama" },
-      { name: "nomor_kontak" },
-    ]);
-    dbSelect.mockResolvedValueOnce([{ name: "id" }, { name: "tim_bantuan_aktif" }]);
-    dbSelect.mockResolvedValueOnce([
-      { name: "id" },
-      { name: "nama" },
-      { name: "nomor_kontak" },
-      { name: "tipe" },
-    ]);
-    dbSelect.mockResolvedValueOnce([
-      { name: "id" },
-      { name: "tim_bantuan_aktif" },
-      { name: "cek_tunggakan_paturunan_publik" },
-    ]);
-    dbSelect.mockResolvedValueOnce([
-      { name: "id" },
-      { name: "nomor_kartu" },
-      { name: "nomor_kartu_norm" },
-    ]);
-    dbSelect.mockResolvedValueOnce([]);
+    dbSelect
+      .mockResolvedValueOnce(TIM_FULL)
+      .mockResolvedValueOnce([{ name: "id" }, { name: "tim_bantuan_aktif" }])
+      .mockResolvedValueOnce(TIM_FULL)
+      .mockResolvedValueOnce(TIM_FULL)
+      .mockResolvedValueOnce(TIM_FULL)
+      .mockResolvedValueOnce(TIM_FULL);
+    mockAfterKartuColumns({ staleNorm: [] });
     dbExecute.mockResolvedValue({ rowsAffected: 0 });
 
     const { ensureServerMigrations } = await import("./ensure-migrations.js");

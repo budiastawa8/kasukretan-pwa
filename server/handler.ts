@@ -29,6 +29,7 @@ import {
   handlePortalSyncPush,
 } from "./portal-routes.js";
 import { handlePublikCekTunggakanRoute } from "./publik-cek-tunggakan.js";
+import { handlePublikCekPetugasRoute } from "./publik-cek-petugas.js";
 
 type ApiRequest = IncomingMessage & { body?: unknown };
 
@@ -163,6 +164,12 @@ async function handleRoute(path: string, req: ApiRequest, res: ServerResponse): 
 
   if (
     await handlePublikCekTunggakanRoute(path, method, req, (status, data) => send(res, status, data))
+  ) {
+    return;
+  }
+
+  if (
+    await handlePublikCekPetugasRoute(path, method, req, (status, data) => send(res, status, data))
   ) {
     return;
   }

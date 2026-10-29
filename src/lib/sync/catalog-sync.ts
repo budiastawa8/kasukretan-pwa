@@ -22,8 +22,12 @@ export async function collectCatalogFromDesktop() {
      JOIN tempek t ON t.id = a.tempek_id AND t.aktif = 1
      WHERE a.aktif = 1`
   );
+  // Tanpa foto_url (data URL) — foto hanya untuk cetak kartu di desktop.
   const tim = await db.select<Record<string, unknown>[]>(
-    `SELECT t.*, b.kode as banjar_kode, b.desa_adat_id
+    `SELECT t.id, t.nama, t.banjar_id, t.jabatan, t.nomor_kontak, t.tipe,
+            t.nomor_pengenal, COALESCE(t.aktif, 1) AS aktif,
+            t.created_at, t.updated_at,
+            b.kode as banjar_kode, b.desa_adat_id
      FROM tim_kasukretan t
      JOIN banjar b ON b.id = t.banjar_id`
   );

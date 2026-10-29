@@ -1,0 +1,252 @@
+/* Kartu Petugas — portrait 54×86 mm, latar dari template contoh */
+
+:root {
+  --kp-w: 54mm;
+  --kp-h: 86mm;
+  --kp-maroon: #4a0e0e;
+  --kp-maroon-deep: #2e0808;
+  --kp-gold: #d4af37;
+  --kp-gold-bright: #f2d76a;
+  --kp-white: #fffaf0;
+  --kp-font: "Segoe UI", "Roboto Condensed", "Arial Narrow", sans-serif;
+}
+
+.kartu-petugas-sheet {
+  position: relative;
+  box-sizing: border-box;
+  width: var(--kp-w);
+  height: var(--kp-h);
+  overflow: hidden;
+  background-color: var(--kp-maroon);
+  background-image: url("/kartu/petugas-bg-depan.png");
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: center;
+  color: var(--kp-white);
+  font-family: var(--kp-font);
+  border-radius: 1.2mm;
+}
+
+.kartu-petugas-sheet--back {
+  background-image: url("/kartu/petugas-bg-belakang.png");
+}
+
+/* Hapus motif CSS lama — diganti aset template */
+.kartu-petugas-sheet::before {
+  display: none;
+}
+
+.kartu-petugas-inner {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 3.2mm 3.4mm 14mm;
+  box-sizing: border-box;
+}
+
+/* Logo desa di kiri atas — sedikit lebih besar & digeser ke kanan */
+.kartu-petugas-logo-slot {
+  position: absolute;
+  top: 2.8mm;
+  left: 5.5mm;
+  width: 13.5mm;
+  height: 13.5mm;
+  z-index: 2;
+}
+
+.kartu-petugas-logo,
+.kartu-petugas-logo-placeholder {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 0.6mm;
+}
+
+.kartu-petugas-logo-placeholder {
+  border: 0.25mm solid rgba(212, 175, 55, 0.55);
+  background: rgba(0, 0, 0, 0.12);
+}
+
+/* Nama desa rata kiri dengan blok kop (TIM / KASUKRETAN / …) */
+.kartu-petugas-desa-overlay {
+  position: absolute;
+  top: 15.5mm;
+  left: calc(20mm + 3pt);
+  right: 3.4mm;
+  text-align: left;
+  font-size: 5.4pt;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: rgba(255, 250, 240, 0.92);
+  line-height: 1.15;
+  z-index: 2;
+}
+
+/* Area isi dinamis (foto + identitas) di tengah kosong template */
+.kartu-petugas-mid {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  flex: 1;
+  min-height: 0;
+  margin-top: calc(18mm - 7pt);
+  gap: 1.6mm;
+}
+
+.kartu-petugas-photo {
+  width: 22mm;
+  height: 22mm;
+  flex-shrink: 0;
+  border: 0.4mm solid var(--kp-gold);
+  border-radius: 1mm;
+  overflow: hidden;
+  background: var(--kp-maroon-deep);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0.4mm 1.2mm rgba(0, 0, 0, 0.35);
+}
+
+.kartu-petugas-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.kartu-petugas-photo-ph {
+  font-size: 5pt;
+  color: rgba(255, 250, 240, 0.45);
+  text-align: center;
+}
+
+.kartu-petugas-identity {
+  width: 100%;
+  text-align: center;
+  margin-top: 5pt;
+}
+
+.kartu-petugas-nama {
+  font-size: 8.5pt;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  line-height: 1.15;
+  color: var(--kp-white);
+  text-shadow: 0 0.3mm 0.8mm rgba(0, 0, 0, 0.45);
+  transform: translateY(-2pt);
+}
+
+.kartu-petugas-jabatan {
+  font-size: 7pt;
+  font-weight: 700;
+  margin-top: calc(0.6mm + 2pt);
+  color: var(--kp-gold-bright);
+}
+
+.kartu-petugas-fields {
+  width: 100%;
+  margin-top: calc(3.2mm + 8pt); /* field tetap; jabatan turun 2pt terpisah */}
+  display: grid;
+  gap: calc(1.8mm + 2pt);
+  font-size: 5.8pt;
+  line-height: 1.45;
+  text-align: left;
+  padding: 0 1mm 0 calc(1mm + 15pt);
+  box-sizing: border-box;
+}
+
+.kartu-petugas-field {
+  display: grid;
+  grid-template-columns: 17mm 1fr;
+  gap: 1mm;
+  align-items: baseline;
+}
+
+.kartu-petugas-field-label {
+  color: rgba(255, 250, 240, 0.75);
+}
+
+.kartu-petugas-field-label::after {
+  content: ":";
+}
+
+.kartu-petugas-field-value {
+  font-weight: 600;
+  color: var(--kp-white);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Belakang: logo atas + QR di area kosong (teks scan sudah di template) */
+.kartu-petugas-sheet--back .kartu-petugas-inner {
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+.kartu-petugas-back-logo {
+  position: absolute;
+  top: 2.4mm;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 10mm;
+  height: 10mm;
+  z-index: 2;
+}
+
+.kartu-petugas-back-logo .kartu-petugas-logo,
+.kartu-petugas-back-logo .kartu-petugas-logo-placeholder {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 0.5mm;
+}
+
+.kartu-petugas-back-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  /* Sedikit ke atas agar tidak menabrak teks "Scan QR Code" */
+  margin-top: -10mm;
+}
+
+.kartu-petugas-qr-frame {
+  width: 18mm;
+  height: 18mm;
+  padding: 1mm;
+  box-sizing: border-box;
+  background: #fff;
+  border: 0.35mm solid var(--kp-gold);
+  border-radius: 0.8mm;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0.3mm 1mm rgba(0, 0, 0, 0.28);
+}
+
+.kartu-petugas-qr-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.kartu-petugas-preview-stage {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 16px;
+  background: #1a0a0a;
+  border-radius: 8px;
+}
+
+.kartu-petugas-preview-label {
+  font-size: 11px;
+  color: #e8c96a;
+  margin-bottom: 6px;
+}

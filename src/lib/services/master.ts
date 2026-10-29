@@ -463,21 +463,70 @@ function normalizeNomorKontak(raw?: string | null): string | null {
   return trimmed || null;
 }
 
+const TIM_SELECT = `
+  SELECT t.id, t.nama, t.banjar_id, t.jabatan, t.nomor_kontak, t.tipe,
+         t.nomor_pengenal, t.foto_url, COALESCE(t.aktif, 1) AS aktif,
+         t.created_at, t.updated_at,
+         b.nama as banjar_nama, b.kode as banjar_kode
+  FROM tim_kasukretan t
+  JOIN banjar b ON b.id = t.banjar_id AND b.aktif = 1
+`;
+
 export async function listTimKasukretan(banjarId?: string): Promise<TimKasukretan[]> {
   const db = await getDb();
-  let sql = `
-    SELECT t.id, t.nama, t.banjar_id, t.jabatan, t.nomor_kontak, t.tipe, t.created_at, t.updated_at,
-           b.nama as banjar_nama, b.kode as banjar_kode
-    FROM tim_kasukretan t
-    JOIN banjar b ON b.id = t.banjar_id AND b.aktif = 1
-  `;
+  let sql = TIM_SELECT;
   const args: unknown[] = [];
   if (banjarId?.trim()) {
     sql += ` WHERE t.banjar_id = $1`;
     args.push(banjarId);
   }
-  sql += ` ORDER BY CASE WHEN t.tipe = 'bantuan' THEN 1 ELSE 0 END, t.nama ASC`;
+  sql += ` ORDER BY CASE WHEN COALESCE(t.aktif, 1) = 1 THEN 0 ELSE 1 END,
+                    CASE WHEN t.tipe = 'bantuan' THEN 1 ELSE 0 END, t.nama ASC`;
   return db.select<TimKasukretan[]>(sql, args);
+}
+
+export async function getTimKasukretanById(id: string): Promise<TimKasukretan | null> {
+  const db = await getDb();
+  const rows = await db.select<TimKasukretan[]>(`${TIM_SELECT} WHERE t.id = $1 LIMIT 1`, [id]);
+  return rows[0] ?? null;
+}
+
+/** Pastikan nomor_pengenal terisi format 4+3 (untuk cetak / anggota lama). */
+export async function ensureTimKasukretanKartuFields(id: string): Promise<TimKasukretan> {
+  const db = await getDb();
+  const existing = await getTimKasukretanById(id);
+  if (!existing) throw new Error("Anggota tim tidak ditemukan");
+  const {
+    formatNomorPengenal,
+    isNomorPengenalFormatBaru,
+    nextNomorPengenal,
+    parseNomorPengenalUrut,
+    resolveKodeDesaAdat,
+  } = await import("../penomoran-petugas");
+  const kode = await resolveKodeDesaAdat(db);
+  let nomor = existing.nomor_pengenal?.trim() || "";
+  if (!nomor) {
+    nomor = await nextNomorPengenal(db, kode);
+    await db.execute(
+      `UPDATE tim_kasukretan SET nomor_pengenal = $1, updated_at = datetime('now') WHERE id = $2`,
+      [nomor, id]
+    );
+  } else if (!isNomorPengenalFormatBaru(nomor, kode)) {
+    const urut = parseNomorPengenalUrut(nomor) || 1;
+    nomor = formatNomorPengenal(kode, urut);
+    await db.execute(
+      `UPDATE tim_kasukretan SET nomor_pengenal = $1, updated_at = datetime('now') WHERE id = $2`,
+      [nomor, id]
+    );
+  }
+  const refreshed = await getTimKasukretanById(id);
+  if (!refreshed) throw new Error("Anggota tim tidak ditemukan");
+  return refreshed;
+}
+
+function normalizeFotoUrl(raw?: string | null): string | null {
+  const trimmed = raw?.trim() ?? "";
+  return trimmed || null;
 }
 
 export async function createTimKasukretan(
@@ -485,7 +534,8 @@ export async function createTimKasukretan(
   banjarId: string,
   jabatan: string,
   nomorKontak?: string | null,
-  tipe: "banjar" | "bantuan" = "banjar"
+  tipe: "banjar" | "bantuan" = "banjar",
+  fotoUrl?: string | null
 ): Promise<string> {
   if (!banjarId?.trim()) throw new Error("Banjar wajib dipilih");
   await assertBanjarAktif(banjarId);
@@ -498,10 +548,13 @@ export async function createTimKasukretan(
     }
   }
   const db = await getDb();
+  const { nextNomorPengenal, resolveKodeDesaAdat } = await import("../penomoran-petugas");
   const id = uuid();
+  const nomor = await nextNomorPengenal(db, await resolveKodeDesaAdat(db));
   await db.execute(
-    `INSERT INTO tim_kasukretan (id, nama, banjar_id, jabatan, nomor_kontak, tipe)
-     VALUES ($1, $2, $3, $4, $5, $6)`,
+    `INSERT INTO tim_kasukretan
+       (id, nama, banjar_id, jabatan, nomor_kontak, tipe, nomor_pengenal, foto_url, aktif)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1)`,
     [
       id,
       requireNama(nama),
@@ -509,6 +562,8 @@ export async function createTimKasukretan(
       requireJabatan(jabatan),
       normalizeNomorKontak(nomorKontak),
       tipe === "bantuan" ? "bantuan" : "banjar",
+      nomor,
+      normalizeFotoUrl(fotoUrl),
     ]
   );
   return id;
@@ -520,7 +575,8 @@ export async function updateTimKasukretan(
   banjarId: string,
   jabatan: string,
   nomorKontak?: string | null,
-  tipe: "banjar" | "bantuan" = "banjar"
+  tipe: "banjar" | "bantuan" = "banjar",
+  fotoUrl?: string | null
 ): Promise<void> {
   if (!banjarId?.trim()) throw new Error("Banjar wajib dipilih");
   await assertBanjarAktif(banjarId);
@@ -540,22 +596,39 @@ export async function updateTimKasukretan(
   if ((rows[0]?.c ?? 0) === 0) throw new Error("Anggota tim tidak ditemukan");
   await db.execute(
     `UPDATE tim_kasukretan SET
-      nama = $1, banjar_id = $2, jabatan = $3, nomor_kontak = $4, tipe = $5, updated_at = datetime('now')
-     WHERE id = $6`,
+      nama = $1, banjar_id = $2, jabatan = $3, nomor_kontak = $4, tipe = $5,
+      foto_url = $6,
+      updated_at = datetime('now')
+     WHERE id = $7`,
     [
       requireNama(nama),
       banjarId,
       requireJabatan(jabatan),
       normalizeNomorKontak(nomorKontak),
       tipe === "bantuan" ? "bantuan" : "banjar",
+      normalizeFotoUrl(fotoUrl),
       id,
     ]
   );
 }
 
-export async function deleteTimKasukretan(id: string): Promise<void> {
+/** Soft-delete: nonaktifkan anggota (QR kartu tidak sah). */
+export async function setTimKasukretanAktif(id: string, aktif: boolean): Promise<void> {
   const db = await getDb();
-  await db.execute(`DELETE FROM tim_kasukretan WHERE id = $1`, [id]);
+  const rows = await db.select<{ c: number }[]>(
+    `SELECT COUNT(*) as c FROM tim_kasukretan WHERE id = $1`,
+    [id]
+  );
+  if ((rows[0]?.c ?? 0) === 0) throw new Error("Anggota tim tidak ditemukan");
+  await db.execute(
+    `UPDATE tim_kasukretan SET aktif = $1, updated_at = datetime('now') WHERE id = $2`,
+    [aktif ? 1 : 0, id]
+  );
+}
+
+/** @deprecated Gunakan setTimKasukretanAktif(id, false). Tetap hapus keras jika dipanggil. */
+export async function deleteTimKasukretan(id: string): Promise<void> {
+  await setTimKasukretanAktif(id, false);
 }
 
 export async function countJenisByKlasifikasi(kode: string): Promise<number> {

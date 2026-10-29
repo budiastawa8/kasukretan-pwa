@@ -16,6 +16,7 @@ import { PortalKartuPage } from "./pages/portal/PortalKartuPage";
 import { PortalPaturunanPage } from "./pages/portal/PortalPaturunanPage";
 import { PortalDudukanPage } from "./pages/portal/PortalDudukanPage";
 import { CekTunggakanPaturunanPage } from "./pages/publik/CekTunggakanPaturunanPage";
+import { CekPetugasPage } from "./pages/publik/CekPetugasPage";
 import { PetugasLoginPage } from "./pages/petugas/PetugasLoginPage";
 import { PetugasHomePage } from "./pages/petugas/PetugasHomePage";
 import { PetugasPaturunanPage } from "./pages/petugas/PetugasPaturunanPage";
@@ -63,6 +64,7 @@ import { LaporanRekapKramaPage } from "./pages/laporan/LaporanRekapKramaPage";
 import { LaporanPdfPreviewPage } from "./pages/laporan/LaporanPdfPreviewPage";
 import { PipilPrintPage } from "./pages/PipilPrintPage";
 import { KartuKramaPrintPage } from "./pages/KartuKramaPrintPage";
+import { KartuPetugasPrintPage } from "./pages/KartuPetugasPrintPage";
 import { KartuKramaTamiuPrintPage } from "./pages/KartuKramaTamiuPrintPage";
 import { KartuTamiuPrintPage } from "./pages/KartuTamiuPrintPage";
 import { KramaTamiuPrintPage } from "./pages/KramaTamiuPrintPage";
@@ -102,6 +104,8 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/cek-tunggakan-paturunan" element={<CekTunggakanPaturunanPage />} />
           <Route path="/cek-tunggakan-paturunan/:kramaId" element={<CekTunggakanPaturunanPage />} />
+          <Route path="/cek-petugas" element={<CekPetugasPage />} />
+          <Route path="/cek-petugas/:nomor" element={<CekPetugasPage />} />
           <Route
             path="/portal/login"
             element={
@@ -165,6 +169,14 @@ export default function App() {
             element={
               <Protected>
                 <KartuKramaPrintPage />
+              </Protected>
+            }
+          />
+          <Route
+            path="/master/tim-kasukretan/:id/cetak-kartu"
+            element={
+              <Protected>
+                <KartuPetugasPrintPage />
               </Protected>
             }
           />
