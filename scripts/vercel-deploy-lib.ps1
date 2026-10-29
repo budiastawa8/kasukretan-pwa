@@ -74,25 +74,6 @@ function Save-VercelProjectsConfig([string]$Scope, [string[]]$Projects) {
   return $paths.Local
 }
 
-function Invoke-VercelCli {
-  param(
-    [string[]]$VercelArgs,
-    [scriptblock]$OnLine = $null
-  )
-  $safe = @()
-  for ($i = 0; $i -lt $VercelArgs.Count; $i++) {
-    if ($i -gt 0 -and $VercelArgs[$i - 1] -eq "--token") { $safe += "***" }
-    else { $safe += $VercelArgs[$i] }
-  }
-  $cmdLine = "npx vercel " + ($safe -join " ")
-  if ($OnLine) { & $OnLine $cmdLine } else { Write-Host $cmdLine -ForegroundColor DarkGray }
-
-  $argLine = (@("--yes", "vercel") + $VercelArgs | ForEach-Object {
-      if ($_ -match '[\s"]') { '"' + ($_ -replace '"', '\"') + '"' } else { $_ }
-    }) -join " "
-  Invoke-LoggedProcess -FileName "cmd.exe" -Arguments "/c npx $argLine" -OnLine $OnLine -FailMessage "Perintah vercel gagal"
-}
-
 function Write-ProcessLogLine {
   param(
     [string]$Line,
@@ -130,12 +111,42 @@ function Read-NewFileLines {
     }
     if ($chunk) {
       $lines = $chunk -split "`r?`n"
-      # Baris terakhir sering belum lengkap; sisipkan kembali ke offset sederhana:
-      # untuk log build, tampilkan semua termasuk partial.
     }
   }
   catch { }
   return $lines
+}
+
+function Test-VercelCliFatalError {
+  param([string]$Text)
+  if ([string]::IsNullOrWhiteSpace($Text)) { return $false }
+  $patterns = @(
+    'fetch failed',
+    'TypeError:\s*fetch failed',
+    'ECONNRESET',
+    'ENOTFOUND',
+    'ETIMEDOUT',
+    'socket hang up',
+    'network error',
+    'Unauthorized',
+    'not_authorized',
+    'Invalid token',
+    'Deployment failed',
+    'Error:\s*An unexpected error occurred'
+  )
+  foreach ($p in $patterns) {
+    if ($Text -imatch $p) { return $true }
+  }
+  return $false
+}
+
+function Find-VercelDeployUrl {
+  param([string]$Text)
+  if ([string]::IsNullOrWhiteSpace($Text)) { return $null }
+  # Ambil URL vercel.app terakhir (production/preview inspection).
+  $matches = [regex]::Matches($Text, 'https://[a-zA-Z0-9._\-]+\.vercel\.app[^\s]*')
+  if ($matches.Count -eq 0) { return $null }
+  return $matches[$matches.Count - 1].Value.TrimEnd('.', ',', ')', ']')
 }
 
 function Invoke-LoggedProcess {
@@ -143,7 +154,9 @@ function Invoke-LoggedProcess {
     [string]$FileName,
     [string]$Arguments,
     [scriptblock]$OnLine = $null,
-    [string]$FailMessage = "Perintah gagal"
+    [string]$FailMessage = "Perintah gagal",
+    [switch]$RequireDeployUrl,
+    [switch]$AllowNullExitAsZero
   )
 
   $outFile = Join-Path $env:TEMP ("kasukretan-vercel-out-" + [guid]::NewGuid().ToString("n") + ".log")
@@ -151,10 +164,11 @@ function Invoke-LoggedProcess {
   "" | Set-Content -LiteralPath $outFile -Encoding UTF8
   "" | Set-Content -LiteralPath $errFile -Encoding UTF8
 
+  $combined = New-Object System.Text.StringBuilder
+
   try {
     $argList = $Arguments
     if ($FileName -eq "cmd.exe" -and $Arguments -match '^/c\s+(.+)$') {
-      # Array 2 elemen: lebih andal daripada satu string panjang.
       $argList = @("/c", $Matches[1])
     }
 
@@ -171,13 +185,15 @@ function Invoke-LoggedProcess {
 
     while (-not $proc.HasExited) {
       foreach ($line in (Read-NewFileLines -Path $outFile -Offset ([ref]$outOffset))) {
+        [void]$combined.AppendLine($line)
         Write-ProcessLogLine -Line $line -OnLine $OnLine
       }
       foreach ($line in (Read-NewFileLines -Path $errFile -Offset ([ref]$errOffset))) {
+        [void]$combined.AppendLine($line)
         Write-ProcessLogLine -Line $line -OnLine $OnLine
       }
       if (([DateTime]::UtcNow - $lastBeat).TotalSeconds -ge 10) {
-        Write-ProcessLogLine -Line "(masih berjalan... build sering 1-3 menit, jangan tutup panel)" -OnLine $OnLine
+        Write-ProcessLogLine -Line "(masih berjalan... jangan tutup panel)" -OnLine $OnLine
         $lastBeat = [DateTime]::UtcNow
       }
       Start-Sleep -Milliseconds 400
@@ -189,23 +205,46 @@ function Invoke-LoggedProcess {
       catch { }
     }
 
-    Start-Sleep -Milliseconds 300
+    Start-Sleep -Milliseconds 400
     foreach ($line in (Read-NewFileLines -Path $outFile -Offset ([ref]$outOffset))) {
+      [void]$combined.AppendLine($line)
       Write-ProcessLogLine -Line $line -OnLine $OnLine
     }
     foreach ($line in (Read-NewFileLines -Path $errFile -Offset ([ref]$errOffset))) {
+      [void]$combined.AppendLine($line)
       Write-ProcessLogLine -Line $line -OnLine $OnLine
     }
 
-    # Pastikan ExitCode terisi (Start-Process kadang masih $null tepat setelah HasExited).
     [void]$proc.WaitForExit()
     $proc.Refresh()
     $code = $proc.ExitCode
-    if ($null -eq $code) { $code = 0 }
+    $text = $combined.ToString()
+    $deployUrl = Find-VercelDeployUrl -Text $text
+    $fatal = Test-VercelCliFatalError -Text $text
 
-    # Di PowerShell: ($null -ne 0) == $true, jadi wajib cek null dulu (di atas).
+    if ($null -eq $code) {
+      if ($AllowNullExitAsZero -and -not $fatal -and (-not $RequireDeployUrl -or $deployUrl)) {
+        $code = 0
+      }
+      else {
+        $code = 1
+      }
+    }
+
+    if ($fatal) {
+      throw "$FailMessage - terdeteksi error jaringan/API di log (mis. fetch failed). Cek internet/hotspot, lalu coba lagi."
+    }
+    if ($RequireDeployUrl -and -not $deployUrl) {
+      throw "$FailMessage - tidak ada URL *.vercel.app di output. Deployment kemungkinan tidak terbuat. Cek Scope tim / token / koneksi."
+    }
     if ($code -ne 0) {
       throw "$FailMessage (exit $code)."
+    }
+
+    return @{
+      ExitCode  = $code
+      Output    = $text
+      DeployUrl = $deployUrl
     }
   }
   finally {
@@ -213,11 +252,70 @@ function Invoke-LoggedProcess {
   }
 }
 
+function Invoke-VercelCli {
+  param(
+    [string[]]$VercelArgs,
+    [scriptblock]$OnLine = $null,
+    [string]$FailMessage = "Perintah vercel gagal",
+    [switch]$RequireDeployUrl,
+    [switch]$AllowNullExitAsZero
+  )
+  $safe = @()
+  for ($i = 0; $i -lt $VercelArgs.Count; $i++) {
+    if ($i -gt 0 -and $VercelArgs[$i - 1] -eq "--token") { $safe += "***" }
+    else { $safe += $VercelArgs[$i] }
+  }
+  $cmdLine = "npx vercel " + ($safe -join " ")
+  if ($OnLine) { & $OnLine $cmdLine } else { Write-Host $cmdLine -ForegroundColor DarkGray }
+
+  $argLine = (@("--yes", "vercel") + $VercelArgs | ForEach-Object {
+      if ($_ -match '[\s"]') { '"' + ($_ -replace '"', '\"') + '"' } else { $_ }
+    }) -join " "
+
+  return Invoke-LoggedProcess `
+    -FileName "cmd.exe" `
+    -Arguments "/c npx $argLine" `
+    -OnLine $OnLine `
+    -FailMessage $FailMessage `
+    -RequireDeployUrl:$RequireDeployUrl `
+    -AllowNullExitAsZero:$AllowNullExitAsZero
+}
+
 function Invoke-NpmBuild {
   param([scriptblock]$OnLine = $null)
   if ($OnLine) { & $OnLine "npm run build" } else { Write-Host "npm run build" -ForegroundColor DarkGray }
   if ($OnLine) { & $OnLine "(build lokal dimulai; tunggu sampai selesai)" }
-  Invoke-LoggedProcess -FileName "cmd.exe" -Arguments "/c npm run build" -OnLine $OnLine -FailMessage "Build gagal"
+  [void](Invoke-LoggedProcess -FileName "cmd.exe" -Arguments "/c npm run build" -OnLine $OnLine -FailMessage "Build gagal" -AllowNullExitAsZero)
+}
+
+function Invoke-VercelDeployWithRetry {
+  param(
+    [string[]]$DeployArgs,
+    [scriptblock]$OnLine = $null,
+    [int]$MaxAttempts = 3
+  )
+  $lastError = $null
+  for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+    try {
+      if ($attempt -gt 1) {
+        if ($OnLine) { & $OnLine "Mencoba ulang deploy ($attempt/$MaxAttempts)..." }
+        Start-Sleep -Seconds (3 * ($attempt - 1))
+      }
+      return Invoke-VercelCli `
+        -VercelArgs $DeployArgs `
+        -OnLine $OnLine `
+        -FailMessage "Deploy gagal" `
+        -RequireDeployUrl
+    }
+    catch {
+      $lastError = $_
+      $msg = $_.Exception.Message
+      $retryable = ($msg -imatch 'fetch failed|jaringan|network|ECONNRESET|ETIMEDOUT|tidak ada URL')
+      if (-not $retryable -or $attempt -ge $MaxAttempts) { throw }
+      if ($OnLine) { & $OnLine "Gagal sementara: $msg" }
+    }
+  }
+  throw $lastError
 }
 
 function Deploy-VercelProjects {
@@ -243,34 +341,38 @@ function Deploy-VercelProjects {
   }
 
   & $log "==> Cek CLI Vercel"
-  Invoke-VercelCli -VercelArgs @("--version") -OnLine $OnLine
+  [void](Invoke-VercelCli -VercelArgs @("--version") -OnLine $OnLine -FailMessage "Gagal cek versi vercel" -AllowNullExitAsZero)
 
   if (-not $SkipBuild) {
     & $log "==> Build lokal (npm run build)"
     Invoke-NpmBuild -OnLine $OnLine
   }
   else {
-    & $log "Melewati build lokal."
+    & $log "Melewati build lokal (build dilakukan di Vercel)."
   }
 
   $ok = @()
   $failed = @()
+  $urls = @{}
+
   foreach ($name in $Projects) {
     try {
       & $log "==> Link: $name"
       $linkArgs = @("link", "--yes", "--project", $name, "--token", $token)
       if ($Scope) { $linkArgs += @("--scope", $Scope) }
-      Invoke-VercelCli -VercelArgs $linkArgs -OnLine $OnLine
+      [void](Invoke-VercelCli -VercelArgs $linkArgs -OnLine $OnLine -FailMessage "Link project gagal ($name)")
 
       $mode = if ($Preview) { "preview" } else { "production" }
       & $log "==> Deploy $mode : $name"
       $deployArgs = @("deploy", "--yes", "--token", $token)
       if (-not $Preview) { $deployArgs += "--prod" }
       if ($Scope) { $deployArgs += @("--scope", $Scope) }
-      Invoke-VercelCli -VercelArgs $deployArgs -OnLine $OnLine
 
+      $result = Invoke-VercelDeployWithRetry -DeployArgs $deployArgs -OnLine $OnLine -MaxAttempts 3
+      $urls[$name] = $result.DeployUrl
       $ok += $name
       & $log "OK: $name"
+      & $log ("URL: " + $result.DeployUrl)
     }
     catch {
       $failed += $name
@@ -281,5 +383,15 @@ function Deploy-VercelProjects {
   & $log "======= Ringkasan ======="
   & $log ("Berhasil : " + ($(if ($ok.Count) { $ok -join ", " } else { "(tidak ada)" })))
   & $log ("Gagal    : " + ($(if ($failed.Count) { $failed -join ", " } else { "(tidak ada)" })))
-  return @{ Ok = $ok; Failed = $failed }
+  if ($ok.Count -gt 0) {
+    & $log "URL deploy (wajib ada di Vercel Deployments):"
+    foreach ($name in $ok) {
+      & $log ("  - ${name}: " + $urls[$name])
+    }
+  }
+  if ($failed.Count -gt 0) {
+    & $log "Catatan: jika sering fetch failed, ganti jaringan/hotspot dan isi Scope tim bila project di bawah team."
+  }
+
+  return @{ Ok = $ok; Failed = $failed; Urls = $urls }
 }

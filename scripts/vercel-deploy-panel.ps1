@@ -58,9 +58,10 @@ $chkPreview.Location = New-Object System.Drawing.Point(400, 70)
 $chkPreview.AutoSize = $true
 
 $chkSkipBuild = New-Object System.Windows.Forms.CheckBox
-$chkSkipBuild.Text = "Lewati build lokal"
+$chkSkipBuild.Text = "Lewati build lokal (disarankan)"
 $chkSkipBuild.Location = New-Object System.Drawing.Point(400, 94)
 $chkSkipBuild.AutoSize = $true
+$chkSkipBuild.Checked = $true
 
 $lblProjects = New-Object System.Windows.Forms.Label
 $lblProjects.Text = "Project Vercel"
@@ -216,13 +217,27 @@ $btnDeploy.Add_Click({
         -SkipBuild:$($chkSkipBuild.Checked) `
         -OnLine { param($m) Append-Log $m }
 
-      if ($result.Failed.Count -eq 0) {
-        [System.Windows.Forms.MessageBox]::Show("Deploy selesai. Semua berhasil.", "Deploy Vercel") | Out-Null
+      if ($result.Ok.Count -gt 0 -and $result.Failed.Count -eq 0) {
+        $urlLines = @()
+        foreach ($n in $result.Ok) {
+          $u = $result.Urls[$n]
+          if ($u) { $urlLines += "$n -> $u" } else { $urlLines += "$n (URL tidak terbaca)" }
+        }
+        [System.Windows.Forms.MessageBox]::Show(
+          ("Deploy berhasil.`n`nPastikan URL ini muncul di Vercel Deployments:`n" + ($urlLines -join "`n")),
+          "Deploy Vercel - Berhasil"
+        ) | Out-Null
+      }
+      elseif ($result.Ok.Count -eq 0) {
+        [System.Windows.Forms.MessageBox]::Show(
+          ("Deploy GAGAL untuk semua project.`n`n" + ($result.Failed -join ", ") + "`n`nJangan anggap sukses. Cek log, Scope tim, token, dan jaringan."),
+          "Deploy Vercel - Gagal"
+        ) | Out-Null
       }
       else {
         [System.Windows.Forms.MessageBox]::Show(
-          ("Selesai dengan kegagalan:`n" + ($result.Failed -join ", ")),
-          "Deploy Vercel"
+          ("Sebagian gagal.`nOK: " + ($result.Ok -join ", ") + "`nGagal: " + ($result.Failed -join ", ")),
+          "Deploy Vercel - Sebagian"
         ) | Out-Null
       }
     }
