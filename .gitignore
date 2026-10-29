@@ -24,3 +24,4 @@ backup/
 docs/PANDUAN-PROYEK-DESA-BARU.*
 .vercel
 .env*
+scripts/vercel-projects.local.json

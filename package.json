@@ -18,7 +18,9 @@
     "db:init": "tsx scripts/db-init.ts",
     "db:import": "tsx scripts/db-import.ts",
     "db:export": "tsx scripts/db-export.ts",
-    "jwt:secret": "node -e \"console.log(require('node:crypto').randomBytes(48).toString('base64url'))\""
+    "jwt:secret": "node -e \"console.log(require('node:crypto').randomBytes(48).toString('base64url'))\"",
+    "deploy:vercel": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/vercel-deploy.ps1",
+    "deploy:vercel:panel": "powershell -NoProfile -ExecutionPolicy Bypass -STA -File ./scripts/vercel-deploy-panel.ps1"
   },
   "dependencies": {
     "@fontsource/barlow-condensed": "^5.2.8",

@@ -6,12 +6,22 @@ import {
 } from "./petugas-kartu-qr";
 
 describe("petugas-kartu-qr", () => {
-  it("membangun payload dengan prefix petugas", () => {
-    expect(petugasKartuQrPayload("001")).toBe("kasukretan:petugas:001");
-    expect(petugasKartuQrPayload("TK-12")).toBe("kasukretan:petugas:tk12");
+  it("membangun URL validasi publik bila base https diberikan", () => {
+    expect(petugasKartuQrPayload("001", "https://desa.example/cek-petugas")).toBe(
+      "https://desa.example/cek-petugas/001"
+    );
+    expect(petugasKartuQrPayload("TK-12", "https://desa.example/cek-petugas")).toBe(
+      "https://desa.example/cek-petugas/tk12"
+    );
   });
 
-  it("mem-parse payload berprefiks", () => {
+  it("mem-parse URL halaman cek-petugas", () => {
+    expect(parsePetugasKartuQrPayload("https://desa.example/cek-petugas/001")).toBe("001");
+    expect(parsePetugasKartuQrPayload("https://desa.example/cek-petugas/tk12?x=1")).toBe("tk12");
+    expect(parsePetugasKartuQrPayload("/cek-petugas/042")).toBe("042");
+  });
+
+  it("mem-parse payload berprefiks (kartu lama)", () => {
     expect(parsePetugasKartuQrPayload("kasukretan:petugas:001")).toBe("001");
     expect(parsePetugasKartuQrPayload("KASUKRETAN:PETUGAS:042")).toBe("042");
   });
