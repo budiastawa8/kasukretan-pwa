@@ -5,6 +5,7 @@ import {
   kartuPetugasPdfFilename,
   generateKartuPetugasPdf,
   KARTU_PETUGAS_SIZE_LABEL,
+  warmKartuPetugasBgCache,
 } from "../lib/kartu-petugas-pdf";
 import { formatNomorPengenalDisplay } from "../lib/penomoran-petugas";
 import { getDesaAdatWithMedia } from "../lib/services/desa";
@@ -40,6 +41,10 @@ export function KartuPetugasPrintPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    void warmKartuPetugasBgCache();
+  }, []);
 
   const buildPdf = useCallback(async () => {
     if (!tim || !desa) return;
