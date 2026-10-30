@@ -221,7 +221,13 @@ export function parseAgamaKk(raw?: string | null): string | undefined {
 function defaultSelected(hubungan?: string): boolean {
   if (!hubungan) return true;
   const s = normKey(hubungan);
-  if (s.includes("pembantu") || s.includes("lainnya")) return false;
+  if (
+    s.includes("pembantu") ||
+    s.includes("lainnya") ||
+    s.includes("famili lain")
+  ) {
+    return false;
+  }
   return true;
 }
 

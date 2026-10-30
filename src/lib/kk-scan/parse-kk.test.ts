@@ -181,6 +181,10 @@ describe("mapStatusHubunganKk", () => {
     expect(mapStatusHubunganKk("Ayah", "L", "MIPIL")).toBe("Ayah");
     expect(mapStatusHubunganKk("Ayah", "L", "KRAMA_TAMIU")).toBe("Orang Tua");
   });
+
+  it("memetakan Famili Lain ke Famili lain", () => {
+    expect(mapStatusHubunganKk("Famili Lain", "L", "MIPIL")).toBe("Famili lain");
+  });
 });
 
 describe("mapKkMemberToAnggota", () => {

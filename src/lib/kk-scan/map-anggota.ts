@@ -67,7 +67,10 @@ export function mapStatusHubunganKk(
   if (h.includes("ponakan") || h.includes("keponakan")) {
     return isPipil ? "Saudara" : "Ponakan";
   }
-  if (h.includes("saudara") || h.includes("famili") || h.includes("lain")) {
+  if (h.includes("famili lain") || (h.includes("famili") && h.includes("lain"))) {
+    return "Famili lain";
+  }
+  if (h.includes("saudara") || h.includes("famili")) {
     return "Saudara";
   }
   if (h.includes("pembantu")) return "Saudara";

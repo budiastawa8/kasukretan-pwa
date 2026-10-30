@@ -16,6 +16,7 @@ export const STATUS_KELUARGA_MIPIL = [
   "Cucu",
   "Mertua",
   "Saudara",
+  "Famili lain",
 ] as const;
 
 export type StatusKeluargaMipil = (typeof STATUS_KELUARGA_MIPIL)[number];
@@ -37,6 +38,7 @@ export const STATUS_KELUARGA_PEMASIH = [
   "Ponakan",
   "Cucu",
   "Saudara",
+  "Famili lain",
 ] as const;
 
 export type StatusKeluargaPemasih = (typeof STATUS_KELUARGA_PEMASIH)[number];
