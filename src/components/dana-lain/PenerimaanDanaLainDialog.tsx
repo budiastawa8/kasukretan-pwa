@@ -9,7 +9,7 @@ import {
   useSetorLangsung,
 } from "../pembayaran/pembayaran-dialog-shared";
 import { formatRupiah } from "../../lib/dudukan-hitung";
-import { formatTanggalLahir, today } from "../../lib/utils";
+import { today } from "../../lib/utils";
 import {
   akunPembayaranOptionLabel,
   getDefaultAkunDanaKasukretanLainnyaId,
@@ -34,6 +34,12 @@ import type {
   TimKasukretan,
 } from "../../lib/types";
 import "../../styles/pengumpulan-module.css";
+
+const SUMBER_DENGAN_CARI_KRAMA = new Set<PenerimaanDanaLainSumberTipe>([
+  "krama_mipil",
+  "krama_tamiu",
+  "tamiu",
+]);
 
 type Props = {
   open: boolean;
@@ -88,6 +94,7 @@ export function PenerimaanDanaLainDialog({
 
   const isKerjasama = jenis === "dana_kerjasama";
   const title = `${isEdit ? "Ubah" : ""} ${labelJenisPenerimaanDanaLain(jenis)}`.trim();
+  const bolehCariKrama = isLapangan && SUMBER_DENGAN_CARI_KRAMA.has(sumberTipe);
 
   const hitungOtomatis = useMemo(() => {
     if (!isKerjasama) return null;
@@ -98,6 +105,12 @@ export function PenerimaanDanaLainDialog({
     });
     return n > 0 ? n : null;
   }, [isKerjasama, tarifSatuan, jumlahOrang, lama]);
+
+  const nominalPreview = useMemo(() => {
+    const digits = jumlah.replace(/\D/g, "");
+    const n = Number(digits) || (hitungOtomatis != null ? hitungOtomatis : 0);
+    return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
+  }, [jumlah, hitungOtomatis]);
 
   useEffect(() => {
     if (!open) return;
@@ -250,7 +263,13 @@ export function PenerimaanDanaLainDialog({
             Batal
           </Button>
           <Button type="button" disabled={busy || loadingEdit} onClick={() => void simpan()}>
-            {busy ? "Menyimpan…" : isEdit ? "Simpan perubahan" : `Simpan · ${formatTanggalLahir(tanggal)}`}
+            {busy
+              ? "Menyimpan…"
+              : isEdit
+                ? "Simpan perubahan"
+                : nominalPreview > 0
+                  ? `Simpan · ${formatRupiah(nominalPreview)}`
+                  : "Simpan"}
           </Button>
         </div>
       }
@@ -304,7 +323,16 @@ export function PenerimaanDanaLainDialog({
               <Label>Jenis sumber</Label>
               <Select
                 value={sumberTipe}
-                onChange={(e) => setSumberTipe(e.target.value as PenerimaanDanaLainSumberTipe)}
+                onChange={(e) => {
+                  const next = e.target.value as PenerimaanDanaLainSumberTipe;
+                  setSumberTipe(next);
+                  if (!SUMBER_DENGAN_CARI_KRAMA.has(next)) {
+                    setKramaId(null);
+                    setKramaLabel("");
+                    setCariQ("");
+                    setCariHasil([]);
+                  }
+                }}
               >
                 {SUMBER_TIPE_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>
@@ -325,7 +353,11 @@ export function PenerimaanDanaLainDialog({
                     setKramaLabel("");
                   }
                 }}
-                placeholder="Ketik nama, atau cari krama di bawah"
+                placeholder={
+                  bolehCariKrama
+                    ? "Ketik nama, atau cari krama di bawah"
+                    : "Nama pemberi / mitra"
+                }
               />
               {kramaLabel && (
                 <p className="text-[11px] text-emerald-800 mt-0.5">
@@ -344,7 +376,7 @@ export function PenerimaanDanaLainDialog({
               )}
             </div>
 
-            {isLapangan && (
+            {bolehCariKrama && (
               <div>
                 <Label>Cari krama (opsional)</Label>
                 <div className="flex gap-1.5">

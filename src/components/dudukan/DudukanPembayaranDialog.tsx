@@ -31,6 +31,7 @@ import {
 } from "../../lib/dudukan-hitung";
 import type { DudukanKeringananRow, DudukanPembayaranRow } from "../../lib/types";
 import { cn, formatTanggalLahir, today } from "../../lib/utils";
+import { useIsPhoneClient } from "../../hooks/useClientFormFactor";
 import { Button } from "../ui/Button";
 import { DateInput } from "../ui/DateInput";
 import { Input, Label, Select } from "../ui/Input";
@@ -100,6 +101,7 @@ export function DudukanPembayaranDialog({
   /** Mode petugas lapangan: petugas terkunci, selalu belum disetor, tanpa ubah/keringanan. */
   lockedPetugasId?: string;
 }) {
+  const isPhone = useIsPhoneClient();
   const petugasLapangan = Boolean(lockedPetugasId);
   const canKelola = canEdit && !petugasLapangan;
   const bisaHapus = (p: DudukanPembayaranRow) =>
@@ -150,6 +152,8 @@ export function DudukanPembayaranDialog({
   const [kerKeterangan, setKerKeterangan] = useState("");
   const [tab, setTab] = useState<"bayar" | "riwayat">("bayar");
   const [tampilkanLunas, setTampilkanLunas] = useState(false);
+  /** Mobile: pilih periode dulu, baru isi meta + simpan. */
+  const [mobileBayarStep, setMobileBayarStep] = useState<"pilih" | "meta">("pilih");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteKeringananId, setDeleteKeringananId] = useState<string | null>(null);
@@ -176,6 +180,11 @@ export function DudukanPembayaranDialog({
         return sum + (Number.isFinite(n) && n > 0 ? Math.round(n) : 0);
       }, 0);
   }, [bulanList]);
+  const bulanDipilih = useMemo(
+    () => bulanList.filter((b) => b.dipilih && b.sisa > 0),
+    [bulanList]
+  );
+  const jumlahDipilih = bulanDipilih.length;
   const bulanBisaKeringanan = useMemo(
     () => bulanList.filter(bisaKeringanan),
     [bulanList]
@@ -238,6 +247,7 @@ export function DudukanPembayaranDialog({
       setEditingId(null);
       setEditingKeringananId(null);
       setKeringananMode(false);
+      setMobileBayarStep("pilih");
       setBulanList([]);
       void loadData();
     }
@@ -282,6 +292,12 @@ export function DudukanPembayaranDialog({
     if (!open || kerPetugasId || petugasList.length !== 1) return;
     setKerPetugasId(petugasList[0]!.id);
   }, [open, kerPetugasId, petugasList]);
+
+  useEffect(() => {
+    if (isPhone && mobileBayarStep === "meta" && jumlahDipilih === 0) {
+      setMobileBayarStep("pilih");
+    }
+  }, [isPhone, mobileBayarStep, jumlahDipilih]);
 
   function bukaKeringanan(b?: DudukanTunggakanBulan) {
     if (b && !bisaKeringanan(b)) return;
@@ -466,6 +482,32 @@ export function DudukanPembayaranDialog({
         b.sisa > 0 ? { ...b, dipilih: true, jumlahInput: b.sisa } : b
       )
     );
+    if (isPhone) setMobileBayarStep("meta");
+  }
+
+  function kosongkanPilihan() {
+    setBulanList((prev) =>
+      prev.map((b) => ({ ...b, dipilih: false, jumlahInput: "" }))
+    );
+    if (isPhone) setMobileBayarStep("pilih");
+  }
+
+  /** Pilih N bulan terlama yang masih punya sisa (urutan list = kronologis). */
+  function pilihNBulanTerlama(n: number) {
+    setBulanList((prev) => {
+      const eligible = prev.filter((b) => b.sisa > 0);
+      const pick = new Set(
+        eligible.slice(0, Math.max(0, n)).map((b) => periodeId(b.tahun, b.bulan))
+      );
+      return prev.map((b) => {
+        const dipilih = pick.has(periodeId(b.tahun, b.bulan));
+        return {
+          ...b,
+          dipilih,
+          jumlahInput: dipilih ? b.sisa : "",
+        };
+      });
+    });
   }
 
   function pilihSemuaKeringanan() {
@@ -629,7 +671,12 @@ export function DudukanPembayaranDialog({
       open={open}
       title="Pembayaran Dudukan"
       onClose={onClose}
-      className="max-w-2xl [&>div:first-child]:py-2 [&_h3]:text-sm [&>div:last-child]:flex [&>div:last-child]:flex-col [&>div:last-child]:overflow-hidden [&>div:last-child]:max-h-[min(88vh,720px)] [&>div:last-child]:min-h-0 [&>div:last-child]:p-2"
+      className={cn(
+        "max-w-2xl [&>div:first-child]:py-2 [&_h3]:text-sm [&>div:last-child]:flex [&>div:last-child]:flex-col [&>div:last-child]:overflow-hidden [&>div:last-child]:min-h-0 [&>div:last-child]:p-2",
+        isPhone
+          ? "[&>div:last-child]:max-h-[min(94vh,900px)]"
+          : "[&>div:last-child]:max-h-[min(88vh,720px)]"
+      )}
     >
       <div className={cn(DUDUKAN_BAYAR_DIALOG, "flex flex-col min-h-0 flex-1 gap-1 overflow-hidden")}>
         {detail && (
@@ -800,231 +847,450 @@ export function DudukanPembayaranDialog({
 
         {canEdit && !keringananMode && bulanDenganSisa.length > 0 && (
           <form onSubmit={handleSubmit} className="flex flex-col gap-1 min-h-0 flex-1 overflow-hidden">
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded border border-copper-200 bg-white/80">
-              <div className="grid grid-cols-[1.5rem_minmax(7rem,2.2fr)_minmax(7rem,1.8fr)_minmax(8rem,2fr)_minmax(5rem,1.1fr)_minmax(6rem,1.1fr)] gap-x-2 items-center shrink-0 border-b border-copper-100 px-1.5 py-1 bg-copper-50/80 text-[11px] font-medium text-muted">
-                <span />
-                <span className="text-[13px]">Periode</span>
-                <span className="text-right text-[13px]">Sisa</span>
-                <span className="flex flex-col leading-none items-start">
-                  <span className="text-[11px]">Bayar</span>
-                  <button
+            {/* Toolbar pilih cepat */}
+            {(!isPhone || mobileBayarStep === "pilih") && (
+              <div className="shrink-0 space-y-1.5">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Button
                     type="button"
-                    className="text-[9px] font-normal text-copper-700 hover:underline text-left"
+                    className={cn("text-xs font-semibold", isPhone ? "h-10 flex-1" : "h-8")}
                     onClick={isiSemuaSisa}
                   >
-                    isi semua
-                  </button>
-                </span>
-                <span />
-                <span className="text-right text-[13px] flex flex-col items-end leading-none gap-0.5">
-                  {bulanLunas > 0 ? (
-                    <button
+                    Bayar semua
+                    {bulanDenganSisa.length > 0
+                      ? ` (${bulanDenganSisa.length} bln · ${formatRupiah(
+                          bulanDenganSisa.reduce((s, b) => s + b.sisa, 0)
+                        )})`
+                      : ""}
+                  </Button>
+                  {jumlahDipilih > 0 && (
+                    <Button
                       type="button"
-                      className="text-[13px] text-copper-800 hover:underline font-normal"
-                      onClick={() => setTampilkanLunas((v) => !v)}
+                      variant="secondary"
+                      className={cn("text-xs", isPhone ? "h-10" : "h-8")}
+                      onClick={kosongkanPilihan}
                     >
-                      {tampilkanLunas ? "−lunas" : `+${bulanLunas}`}
-                    </button>
-                  ) : (
-                    <span>Keringanan</span>
+                      Kosongkan
+                    </Button>
                   )}
                   {canKelola && bulanBisaKeringanan.length > 0 && (
-                    <button
+                    <Button
                       type="button"
-                      className="text-[9px] font-normal text-violet-800 hover:underline"
+                      variant="ghost"
+                      className={cn(
+                        "text-xs text-violet-900",
+                        isPhone ? "h-10" : "h-8"
+                      )}
                       onClick={() => bukaKeringanan()}
                     >
-                      beberapa bulan
-                    </button>
+                      Keringanan…
+                    </Button>
                   )}
-                </span>
+                </div>
+                {bulanDenganSisa.length > 3 && (
+                  <div className="flex flex-wrap items-center gap-1">
+                    <span className="text-[11px] text-muted mr-0.5">Cepat:</span>
+                    {[3, 6]
+                      .filter((n) => n < bulanDenganSisa.length)
+                      .map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          className="rounded-md border border-copper-200 bg-white px-2 py-1 text-[11px] font-medium text-copper-900 active:bg-copper-100"
+                          onClick={() => pilihNBulanTerlama(n)}
+                        >
+                          {n} bln terlama
+                        </button>
+                      ))}
+                    {bulanLunas > 0 && (
+                      <button
+                        type="button"
+                        className="ml-auto text-[11px] text-copper-800 hover:underline"
+                        onClick={() => setTampilkanLunas((v) => !v)}
+                      >
+                        {tampilkanLunas ? "Sembunyikan lunas" : `+${bulanLunas} lunas`}
+                      </button>
+                    )}
+                  </div>
+                )}
+                {bulanDenganSisa.length <= 3 && bulanLunas > 0 && (
+                  <button
+                    type="button"
+                    className="text-[11px] text-copper-800 hover:underline"
+                    onClick={() => setTampilkanLunas((v) => !v)}
+                  >
+                    {tampilkanLunas ? "Sembunyikan lunas" : `Tampilkan ${bulanLunas} lunas`}
+                  </button>
+                )}
               </div>
+            )}
 
-              <ul className="min-h-0 flex-1 overflow-y-auto divide-y divide-copper-100">
-                {bulanTabel.map((b) => {
-                  const id = periodeId(b.tahun, b.bulan);
-                  const bisaBayar = b.sisa > 0;
-                  return (
-                    <li
-                      key={id}
-                      className={cn(
-                        "grid grid-cols-[1.5rem_minmax(7rem,2.2fr)_minmax(7rem,1.8fr)_minmax(8rem,2fr)_minmax(5rem,1.1fr)_minmax(6rem,1.1fr)] gap-x-2 items-center px-1.5 py-0.5",
-                        b.di_muka && bisaBayar && "bg-green-50/60",
-                        b.telat && bisaBayar && "bg-amber-50/60",
-                        !bisaBayar && "text-muted bg-copper-50/30"
-                      )}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={b.dipilih && bisaBayar}
-                        disabled={!bisaBayar}
-                        onChange={(e) => toggleBulan(id, e.target.checked)}
-                        className="h-3.5 w-3.5 shrink-0"
-                        aria-label={`Pilih ${formatBulanIndonesiaSingkat(b.bulan, b.tahun)}`}
-                      />
-                      <div className="leading-tight min-w-0">
-                        <span className="text-[13px] font-medium tabular-nums whitespace-nowrap">
-                          {formatBulanIndonesiaSingkat(b.bulan, b.tahun)}
-                        </span>
-                        {b.di_muka && bisaBayar && (
-                          <span className="ml-0.5 text-[9px] text-green-800">muka</span>
-                        )}
-                        {b.telat && bisaBayar && (
-                          <span className="ml-0.5 text-[9px] text-amber-900">telat</span>
-                        )}
-                      </div>
-                      {bisaBayar ? (
-                        <>
-                          <span
-                            className="text-[14px] font-semibold text-muted tabular-nums text-right truncate"
-                            title="Sisa tagihan"
+            {/* Daftar periode — mobile list atau desktop grid */}
+            {(!isPhone || mobileBayarStep === "pilih") && (
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded border border-copper-200 bg-white/80">
+                {isPhone ? (
+                  <ul className="min-h-0 flex-1 overflow-y-auto divide-y divide-copper-100">
+                    {bulanTabel.map((b) => {
+                      const id = periodeId(b.tahun, b.bulan);
+                      const bisaBayar = b.sisa > 0;
+                      return (
+                        <li
+                          key={id}
+                          className={cn(
+                            "px-2 py-2.5",
+                            b.di_muka && bisaBayar && "bg-green-50/60",
+                            b.telat && bisaBayar && "bg-amber-50/60",
+                            !bisaBayar && "text-muted bg-copper-50/30",
+                            b.dipilih && bisaBayar && "bg-copper-100/70"
+                          )}
+                        >
+                          <div
+                            role={bisaBayar ? "button" : undefined}
+                            tabIndex={bisaBayar ? 0 : undefined}
+                            onClick={() => {
+                              if (bisaBayar) toggleBulan(id, !b.dipilih);
+                            }}
+                            onKeyDown={(e) => {
+                              if (!bisaBayar) return;
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                toggleBulan(id, !b.dipilih);
+                              }
+                            }}
+                            className={cn(
+                              "flex items-center gap-3 min-h-[44px]",
+                              bisaBayar && "cursor-pointer"
+                            )}
                           >
-                            {formatRupiah(b.sisa)}
-                          </span>
-                          <RupiahInput
-                            value={b.jumlahInput}
-                            onChange={(v) => setJumlahBulan(id, v)}
-                            disabled={!b.dipilih}
-                            showPrefix={false}
-                            className="h-7 text-xs w-full min-w-0 px-1 rounded-md"
-                          />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            className="h-7 text-[11px] font-semibold px-1 min-w-0 justify-center"
-                            onClick={() => isiSisaBulan(id)}
-                            title={`Isi penuh ${formatRupiah(b.sisa)}`}
-                          >
-                            Penuh
-                          </Button>
-                          {b.keringanan > 0 ? (
-                            <span className="inline-flex items-center justify-end gap-0">
-                              <span className="text-[12px] text-violet-900 tabular-nums truncate">
-                                {formatRupiah(b.keringanan)}
+                            <input
+                              type="checkbox"
+                              checked={b.dipilih && bisaBayar}
+                              disabled={!bisaBayar}
+                              onChange={(e) => toggleBulan(id, e.target.checked)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="h-5 w-5 shrink-0"
+                              aria-label={`Pilih ${formatBulanIndonesiaSingkat(b.bulan, b.tahun)}`}
+                            />
+                            <div className="min-w-0 flex-1 leading-tight">
+                              <span className="text-sm font-semibold tabular-nums text-copper-950">
+                                {formatBulanIndonesiaSingkat(b.bulan, b.tahun)}
                               </span>
-                              {canDeleteFinancial && b.keringanan_id && (
+                              {b.di_muka && bisaBayar && (
+                                <span className="ml-1 text-[10px] text-green-800">muka</span>
+                              )}
+                              {b.telat && bisaBayar && (
+                                <span className="ml-1 text-[10px] text-amber-900">telat</span>
+                              )}
+                              {!bisaBayar && (
+                                <div className="mt-0.5">
+                                  <DudukanStatusBadge
+                                    tagihan={b.tagihan}
+                                    dibayar={b.dibayar}
+                                    keringanan={b.keringanan}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                            {bisaBayar && !b.dipilih && (
+                              <span className="shrink-0 text-sm font-semibold text-amber-900 tabular-nums">
+                                {formatRupiah(b.sisa)}
+                              </span>
+                            )}
+                          </div>
+                          {bisaBayar && b.dipilih && (
+                            <div
+                              className="mt-2 flex items-center gap-2 pl-8"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <RupiahInput
+                                value={b.jumlahInput}
+                                onChange={(v) => setJumlahBulan(id, v)}
+                                showPrefix={false}
+                                className="h-10 text-sm flex-1 min-w-0 px-2 rounded-md"
+                              />
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                className="h-10 text-xs font-semibold shrink-0"
+                                onClick={() => isiSisaBulan(id)}
+                              >
+                                Penuh
+                              </Button>
+                              {canKelola && !b.di_muka && b.keringanan <= 0 && (
                                 <Button
                                   type="button"
                                   variant="ghost"
-                                  icon={Trash2}
-                                  iconOnly
-                                  title="Hapus keringanan"
-                                  className="min-h-6 min-w-6"
-                                  onClick={() => requestHapusKeringanan(b.keringanan_id!)}
-                                />
+                                  className="h-10 text-xs font-semibold shrink-0 text-violet-900 px-2"
+                                  onClick={() => bukaKeringanan(b)}
+                                >
+                                  Ker.
+                                </Button>
                               )}
-                            </span>
-                          ) : canKelola && !b.di_muka ? (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              className="h-7 text-[13px] font-semibold px-1 min-w-0 justify-end text-violet-900"
-                              onClick={() => bukaKeringanan(b)}
-                              title={`Keringanan sisa ${formatRupiah(b.sisa)}`}
-                            >
-                              Keringanan
-                            </Button>
-                          ) : (
-                            <span />
+                            </div>
                           )}
-                        </>
-                      ) : (
-                        <>
-                          <span />
-                          <div className="col-span-3 flex justify-end min-w-0">
-                            <DudukanStatusBadge
-                              tagihan={b.tagihan}
-                              dibayar={b.dibayar}
-                              keringanan={b.keringanan}
-                            />
-                            {b.keringanan > 0 && canDeleteFinancial && b.keringanan_id && (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                icon={Trash2}
-                                iconOnly
-                                title="Hapus keringanan"
-                                className="min-h-6 min-w-6 shrink-0"
-                                onClick={() => requestHapusKeringanan(b.keringanan_id!)}
-                              />
+                          {bisaBayar && b.keringanan > 0 && (
+                            <p className="mt-1 pl-8 text-[11px] text-violet-900 tabular-nums">
+                              Keringanan {formatRupiah(b.keringanan)}
+                              {canDeleteFinancial && b.keringanan_id && (
+                                <button
+                                  type="button"
+                                  className="ml-2 underline"
+                                  onClick={() => requestHapusKeringanan(b.keringanan_id!)}
+                                >
+                                  hapus
+                                </button>
+                              )}
+                            </p>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-[1.5rem_minmax(7rem,2.2fr)_minmax(7rem,1.8fr)_minmax(8rem,2fr)_minmax(5rem,1.1fr)_minmax(6rem,1.1fr)] gap-x-2 items-center shrink-0 border-b border-copper-100 px-1.5 py-1 bg-copper-50/80 text-[11px] font-medium text-muted">
+                      <span />
+                      <span className="text-[13px]">Periode</span>
+                      <span className="text-right text-[13px]">Sisa</span>
+                      <span className="text-[11px]">Bayar</span>
+                      <span />
+                      <span className="text-right text-[13px]">Keringanan</span>
+                    </div>
+                    <ul className="min-h-0 flex-1 overflow-y-auto divide-y divide-copper-100">
+                      {bulanTabel.map((b) => {
+                        const id = periodeId(b.tahun, b.bulan);
+                        const bisaBayar = b.sisa > 0;
+                        return (
+                          <li
+                            key={id}
+                            className={cn(
+                              "grid grid-cols-[1.5rem_minmax(7rem,2.2fr)_minmax(7rem,1.8fr)_minmax(8rem,2fr)_minmax(5rem,1.1fr)_minmax(6rem,1.1fr)] gap-x-2 items-center px-1.5 py-1",
+                              b.di_muka && bisaBayar && "bg-green-50/60",
+                              b.telat && bisaBayar && "bg-amber-50/60",
+                              !bisaBayar && "text-muted bg-copper-50/30"
                             )}
-                          </div>
-                        </>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-
-            <div className="shrink-0 space-y-1 border-t border-copper-200 pt-1.5 bg-card">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-1">
-                <div>
-                  <Label>Tanggal</Label>
-                  <DateInput value={tanggal} onChange={setTanggal} required />
-                </div>
-                <div>
-                  <Label>Petugas</Label>
-                  <Select
-                    value={petugasId}
-                    onChange={(e) => setPetugasId(e.target.value)}
-                    required
-                    disabled={petugasList.length === 0 || petugasLapangan}
-                  >
-                    {petugasOptions}
-                  </Select>
-                </div>
-                <div>
-                  <Label>Diterima di</Label>
-                  <Select
-                    value={akunKeuanganId}
-                    onChange={(e) => setAkunKeuanganId(e.target.value)}
-                    required
-                    disabled={akunList.length === 0}
-                  >
-                    {akunOptions}
-                  </Select>
-                </div>
+                          >
+                            <input
+                              type="checkbox"
+                              checked={b.dipilih && bisaBayar}
+                              disabled={!bisaBayar}
+                              onChange={(e) => toggleBulan(id, e.target.checked)}
+                              className="h-4 w-4 shrink-0"
+                              aria-label={`Pilih ${formatBulanIndonesiaSingkat(b.bulan, b.tahun)}`}
+                            />
+                            <div className="leading-tight min-w-0">
+                              <span className="text-[13px] font-medium tabular-nums whitespace-nowrap">
+                                {formatBulanIndonesiaSingkat(b.bulan, b.tahun)}
+                              </span>
+                              {b.di_muka && bisaBayar && (
+                                <span className="ml-0.5 text-[9px] text-green-800">muka</span>
+                              )}
+                              {b.telat && bisaBayar && (
+                                <span className="ml-0.5 text-[9px] text-amber-900">telat</span>
+                              )}
+                            </div>
+                            {bisaBayar ? (
+                              <>
+                                <span
+                                  className="text-[14px] font-semibold text-muted tabular-nums text-right truncate"
+                                  title="Sisa tagihan"
+                                >
+                                  {formatRupiah(b.sisa)}
+                                </span>
+                                <RupiahInput
+                                  value={b.jumlahInput}
+                                  onChange={(v) => setJumlahBulan(id, v)}
+                                  disabled={!b.dipilih}
+                                  showPrefix={false}
+                                  className="h-7 text-xs w-full min-w-0 px-1 rounded-md"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  className="h-7 text-[11px] font-semibold px-1 min-w-0 justify-center"
+                                  onClick={() => isiSisaBulan(id)}
+                                  title={`Isi penuh ${formatRupiah(b.sisa)}`}
+                                >
+                                  Penuh
+                                </Button>
+                                {b.keringanan > 0 ? (
+                                  <span className="inline-flex items-center justify-end gap-0">
+                                    <span className="text-[12px] text-violet-900 tabular-nums truncate">
+                                      {formatRupiah(b.keringanan)}
+                                    </span>
+                                    {canDeleteFinancial && b.keringanan_id && (
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        icon={Trash2}
+                                        iconOnly
+                                        title="Hapus keringanan"
+                                        className="min-h-6 min-w-6"
+                                        onClick={() => requestHapusKeringanan(b.keringanan_id!)}
+                                      />
+                                    )}
+                                  </span>
+                                ) : canKelola && !b.di_muka ? (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    className="h-7 text-[13px] font-semibold px-1 min-w-0 justify-end text-violet-900"
+                                    onClick={() => bukaKeringanan(b)}
+                                    title={`Keringanan sisa ${formatRupiah(b.sisa)}`}
+                                  >
+                                    Keringanan
+                                  </Button>
+                                ) : (
+                                  <span />
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                <span />
+                                <div className="col-span-3 flex justify-end min-w-0">
+                                  <DudukanStatusBadge
+                                    tagihan={b.tagihan}
+                                    dibayar={b.dibayar}
+                                    keringanan={b.keringanan}
+                                  />
+                                  {b.keringanan > 0 && canDeleteFinancial && b.keringanan_id && (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      icon={Trash2}
+                                      iconOnly
+                                      title="Hapus keringanan"
+                                      className="min-h-6 min-w-6 shrink-0"
+                                      onClick={() => requestHapusKeringanan(b.keringanan_id!)}
+                                    />
+                                  )}
+                                </div>
+                              </>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </>
+                )}
               </div>
-              {petugasList.length === 0 && detail && (
-                <p className="text-[11px] text-amber-800 leading-tight">
-                  Belum ada petugas di banjar {detail.banjar_nama}.
-                </p>
-              )}
-              {akunList.length === 0 && (
-                <p className="text-[11px] text-amber-800 leading-tight">
-                  Belum ada akun keuangan.
-                </p>
-              )}
-              <button
-                type="button"
-                className="text-[11px] text-copper-700 hover:text-copper-950 underline-offset-2 hover:underline"
-                onClick={() => setShowKeterangan((v) => !v)}
+            )}
+
+            {/* Mobile: lanjut ke meta */}
+            {isPhone && mobileBayarStep === "pilih" && jumlahDipilih > 0 && (
+              <div className="shrink-0 pt-1">
+                <Button
+                  type="button"
+                  className="h-11 text-sm w-full font-semibold"
+                  onClick={() => setMobileBayarStep("meta")}
+                >
+                  Lanjut · {formatRupiah(totalBayar)} ({jumlahDipilih} bln)
+                </Button>
+              </div>
+            )}
+
+            {/* Meta + simpan — selalu di desktop; di phone hanya step meta */}
+            {(!isPhone || mobileBayarStep === "meta") && (
+              <div
+                className={cn(
+                  "space-y-1.5 border-t border-copper-200 pt-1.5 bg-card",
+                  isPhone && mobileBayarStep === "meta"
+                    ? "flex-1 flex flex-col justify-end min-h-0"
+                    : "shrink-0"
+                )}
               >
-                {showKeterangan ? "Sembunyikan catatan" : "Catatan (opsional)"}
-              </button>
-              {showKeterangan && (
-                <Input
-                  placeholder="Keterangan pembayaran"
-                  value={keterangan}
-                  onChange={(e) => setKeterangan(e.target.value)}
-                />
-              )}
-              {petugasLapangan ? (
-                <PetugasLapanganSetorNote />
-              ) : (
-                <SetorLangsungField checked={disetorLangsung} onChange={setDisetorLangsung} />
-              )}
-              <Button
-                type="submit"
-                disabled={
-                  loading || petugasList.length === 0 || akunList.length === 0 || totalBayar <= 0
-                }
-                className="h-9 text-sm w-full"
-              >
-                {loading ? "Menyimpan…" : `Simpan (${formatRupiah(totalBayar)})`}
-              </Button>
-            </div>
+                {isPhone && (
+                  <div className="flex items-start justify-between gap-2 pb-0.5">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-copper-950 leading-tight">
+                        {jumlahDipilih} bulan · {formatRupiah(totalBayar)}
+                      </p>
+                      <p className="text-[11px] text-muted truncate leading-tight">
+                        {bulanDipilih
+                          .slice(0, 4)
+                          .map((b) => formatBulanIndonesiaSingkat(b.bulan, b.tahun))
+                          .join(", ")}
+                        {jumlahDipilih > 4 ? ` +${jumlahDipilih - 4}` : ""}
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="h-9 text-xs shrink-0"
+                      onClick={() => setMobileBayarStep("pilih")}
+                    >
+                      Ubah periode
+                    </Button>
+                  </div>
+                )}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-1">
+                  <div>
+                    <Label>Tanggal</Label>
+                    <DateInput value={tanggal} onChange={setTanggal} required />
+                  </div>
+                  <div>
+                    <Label>Petugas</Label>
+                    <Select
+                      value={petugasId}
+                      onChange={(e) => setPetugasId(e.target.value)}
+                      required
+                      disabled={petugasList.length === 0 || petugasLapangan}
+                    >
+                      {petugasOptions}
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Diterima di</Label>
+                    <Select
+                      value={akunKeuanganId}
+                      onChange={(e) => setAkunKeuanganId(e.target.value)}
+                      required
+                      disabled={akunList.length === 0}
+                    >
+                      {akunOptions}
+                    </Select>
+                  </div>
+                </div>
+                {petugasList.length === 0 && detail && (
+                  <p className="text-[11px] text-amber-800 leading-tight">
+                    Belum ada petugas di banjar {detail.banjar_nama}.
+                  </p>
+                )}
+                {akunList.length === 0 && (
+                  <p className="text-[11px] text-amber-800 leading-tight">
+                    Belum ada akun keuangan.
+                  </p>
+                )}
+                <button
+                  type="button"
+                  className="text-[11px] text-copper-700 hover:text-copper-950 underline-offset-2 hover:underline"
+                  onClick={() => setShowKeterangan((v) => !v)}
+                >
+                  {showKeterangan ? "Sembunyikan catatan" : "Catatan (opsional)"}
+                </button>
+                {showKeterangan && (
+                  <Input
+                    placeholder="Keterangan pembayaran"
+                    value={keterangan}
+                    onChange={(e) => setKeterangan(e.target.value)}
+                  />
+                )}
+                {petugasLapangan ? (
+                  <PetugasLapanganSetorNote />
+                ) : (
+                  <SetorLangsungField checked={disetorLangsung} onChange={setDisetorLangsung} />
+                )}
+                <Button
+                  type="submit"
+                  disabled={
+                    loading || petugasList.length === 0 || akunList.length === 0 || totalBayar <= 0
+                  }
+                  className={cn("text-sm w-full font-semibold", isPhone ? "h-11" : "h-9")}
+                >
+                  {loading ? "Menyimpan…" : `Simpan (${formatRupiah(totalBayar)})`}
+                </Button>
+              </div>
+            )}
           </form>
         )}
 
