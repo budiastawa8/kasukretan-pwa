@@ -348,18 +348,19 @@ export async function assertPembayaranBelumMasukSetoran(
 /** Hapus pembayaran yang belum masuk batch setoran (paturunan / dudukan / dana lain). */
 export async function deletePembayaranBelumDisetor(
   sumber: SumberPembayaran,
-  id: string
+  id: string,
+  alasan: import("./pembayaran-hapus-log").AlasanHapusPembayaran
 ): Promise<void> {
   if (sumber === "paturunan") {
     const { deletePembayaranPaturunan } = await import("./paturunan-pembayaran");
-    await deletePembayaranPaturunan(id);
+    await deletePembayaranPaturunan(id, alasan);
     return;
   }
   if (sumber === "dudukan") {
     const { deletePembayaranDudukan } = await import("./dudukan-pembayaran");
-    await deletePembayaranDudukan(id);
+    await deletePembayaranDudukan(id, alasan);
     return;
   }
   const { deletePenerimaanDanaLain } = await import("./penerimaan-dana-lain");
-  await deletePenerimaanDanaLain(id);
+  await deletePenerimaanDanaLain(id, alasan);
 }

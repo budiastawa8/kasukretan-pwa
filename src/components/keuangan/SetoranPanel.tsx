@@ -37,6 +37,7 @@ import { PenerimaanDanaLainDialog } from "../dana-lain/PenerimaanDanaLainDialog"
 import { SetoranTelatBendaharaBanner } from "../setoran/SetoranTelatBanner";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
+import { HapusPembayaranDialog } from "../pembayaran/HapusPembayaranDialog";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { DateInput } from "../ui/DateInput";
 import { Input, Label } from "../ui/Input";
@@ -634,16 +635,19 @@ export function SetoranPanel({
         />
       )}
 
-      <ConfirmDialog
+      <HapusPembayaranDialog
         open={hapusDanaLainId != null}
         title="Hapus penerimaan?"
         message="Penerimaan Punia/Kerjasama ini akan dihapus. Jika sudah masuk buku kas (setor langsung), saldo ikut berkurang."
         confirmLabel="Ya, hapus"
         busy={hapusDanaLainBusy}
-        onConfirm={() => {
+        onConfirm={(alasan) => {
           if (!hapusDanaLainId) return;
           setHapusDanaLainBusy(true);
-          void deletePenerimaanDanaLain(hapusDanaLainId)
+          void deletePenerimaanDanaLain(hapusDanaLainId, {
+            ...alasan,
+            dihapusOlehUserId: userId,
+          })
             .then(async () => {
               setHapusDanaLainId(null);
               setInfo("Penerimaan dihapus.");

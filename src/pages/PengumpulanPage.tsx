@@ -18,7 +18,7 @@ import { DudukanPembayaranDialog } from "../components/dudukan/DudukanPembayaran
 import { PenerimaanDanaLainDialog } from "../components/dana-lain/PenerimaanDanaLainDialog";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
-import { ConfirmDialog } from "../components/ui/ConfirmDialog";
+import { HapusPembayaranDialog } from "../components/pembayaran/HapusPembayaranDialog";
 import { Input } from "../components/ui/Input";
 import { parseKartuQrPayload } from "../lib/kartu-qr";
 import { formatRupiah } from "../lib/dudukan-hitung";
@@ -757,7 +757,7 @@ export function PengumpulanPage() {
         />
       )}
 
-      <ConfirmDialog
+      <HapusPembayaranDialog
         open={hapusItem != null}
         title="Hapus dari uang di tangan?"
         message={
@@ -767,10 +767,14 @@ export function PengumpulanPage() {
         }
         confirmLabel="Ya, hapus"
         busy={hapusBusy}
-        onConfirm={() => {
+        onConfirm={(alasan) => {
           if (!hapusItem) return;
           setHapusBusy(true);
-          void deletePembayaranBelumDisetor(hapusItem.sumber, hapusItem.id)
+          void deletePembayaranBelumDisetor(hapusItem.sumber, hapusItem.id, {
+            ...alasan,
+            dihapusOlehPetugasId: petugas?.id ?? hapusItem.petugas_id,
+            dihapusOlehUserId: user?.id,
+          })
             .then(async () => {
               setFlash(`Dihapus: ${hapusItem.kepala_nama} · ${formatRupiah(hapusItem.jumlah)}`);
               setHapusItem(null);

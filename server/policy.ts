@@ -68,6 +68,7 @@ const KEUANGAN_TABLES = new Set([
   "transaksi_transfer",
   "setoran",
   "penerimaan_dana_lain",
+  "pembayaran_hapus_log",
 ]);
 
 /** Penanda internal aplikasi (status migrasi/sinkron) — boleh ditulis peran apa pun yang bisa menulis. */
@@ -171,6 +172,10 @@ function canWrite(role: Role, verb: WriteVerb, table: string, stripped: string):
   if (table === "ringkasan_cache") return true;
   if (role === "prajuru") return false;
   if (SHARED_TABLES.has(table)) return true;
+  /** Petugas wajib mencatat jejak sebelum menghapus pembayaran miliknya. */
+  if (role === "petugas" && table === "pembayaran_hapus_log" && verb === "insert") {
+    return true;
+  }
   if (role === "petugas") return false;
 
   if (KRAMA_TABLES.has(table)) {

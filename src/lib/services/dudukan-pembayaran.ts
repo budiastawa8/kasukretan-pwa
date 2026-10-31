@@ -824,8 +824,13 @@ export async function updatePembayaranDudukan(
   );
 }
 
-export async function deletePembayaranDudukan(id: string): Promise<void> {
+export async function deletePembayaranDudukan(
+  id: string,
+  alasan: import("./pembayaran-hapus-log").AlasanHapusPembayaran
+): Promise<void> {
   await assertPembayaranBelumMasukSetoran("dudukan", id);
+  const { catatHapusPembayaran } = await import("./pembayaran-hapus-log");
+  await catatHapusPembayaran("dudukan", id, alasan);
   const db = await getDb();
   await db.execute(`DELETE FROM dudukan_pembayaran WHERE id = $1`, [id]);
   const { queuePaymentDeletion } = await import("../sync/payment-deletions");

@@ -29,7 +29,7 @@ import {
 } from "../../components/laporan/laporan-compact";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
-import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
+import { HapusPembayaranDialog } from "../../components/pembayaran/HapusPembayaranDialog";
 import { DateInput } from "../../components/ui/DateInput";
 import { IconLink } from "../../components/ui/IconLink";
 import { Input, Label, Select } from "../../components/ui/Input";
@@ -386,16 +386,19 @@ export function LaporanPenerimaanDanaLainPage() {
         />
       )}
 
-      <ConfirmDialog
+      <HapusPembayaranDialog
         open={hapusId != null}
         title="Hapus penerimaan?"
         message="Penerimaan akan dihapus. Jika sudah setor langsung ke buku kas, saldo ikut berkurang."
         confirmLabel="Ya, hapus"
         busy={hapusBusy}
-        onConfirm={() => {
+        onConfirm={(alasan) => {
           if (!hapusId) return;
           setHapusBusy(true);
-          void deletePenerimaanDanaLain(hapusId)
+          void deletePenerimaanDanaLain(hapusId, {
+            ...alasan,
+            dihapusOlehUserId: user?.id,
+          })
             .then(async () => {
               setHapusId(null);
               await load();

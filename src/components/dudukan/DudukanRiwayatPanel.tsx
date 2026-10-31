@@ -62,7 +62,8 @@ import { Button } from "../ui/Button";
 
 import { DUDUKAN_CARD } from "./dudukan-compact";
 
-import { ConfirmDialog } from "../ui/ConfirmDialog";
+import { HapusPembayaranDialog } from "../pembayaran/HapusPembayaranDialog";
+import { useAuth } from "../../context/AuthContext";
 
 import { DudukanPembayaranDialog } from "./DudukanPembayaranDialog";
 
@@ -171,6 +172,7 @@ export function DudukanRiwayatPanel({
   onBayarSaved,
 
 }: Props) {
+  const { user } = useAuth();
 
   const openPdf = useLaporanPdfNavigate();
 
@@ -628,7 +630,7 @@ export function DudukanRiwayatPanel({
 
 
 
-  async function confirmHapus() {
+  async function confirmHapus(alasan: { kode: string; teks: string }) {
 
     if (!deleteRow || !canDeleteFinancial) return;
 
@@ -638,7 +640,10 @@ export function DudukanRiwayatPanel({
 
     try {
 
-      await deletePembayaranDudukan(deleteRow.id);
+      await deletePembayaranDudukan(deleteRow.id, {
+        ...alasan,
+        dihapusOlehUserId: user?.id,
+      });
 
       setDeleteRow(null);
 
@@ -1124,7 +1129,7 @@ export function DudukanRiwayatPanel({
 
 
 
-      <ConfirmDialog
+      <HapusPembayaranDialog
         open={deleteRow != null}
         title="Hapus pembayaran dudukan?"
         message={
@@ -1134,7 +1139,7 @@ export function DudukanRiwayatPanel({
         }
         confirmLabel="Ya, hapus"
         busy={deleteBusy}
-        onConfirm={() => void confirmHapus()}
+        onConfirm={(alasan) => void confirmHapus(alasan)}
         onCancel={() => {
           if (!deleteBusy) setDeleteRow(null);
         }}

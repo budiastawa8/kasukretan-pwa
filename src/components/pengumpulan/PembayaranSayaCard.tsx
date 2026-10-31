@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
-import { ConfirmDialog } from "../ui/ConfirmDialog";
+import { HapusPembayaranDialog } from "../pembayaran/HapusPembayaranDialog";
 import { DateInput } from "../ui/DateInput";
 import { formatRupiah } from "../../lib/dudukan-hitung";
 import {
@@ -151,7 +151,7 @@ export function PembayaranSayaCard({ petugasId }: { petugasId: string }) {
         </ul>
       )}
 
-      <ConfirmDialog
+      <HapusPembayaranDialog
         open={hapusItem != null}
         title="Hapus pembayaran?"
         message={
@@ -161,10 +161,13 @@ export function PembayaranSayaCard({ petugasId }: { petugasId: string }) {
         }
         confirmLabel="Ya, hapus"
         busy={hapusBusy}
-        onConfirm={() => {
+        onConfirm={(alasan) => {
           if (!hapusItem) return;
           setHapusBusy(true);
-          void deletePembayaranBelumDisetor(hapusItem.sumber, hapusItem.id)
+          void deletePembayaranBelumDisetor(hapusItem.sumber, hapusItem.id, {
+            ...alasan,
+            dihapusOlehPetugasId: petugasId,
+          })
             .then(async () => {
               setHapusItem(null);
               await load();

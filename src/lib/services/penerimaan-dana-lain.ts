@@ -344,8 +344,13 @@ export async function updatePenerimaanDanaLain(
   );
 }
 
-export async function deletePenerimaanDanaLain(id: string): Promise<void> {
+export async function deletePenerimaanDanaLain(
+  id: string,
+  alasan: import("./pembayaran-hapus-log").AlasanHapusPembayaran
+): Promise<void> {
   await assertPembayaranBelumMasukSetoran("dana_lain", id);
+  const { catatHapusPembayaran } = await import("./pembayaran-hapus-log");
+  await catatHapusPembayaran("dana_lain", id, alasan);
   const db = await getDb();
   await db.execute(`DELETE FROM penerimaan_dana_lain WHERE id = ?`, [id]);
 }

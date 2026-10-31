@@ -41,7 +41,8 @@ import { DateInput } from "../ui/DateInput";
 import { Input, Label, Select } from "../ui/Input";
 import { ListPagination } from "../ui/ListPagination";
 import { Button } from "../ui/Button";
-import { ConfirmDialog } from "../ui/ConfirmDialog";
+import { HapusPembayaranDialog } from "../pembayaran/HapusPembayaranDialog";
+import { useAuth } from "../../context/AuthContext";
 import { PaturunanPembayaranDialog } from "./PaturunanPembayaranDialog";
 import { PATURUNAN_CARD } from "./paturunan-compact";
 import {
@@ -91,6 +92,7 @@ export function PaturunanRiwayatPanel({
   onDataChange,
   onBayarSaved,
 }: Props) {
+  const { user } = useAuth();
   const openPdf = useLaporanPdfNavigate();
   const [rows, setRows] = useState<PaturunanRiwayatRow[]>([]);
   const [iuranList, setIuranList] = useState<IuranPaturunanRow[]>([]);
@@ -325,12 +327,15 @@ export function PaturunanRiwayatPanel({
     onDataChange?.();
   }
 
-  async function confirmHapus() {
+  async function confirmHapus(alasan: { kode: string; teks: string }) {
     if (!deleteRow || !canDeleteFinancial) return;
     setDeleteBusy(true);
     setError("");
     try {
-      await deletePembayaranPaturunan(deleteRow.id);
+      await deletePembayaranPaturunan(deleteRow.id, {
+        ...alasan,
+        dihapusOlehUserId: user?.id,
+      });
       setDeleteRow(null);
       await load();
       onDataChange?.();
@@ -573,7 +578,7 @@ export function PaturunanRiwayatPanel({
         )}
       </Card>
 
-      <ConfirmDialog
+      <HapusPembayaranDialog
         open={deleteRow != null}
         title="Hapus pembayaran paturunan?"
         message={
@@ -583,7 +588,7 @@ export function PaturunanRiwayatPanel({
         }
         confirmLabel="Ya, hapus"
         busy={deleteBusy}
-        onConfirm={() => void confirmHapus()}
+        onConfirm={(alasan) => void confirmHapus(alasan)}
         onCancel={() => {
           if (!deleteBusy) setDeleteRow(null);
         }}

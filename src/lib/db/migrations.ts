@@ -609,8 +609,43 @@ export async function runMasterDataMigrations(db: Database): Promise<void> {
   await migrateCekTunggakanPaturunanPublik(db);
   await migrateKramaNomorKartuNorm(db);
   await migratePenerimaanDanaLain(db);
+  await migratePembayaranHapusLog(db);
   await ensureRingkasanIndexes(db);
   await ensureRingkasanCacheTable(db);
+}
+
+/** Jejak hapus pembayaran (paturunan/dudukan/dana lain) untuk audit admin. */
+async function migratePembayaranHapusLog(db: Database): Promise<void> {
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS pembayaran_hapus_log (
+      id TEXT PRIMARY KEY,
+      sumber TEXT NOT NULL,
+      pembayaran_id TEXT NOT NULL,
+      tanggal_transaksi TEXT NOT NULL,
+      jumlah REAL NOT NULL,
+      uraian TEXT,
+      krama_id TEXT,
+      nomor_kartu TEXT,
+      kepala_nama TEXT,
+      petugas_id TEXT,
+      petugas_nama TEXT,
+      alasan_kode TEXT NOT NULL,
+      alasan_teks TEXT NOT NULL,
+      dihapus_oleh_petugas_id TEXT,
+      dihapus_oleh_user_id TEXT,
+      dihapus_oleh_nama TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+  await db.execute(
+    `CREATE INDEX IF NOT EXISTS idx_pembayaran_hapus_log_created ON pembayaran_hapus_log (created_at)`
+  );
+  await db.execute(
+    `CREATE INDEX IF NOT EXISTS idx_pembayaran_hapus_log_petugas ON pembayaran_hapus_log (petugas_id)`
+  );
+  await db.execute(
+    `CREATE INDEX IF NOT EXISTS idx_pembayaran_hapus_log_sumber ON pembayaran_hapus_log (sumber)`
+  );
 }
 
 /** Punia Kasukretan & Dana Kerjasama — diterima petugas, setor seperti Paturunan/Dudukan. */

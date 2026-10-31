@@ -41,6 +41,7 @@ import { LaporanHubPage } from "./pages/laporan/LaporanHubPage";
 import { LaporanPaturunanPage } from "./pages/laporan/LaporanPaturunanPage";
 import { LaporanPuniaPage } from "./pages/laporan/LaporanPuniaPage";
 import { LaporanPenerimaanDanaLainPage } from "./pages/laporan/LaporanPenerimaanDanaLainPage";
+import { LaporanPembayaranHapusPage } from "./pages/laporan/LaporanPembayaranHapusPage";
 import { LaporanPosisiUangDanaLainPage } from "./pages/laporan/LaporanPosisiUangDanaLainPage";
 import { LaporanCapaianPaturunanTempekPage } from "./pages/laporan/LaporanCapaianPaturunanTempekPage";
 import { LaporanDudukanPage } from "./pages/laporan/LaporanDudukanPage";
@@ -292,6 +293,10 @@ export default function App() {
             <Route
               path="/laporan/penerimaan-dana-lain"
               element={<LaporanPenerimaanDanaLainPage />}
+            />
+            <Route
+              path="/laporan/jejak-hapus-pembayaran"
+              element={<LaporanPembayaranHapusPage />}
             />
             <Route
               path="/laporan/posisi-uang-dana-lain"

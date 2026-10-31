@@ -26,6 +26,8 @@ import {
 
   TableProperties,
 
+  Trash2,
+
   UserCircle,
 
   Users,
@@ -237,6 +239,18 @@ const keuanganItems: LaporanItem[] = [
     title: "Laporan Plafon Dana Dudukan",
 
     desc: "Pencapaian alokasi plafon pengeluaran per pos — berdasarkan penerimaan dudukan tahun kalender.",
+
+  },
+
+  {
+
+    to: "/laporan/jejak-hapus-pembayaran",
+
+    icon: Trash2,
+
+    title: "Jejak Hapus Pembayaran",
+
+    desc: "Audit pembayaran yang dihapus petugas/kantor — alasan, jumlah, dan siapa yang menghapus.",
 
   },
 

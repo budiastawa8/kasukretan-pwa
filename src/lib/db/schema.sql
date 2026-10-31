@@ -586,6 +586,30 @@ CREATE INDEX IF NOT EXISTS idx_penerimaan_dana_lain_tanggal_setor ON penerimaan_
 CREATE INDEX IF NOT EXISTS idx_penerimaan_dana_lain_petugas ON penerimaan_dana_lain (petugas_id);
 CREATE INDEX IF NOT EXISTS idx_penerimaan_dana_lain_tanggal ON penerimaan_dana_lain (tanggal);
 
+-- Jejak hapus pembayaran (audit): snapshot sebelum hard-delete.
+CREATE TABLE IF NOT EXISTS pembayaran_hapus_log (
+  id TEXT PRIMARY KEY,
+  sumber TEXT NOT NULL,
+  pembayaran_id TEXT NOT NULL,
+  tanggal_transaksi TEXT NOT NULL,
+  jumlah REAL NOT NULL,
+  uraian TEXT,
+  krama_id TEXT,
+  nomor_kartu TEXT,
+  kepala_nama TEXT,
+  petugas_id TEXT,
+  petugas_nama TEXT,
+  alasan_kode TEXT NOT NULL,
+  alasan_teks TEXT NOT NULL,
+  dihapus_oleh_petugas_id TEXT,
+  dihapus_oleh_user_id TEXT,
+  dihapus_oleh_nama TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_pembayaran_hapus_log_created ON pembayaran_hapus_log (created_at);
+CREATE INDEX IF NOT EXISTS idx_pembayaran_hapus_log_petugas ON pembayaran_hapus_log (petugas_id);
+CREATE INDEX IF NOT EXISTS idx_pembayaran_hapus_log_sumber ON pembayaran_hapus_log (sumber);
+
 CREATE TABLE IF NOT EXISTS penomoran_ipma_counter (
   id TEXT PRIMARY KEY,
   desa_adat_id TEXT NOT NULL REFERENCES desa_adat(id),

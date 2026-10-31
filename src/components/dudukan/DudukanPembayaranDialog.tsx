@@ -39,6 +39,7 @@ import { RupiahInput } from "../ui/RupiahInput";
 import type { RupiahInputValue } from "../../lib/rupiah-input";
 import { Modal } from "../ui/Modal";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
+import { HapusPembayaranDialog } from "../pembayaran/HapusPembayaranDialog";
 import {
   completePembayaranBaruSave,
   PembayaranDialogTabs,
@@ -50,6 +51,7 @@ import {
   useSetorLangsung,
   ZoneHeading,
 } from "../pembayaran/pembayaran-dialog-shared";
+import { useAuth } from "../../context/AuthContext";
 import {
   DUDUKAN_BAYAR_DIALOG,
   DUDUKAN_DIALOG_ZONE_RIWAYAT,
@@ -101,6 +103,7 @@ export function DudukanPembayaranDialog({
   /** Mode petugas lapangan: petugas terkunci, selalu belum disetor, tanpa ubah/keringanan. */
   lockedPetugasId?: string;
 }) {
+  const { user } = useAuth();
   const isPhone = useIsPhoneClient();
   const petugasLapangan = Boolean(lockedPetugasId);
   const canKelola = canEdit && !petugasLapangan;
@@ -631,13 +634,17 @@ export function DudukanPembayaranDialog({
     setDeleteId(p.id);
   }
 
-  async function confirmHapus() {
+  async function confirmHapus(alasan: { kode: string; teks: string }) {
     if (!deleteId) return;
     setDeleteBusy(true);
     setError("");
     try {
       if (editingId === deleteId) batalEdit();
-      await deletePembayaranDudukan(deleteId);
+      await deletePembayaranDudukan(deleteId, {
+        ...alasan,
+        dihapusOlehPetugasId: lockedPetugasId ?? undefined,
+        dihapusOlehUserId: user?.id,
+      });
       setDeleteId(null);
       await loadData();
       onSuccess();
@@ -1583,7 +1590,7 @@ export function DudukanPembayaranDialog({
       </div>
     </Modal>
 
-    <ConfirmDialog
+    <HapusPembayaranDialog
       open={deleteId != null}
       title="Hapus pembayaran dudukan?"
       message={
@@ -1598,7 +1605,7 @@ export function DudukanPembayaranDialog({
       }
       confirmLabel="Ya, hapus"
       busy={deleteBusy}
-      onConfirm={() => void confirmHapus()}
+      onConfirm={(alasan) => void confirmHapus(alasan)}
       onCancel={() => {
         if (!deleteBusy) setDeleteId(null);
       }}

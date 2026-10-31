@@ -28,7 +28,7 @@ import { DateInput } from "../ui/DateInput";
 import { Input, Label, Select } from "../ui/Input";
 import { RupiahInput } from "../ui/RupiahInput";
 import { Modal } from "../ui/Modal";
-import { ConfirmDialog } from "../ui/ConfirmDialog";
+import { HapusPembayaranDialog } from "../pembayaran/HapusPembayaranDialog";
 import {
   completePembayaranBaruSave,
   PembayaranDialogTabs,
@@ -40,6 +40,7 @@ import {
   useSetorLangsung,
   ZoneHeading,
 } from "../pembayaran/pembayaran-dialog-shared";
+import { useAuth } from "../../context/AuthContext";
 import {
   PATURUNAN_BAYAR_DIALOG,
   PATURUNAN_DIALOG_ZONE_BAYAR,
@@ -104,6 +105,7 @@ export function PaturunanPembayaranDialog({
   /** Mode petugas lapangan: petugas terkunci, selalu belum disetor, tanpa ubah. */
   lockedPetugasId?: string;
 }) {
+  const { user } = useAuth();
   const petugasLapangan = Boolean(lockedPetugasId);
   const canUbah = canEdit && !petugasLapangan;
   const bisaHapus = (p: PaturunanPembayaranRow) =>
@@ -291,13 +293,17 @@ export function PaturunanPembayaranDialog({
     setDeleteId(p.id);
   }
 
-  async function confirmHapus() {
+  async function confirmHapus(alasan: { kode: string; teks: string }) {
     if (!deleteId) return;
     setDeleteBusy(true);
     setError("");
     try {
       if (editingId === deleteId) batalEdit();
-      await deletePembayaranPaturunan(deleteId);
+      await deletePembayaranPaturunan(deleteId, {
+        ...alasan,
+        dihapusOlehPetugasId: lockedPetugasId ?? undefined,
+        dihapusOlehUserId: user?.id,
+      });
       setDeleteId(null);
       await loadRiwayat();
       onSuccess();
@@ -676,7 +682,7 @@ export function PaturunanPembayaranDialog({
       </div>
     </Modal>
 
-    <ConfirmDialog
+    <HapusPembayaranDialog
       open={deleteId != null}
       title="Hapus pembayaran paturunan?"
       message={
@@ -691,7 +697,7 @@ export function PaturunanPembayaranDialog({
       }
       confirmLabel="Ya, hapus"
       busy={deleteBusy}
-      onConfirm={() => void confirmHapus()}
+      onConfirm={(alasan) => void confirmHapus(alasan)}
       onCancel={() => {
         if (!deleteBusy) setDeleteId(null);
       }}
