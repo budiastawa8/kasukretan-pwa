@@ -17,12 +17,14 @@ import {
 import { listTimKasukretan } from "../../lib/services/master";
 import {
   MITRA_JENIS_OPTIONS,
+  SUMBER_TIPE_KRAMA,
   SUMBER_TIPE_OPTIONS,
   createPenerimaanDanaLain,
   getPenerimaanDanaLain,
   hitungJumlahKerjasama,
   labelJenisPenerimaanDanaLain,
   listAkunForPenerimaanDanaLain,
+  sumberTipeOptionsForJenis,
   updatePenerimaanDanaLain,
 } from "../../lib/services/penerimaan-dana-lain";
 import { cariKramaPengumpulan, type PetugasLapangan } from "../../lib/services/pengumpulan";
@@ -34,12 +36,6 @@ import type {
   TimKasukretan,
 } from "../../lib/types";
 import "../../styles/pengumpulan-module.css";
-
-const SUMBER_DENGAN_CARI_KRAMA = new Set<PenerimaanDanaLainSumberTipe>([
-  "krama_mipil",
-  "krama_tamiu",
-  "tamiu",
-]);
 
 type Props = {
   open: boolean;
@@ -94,7 +90,16 @@ export function PenerimaanDanaLainDialog({
 
   const isKerjasama = jenis === "dana_kerjasama";
   const title = `${isEdit ? "Ubah" : ""} ${labelJenisPenerimaanDanaLain(jenis)}`.trim();
-  const bolehCariKrama = isLapangan && SUMBER_DENGAN_CARI_KRAMA.has(sumberTipe);
+  const sumberOptions = useMemo(() => {
+    const base = sumberTipeOptionsForJenis(jenis);
+    if (isEdit && !base.some((o) => o.value === sumberTipe)) {
+      const orphan = SUMBER_TIPE_OPTIONS.find((o) => o.value === sumberTipe);
+      return orphan ? [...base, orphan] : base;
+    }
+    return base;
+  }, [jenis, isEdit, sumberTipe]);
+  const bolehCariKrama =
+    isLapangan && !isKerjasama && SUMBER_TIPE_KRAMA.has(sumberTipe);
 
   const hitungOtomatis = useMemo(() => {
     if (!isKerjasama) return null;
@@ -157,7 +162,7 @@ export function PenerimaanDanaLainDialog({
         setJumlah("");
         setKeterangan("");
         setKegiatan("");
-        setSumberTipe("lainnya");
+        setSumberTipe(jenisProp === "dana_kerjasama" ? "pelaku_usaha" : "lainnya");
         setSumberNama("");
         setKramaId(null);
         setKramaLabel("");
@@ -290,7 +295,17 @@ export function PenerimaanDanaLainDialog({
                 <Label>Jenis</Label>
                 <Select
                   value={jenis}
-                  onChange={(e) => setJenis(e.target.value as PenerimaanDanaLainJenis)}
+                  onChange={(e) => {
+                    const next = e.target.value as PenerimaanDanaLainJenis;
+                    setJenis(next);
+                    if (next === "dana_kerjasama" && SUMBER_TIPE_KRAMA.has(sumberTipe)) {
+                      setSumberTipe("pelaku_usaha");
+                      setKramaId(null);
+                      setKramaLabel("");
+                      setCariQ("");
+                      setCariHasil([]);
+                    }
+                  }}
                 >
                   <option value="punia_kasukretan">Punia Kasukretan</option>
                   <option value="dana_kerjasama">Dana Kerjasama Kasukretan</option>
@@ -326,7 +341,7 @@ export function PenerimaanDanaLainDialog({
                 onChange={(e) => {
                   const next = e.target.value as PenerimaanDanaLainSumberTipe;
                   setSumberTipe(next);
-                  if (!SUMBER_DENGAN_CARI_KRAMA.has(next)) {
+                  if (!SUMBER_TIPE_KRAMA.has(next)) {
                     setKramaId(null);
                     setKramaLabel("");
                     setCariQ("");
@@ -334,7 +349,7 @@ export function PenerimaanDanaLainDialog({
                   }
                 }}
               >
-                {SUMBER_TIPE_OPTIONS.map((o) => (
+                {sumberOptions.map((o) => (
                   <option key={o.value} value={o.value}>
                     {o.label}
                   </option>

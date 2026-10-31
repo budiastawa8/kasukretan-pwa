@@ -27,6 +27,29 @@ export const SUMBER_TIPE_OPTIONS: { value: PenerimaanDanaLainSumberTipe; label: 
   { value: "lainnya", label: "Lainnya" },
 ];
 
+/** Jenis sumber berbasis krama — hanya untuk Punia Kasukretan, bukan Dana Kerjasama. */
+export const SUMBER_TIPE_KRAMA = new Set<PenerimaanDanaLainSumberTipe>([
+  "krama_mipil",
+  "krama_tamiu",
+  "tamiu",
+]);
+
+export function sumberTipeOptionsForJenis(
+  jenis: PenerimaanDanaLainJenis
+): { value: PenerimaanDanaLainSumberTipe; label: string }[] {
+  if (jenis === "dana_kerjasama") {
+    return SUMBER_TIPE_OPTIONS.filter((o) => !SUMBER_TIPE_KRAMA.has(o.value));
+  }
+  return SUMBER_TIPE_OPTIONS;
+}
+
+export function isSumberTipeUntukJenis(
+  jenis: PenerimaanDanaLainJenis,
+  sumberTipe: PenerimaanDanaLainSumberTipe
+): boolean {
+  return sumberTipeOptionsForJenis(jenis).some((o) => o.value === sumberTipe);
+}
+
 export const MITRA_JENIS_OPTIONS = [
   "Hotel/Penginapan",
   "Warung",
@@ -192,9 +215,20 @@ export async function createPenerimaanDanaLain(
   if (jumlah <= 0) throw new Error("Jumlah harus lebih dari 0");
 
   const sumberTipe = normalizeSumberTipe(params.sumberTipe);
+  if (!isSumberTipeUntukJenis(params.jenis, sumberTipe)) {
+    throw new Error(
+      params.jenis === "dana_kerjasama"
+        ? "Dana Kerjasama: jenis sumber bukan Krama Mipil/Tamiu — pilih Lembaga, Pelaku Usaha, atau Lainnya."
+        : "Jenis sumber tidak sesuai"
+    );
+  }
   let kramaId = params.kramaId?.trim() || null;
   let lembagaId = params.lembagaBadanId?.trim() || null;
   let sumberNama = params.sumberNama?.trim() || null;
+
+  if (params.jenis === "dana_kerjasama") {
+    kramaId = null;
+  }
 
   const db = await getDb();
 
@@ -297,9 +331,19 @@ export async function updatePenerimaanDanaLain(
   const jumlah = parseJumlahPembayaran(params.jumlah);
   if (jumlah <= 0) throw new Error("Jumlah harus lebih dari 0");
 
+  const sumberTipe = normalizeSumberTipe(params.sumberTipe);
+  if (!isSumberTipeUntukJenis(jenis, sumberTipe)) {
+    throw new Error(
+      jenis === "dana_kerjasama"
+        ? "Dana Kerjasama: jenis sumber bukan Krama Mipil/Tamiu — pilih Lembaga, Pelaku Usaha, atau Lainnya."
+        : "Jenis sumber tidak sesuai"
+    );
+  }
+
   const sumberNama = params.sumberNama?.trim() || null;
-  const kramaId = params.kramaId?.trim() || null;
+  let kramaId = params.kramaId?.trim() || null;
   const lembagaId = params.lembagaBadanId?.trim() || null;
+  if (jenis === "dana_kerjasama") kramaId = null;
   if (!kramaId && !lembagaId && !sumberNama) {
     throw new Error("Isi nama pemberi/mitra, atau pilih krama/lembaga");
   }
@@ -327,7 +371,7 @@ export async function updatePenerimaanDanaLain(
       params.petugasId?.trim() || null,
       akunId,
       params.keterangan?.trim() || null,
-      normalizeSumberTipe(params.sumberTipe),
+      sumberTipe,
       kramaId,
       lembagaId,
       sumberNama,

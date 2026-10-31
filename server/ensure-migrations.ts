@@ -148,6 +148,38 @@ async function runEnsureMigrations(): Promise<void> {
   await dbExecute(
     `CREATE INDEX IF NOT EXISTS idx_penerimaan_dana_lain_tanggal ON penerimaan_dana_lain (tanggal)`
   );
+
+  // Jejak hapus pembayaran (audit) — snapshot sebelum hard-delete
+  await dbExecute(`
+    CREATE TABLE IF NOT EXISTS pembayaran_hapus_log (
+      id TEXT PRIMARY KEY,
+      sumber TEXT NOT NULL,
+      pembayaran_id TEXT NOT NULL,
+      tanggal_transaksi TEXT NOT NULL,
+      jumlah REAL NOT NULL,
+      uraian TEXT,
+      krama_id TEXT,
+      nomor_kartu TEXT,
+      kepala_nama TEXT,
+      petugas_id TEXT,
+      petugas_nama TEXT,
+      alasan_kode TEXT NOT NULL,
+      alasan_teks TEXT NOT NULL,
+      dihapus_oleh_petugas_id TEXT,
+      dihapus_oleh_user_id TEXT,
+      dihapus_oleh_nama TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+  await dbExecute(
+    `CREATE INDEX IF NOT EXISTS idx_pembayaran_hapus_log_created ON pembayaran_hapus_log (created_at)`
+  );
+  await dbExecute(
+    `CREATE INDEX IF NOT EXISTS idx_pembayaran_hapus_log_petugas ON pembayaran_hapus_log (petugas_id)`
+  );
+  await dbExecute(
+    `CREATE INDEX IF NOT EXISTS idx_pembayaran_hapus_log_sumber ON pembayaran_hapus_log (sumber)`
+  );
 }
 
 /** Idempoten; aman dipanggil tiap request (hanya sekali benar-benar jalan per cold start). */

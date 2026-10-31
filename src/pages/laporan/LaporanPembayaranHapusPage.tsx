@@ -211,9 +211,10 @@ export function LaporanPembayaranHapusPage() {
       </Card>
 
       <Card title="Daftar hapus" className={cn(isPhone ? LAPORAN_CARD_PHONE : LAPORAN_CARD, LAPORAN_TABLE, "mt-3")}>
-        {error && <p className="text-sm text-red-700 mb-2">{error}</p>}
         {loading ? (
           <p className="text-sm text-muted">Memuat…</p>
+        ) : error ? (
+          <p className="text-sm text-red-700 mb-2">{error}</p>
         ) : rows.length === 0 ? (
           <p className="text-sm text-muted">Belum ada jejak hapus pada filter ini.</p>
         ) : isPhone ? (

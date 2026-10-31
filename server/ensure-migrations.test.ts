@@ -81,6 +81,22 @@ describe("ensureServerMigrations", () => {
       "UPDATE tim_kasukretan SET nomor_pengenal = ?, updated_at = datetime('now') WHERE id = ?",
       ["9999001", "t1"]
     );
+    expect(
+      dbExecute.mock.calls.some(
+        (c) =>
+          typeof c[0] === "string" &&
+          c[0].includes("CREATE TABLE IF NOT EXISTS pembayaran_hapus_log")
+      )
+    ).toBe(true);
+    expect(dbExecute).toHaveBeenCalledWith(
+      "CREATE INDEX IF NOT EXISTS idx_pembayaran_hapus_log_created ON pembayaran_hapus_log (created_at)"
+    );
+    expect(dbExecute).toHaveBeenCalledWith(
+      "CREATE INDEX IF NOT EXISTS idx_pembayaran_hapus_log_petugas ON pembayaran_hapus_log (petugas_id)"
+    );
+    expect(dbExecute).toHaveBeenCalledWith(
+      "CREATE INDEX IF NOT EXISTS idx_pembayaran_hapus_log_sumber ON pembayaran_hapus_log (sumber)"
+    );
   });
 
   it("tidak ALTER bila kolom sudah ada; backfill hanya jika ada baris stale", async () => {
