@@ -116,6 +116,18 @@ const dataKramaItems: LaporanItem[] = [
 
   {
 
+    to: "/laporan/penerimaan-dana-lain",
+
+    icon: Gift,
+
+    title: "Punia Kasukretan & Dana Kerjasama",
+
+    desc: "Penerimaan sukarela/insidental dan kerjasama patroli — termasuk uang di tangan petugas.",
+
+  },
+
+  {
+
     to: "/laporan/capaian-paturunan-tempek",
 
     icon: BarChart3,
@@ -201,6 +213,18 @@ const keuanganItems: LaporanItem[] = [
     title: "Posisi Uang Dudukan",
 
     desc: "Total dibayar pemasih = di tangan petugas + sudah di bendahara (sudah disetor).",
+
+  },
+
+  {
+
+    to: "/laporan/posisi-uang-dana-lain",
+
+    icon: Gift,
+
+    title: "Posisi Uang Punia & Dana Kerjasama",
+
+    desc: "Total diterima = di tangan petugas + sudah di bendahara — termasuk rincian per jenis.",
 
   },
 

@@ -229,6 +229,10 @@ export async function listAkunForPembayaranPaturunan(): Promise<AkunKeuanganRow[
   return listSubAkunForPembayaran("kas_paturunan");
 }
 
+export async function listAkunForDanaKasukretanLainnya(): Promise<AkunKeuanganRow[]> {
+  return listSubAkunForPembayaran("dana_kasukretan_lainnya");
+}
+
 async function resolveDefaultSubAkunId(jenis: AkunKeuanganKelompok): Promise<string | null> {
   const kelompokId = await getKelompokAkunIntiId(jenis);
   if (kelompokId) {

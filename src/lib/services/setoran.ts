@@ -2,12 +2,15 @@ import { getDb } from "../db/client";
 import { parseIsoDateString } from "../date-iso";
 import { formatTanggalLahir, uuid } from "../utils";
 
-export type SumberPembayaran = "paturunan" | "dudukan";
+export type SumberPembayaran = "paturunan" | "dudukan" | "dana_lain";
 
 const TABEL_PEMBAYARAN: Record<SumberPembayaran, string> = {
   paturunan: "paturunan_pembayaran",
   dudukan: "dudukan_pembayaran",
+  dana_lain: "penerimaan_dana_lain",
 };
+
+const SEMUA_SUMBER: SumberPembayaran[] = ["paturunan", "dudukan", "dana_lain"];
 
 export type UangBelumDisetorPetugas = {
   petugas_id: string | null;
@@ -31,6 +34,11 @@ export type PembayaranSetoranItem = {
   akun_nama: string | null;
   petugas_id: string | null;
   created_at: string;
+  /** Kosong = masih di tangan petugas. */
+  tanggal_setor?: string | null;
+  setoran_id?: string | null;
+  /** Hanya untuk sumber dana_lain: punia_kasukretan | dana_kerjasama */
+  jenis_dana?: string | null;
 };
 
 export type SetoranRow = {
@@ -60,6 +68,8 @@ export async function listUangBelumDisetorPerPetugas(): Promise<UangBelumDisetor
        SELECT petugas_id, jumlah, tanggal FROM paturunan_pembayaran WHERE tanggal_setor IS NULL
        UNION ALL
        SELECT petugas_id, jumlah, tanggal FROM dudukan_pembayaran WHERE tanggal_setor IS NULL
+       UNION ALL
+       SELECT petugas_id, jumlah, tanggal FROM penerimaan_dana_lain WHERE tanggal_setor IS NULL
      ) x
      LEFT JOIN tim_kasukretan t ON t.id = x.petugas_id
      GROUP BY x.petugas_id
@@ -76,6 +86,7 @@ export async function listUangBelumDisetorPerPetugas(): Promise<UangBelumDisetor
 async function selectPembayaranItems(
   wherePaturunan: string,
   whereDudukan: string,
+  whereDanaLain: string,
   args: unknown[]
 ): Promise<PembayaranSetoranItem[]> {
   const db = await getDb();
@@ -85,7 +96,9 @@ async function selectPembayaranItems(
               pd.nama_lengkap as kepala_nama,
               'Paturunan ' || i.nama ||
                 CASE WHEN COALESCE(p.jenis, 'wajib') = 'punia' THEN ' (punia)' ELSE '' END as uraian,
-              a.nama as akun_nama, p.petugas_id, p.created_at
+              a.nama as akun_nama, p.petugas_id, p.created_at,
+              p.tanggal_setor, p.setoran_id,
+              NULL as jenis_dana
        FROM paturunan_pembayaran p
        JOIN krama k ON k.id = p.krama_id
        JOIN penduduk pd ON pd.id = k.kepala_penduduk_id
@@ -96,12 +109,40 @@ async function selectPembayaranItems(
        SELECT 'dudukan' as sumber, p.id, p.tanggal, p.jumlah, k.nomor_kartu,
               pd.nama_lengkap as kepala_nama,
               'Dudukan ' || printf('%02d', p.bulan) || '/' || p.tahun as uraian,
-              a.nama as akun_nama, p.petugas_id, p.created_at
+              a.nama as akun_nama, p.petugas_id, p.created_at,
+              p.tanggal_setor, p.setoran_id,
+              NULL as jenis_dana
        FROM dudukan_pembayaran p
        JOIN krama k ON k.id = p.krama_id
        JOIN penduduk pd ON pd.id = k.kepala_penduduk_id
        LEFT JOIN akun_keuangan a ON a.id = p.akun_keuangan_id
        WHERE ${whereDudukan}
+       UNION ALL
+       SELECT 'dana_lain' as sumber, p.id, p.tanggal, p.jumlah,
+              COALESCE(k.nomor_kartu, '—') as nomor_kartu,
+              COALESCE(
+                NULLIF(TRIM(p.sumber_nama), ''),
+                pd.nama_lengkap,
+                lb.nama,
+                '—'
+              ) as kepala_nama,
+              CASE p.jenis
+                WHEN 'punia_kasukretan' THEN 'Punia Kasukretan'
+                ELSE 'Dana Kerjasama Kasukretan'
+              END ||
+              CASE
+                WHEN TRIM(COALESCE(p.kegiatan, '')) != '' THEN ' · ' || TRIM(p.kegiatan)
+                ELSE ''
+              END as uraian,
+              a.nama as akun_nama, p.petugas_id, p.created_at,
+              p.tanggal_setor, p.setoran_id,
+              p.jenis as jenis_dana
+       FROM penerimaan_dana_lain p
+       LEFT JOIN krama k ON k.id = p.krama_id
+       LEFT JOIN penduduk pd ON pd.id = k.kepala_penduduk_id
+       LEFT JOIN lembaga_badan lb ON lb.id = p.lembaga_badan_id
+       LEFT JOIN akun_keuangan a ON a.id = p.akun_keuangan_id
+       WHERE ${whereDanaLain}
      )
      ORDER BY tanggal ASC, created_at ASC`,
     args
@@ -114,7 +155,7 @@ export async function listPembayaranBelumDisetor(
   petugasId: string | null
 ): Promise<PembayaranSetoranItem[]> {
   const where = "p.tanggal_setor IS NULL AND p.petugas_id IS ?";
-  return selectPembayaranItems(where, where, [petugasId, petugasId]);
+  return selectPembayaranItems(where, where, where, [petugasId, petugasId, petugasId]);
 }
 
 /** Semua pembayaran yang dicatat petugas ini (sudah/belum disetor), opsional filter tanggal. */
@@ -122,7 +163,7 @@ export async function listPembayaranOlehPetugas(params: {
   petugasId: string;
   dari?: string;
   sampai?: string;
-  /** Jika true, hanya Dudukan (Tim Bantuan). */
+  /** Jika true, tanpa Paturunan (Tim Bantuan: Dudukan + Punia/Kerjasama). */
   hanyaDudukan?: boolean;
 }): Promise<PembayaranSetoranItem[]> {
   const dari = params.dari ? parseIsoDateString(params.dari) : null;
@@ -139,17 +180,17 @@ export async function listPembayaranOlehPetugas(params: {
   }
   const where = parts.join(" AND ");
   if (params.hanyaDudukan) {
-    // Paturunan tidak dipakai (tanpa placeholder); argumen hanya untuk Dudukan.
-    return selectPembayaranItems("1 = 0", where, args);
+    // Paturunan tidak dipakai; Dudukan + dana lain memakai argumen yang sama.
+    return selectPembayaranItems("1 = 0", where, where, [...args, ...args]);
   }
-  return selectPembayaranItems(where, where, [...args, ...args]);
+  return selectPembayaranItems(where, where, where, [...args, ...args, ...args]);
 }
 
 export async function listPembayaranDalamSetoran(
   setoranId: string
 ): Promise<PembayaranSetoranItem[]> {
   const where = "p.setoran_id = ?";
-  return selectPembayaranItems(where, where, [setoranId, setoranId]);
+  return selectPembayaranItems(where, where, where, [setoranId, setoranId, setoranId]);
 }
 
 export async function listSetoran(params?: {
@@ -163,7 +204,8 @@ export async function listSetoran(params?: {
     SELECT s.id, s.petugas_id, t.nama as petugas_nama, s.tanggal, s.total, s.keterangan,
            COALESCE(NULLIF(TRIM(u.nama), ''), u.username) as diterima_oleh_nama,
            (SELECT COUNT(*) FROM paturunan_pembayaran WHERE setoran_id = s.id) +
-           (SELECT COUNT(*) FROM dudukan_pembayaran WHERE setoran_id = s.id) as jumlah_transaksi,
+           (SELECT COUNT(*) FROM dudukan_pembayaran WHERE setoran_id = s.id) +
+           (SELECT COUNT(*) FROM penerimaan_dana_lain WHERE setoran_id = s.id) as jumlah_transaksi,
            s.created_at
     FROM setoran s
     LEFT JOIN tim_kasukretan t ON t.id = s.petugas_id
@@ -215,13 +257,17 @@ export async function terimaSetoran(params: {
   if (params.items.length === 0) throw new Error("Pilih minimal satu pembayaran yang disetor");
 
   const db = await getDb();
-  const idsBySumber: Record<SumberPembayaran, string[]> = { paturunan: [], dudukan: [] };
+  const idsBySumber: Record<SumberPembayaran, string[]> = {
+    paturunan: [],
+    dudukan: [],
+    dana_lain: [],
+  };
   for (const item of params.items) idsBySumber[item.sumber].push(item.id);
 
   let total = 0;
   let jumlahTransaksi = 0;
   let tanggalBayarTerakhir = "";
-  for (const sumber of ["paturunan", "dudukan"] as const) {
+  for (const sumber of SEMUA_SUMBER) {
     const ids = idsBySumber[sumber];
     if (ids.length === 0) continue;
     const rows = await db.select<{ jumlah: number; tanggal: string }[]>(
@@ -254,7 +300,7 @@ export async function terimaSetoran(params: {
      VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`,
     [id, params.petugasId, tanggal, total, params.keterangan?.trim() || null, params.diterimaOleh]
   );
-  for (const sumber of ["paturunan", "dudukan"] as const) {
+  for (const sumber of SEMUA_SUMBER) {
     const ids = idsBySumber[sumber];
     if (ids.length === 0) continue;
     await db.execute(
@@ -297,4 +343,23 @@ export async function assertPembayaranBelumMasukSetoran(
     `Pembayaran ini sudah disetor ke bendahara (${formatTanggalLahir(row.tanggal_setoran)}). ` +
       "Batalkan setorannya dulu di Keuangan → Setoran untuk mengubah atau menghapus."
   );
+}
+
+/** Hapus pembayaran yang belum masuk batch setoran (paturunan / dudukan / dana lain). */
+export async function deletePembayaranBelumDisetor(
+  sumber: SumberPembayaran,
+  id: string
+): Promise<void> {
+  if (sumber === "paturunan") {
+    const { deletePembayaranPaturunan } = await import("./paturunan-pembayaran");
+    await deletePembayaranPaturunan(id);
+    return;
+  }
+  if (sumber === "dudukan") {
+    const { deletePembayaranDudukan } = await import("./dudukan-pembayaran");
+    await deletePembayaranDudukan(id);
+    return;
+  }
+  const { deletePenerimaanDanaLain } = await import("./penerimaan-dana-lain");
+  await deletePenerimaanDanaLain(id);
 }

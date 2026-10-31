@@ -1,3 +1,4 @@
+import type { StrukDanaLainPdfPayload } from "./struk-pembayaran-dana-lain-pdf";
 import type { StrukDudukanPdfPayload } from "./struk-pembayaran-dudukan-pdf";
 import type { StrukPaturunanPdfPayload } from "./struk-pembayaran-paturunan-pdf";
 
@@ -15,6 +16,12 @@ export type PetugasStrukPreviewState =
   | {
       kind: "paturunan";
       payload: StrukPaturunanPdfPayload;
+      backTo: string;
+      backLabel: string;
+    }
+  | {
+      kind: "dana_lain";
+      payload: StrukDanaLainPdfPayload;
       backTo: string;
       backLabel: string;
     };
@@ -38,6 +45,7 @@ export function readPetugasStrukPreview(): PetugasStrukPreviewState | null {
     const parsed = JSON.parse(raw) as PetugasStrukPreviewState;
     if (parsed.kind === "dudukan" && parsed.payload) return parsed;
     if (parsed.kind === "paturunan" && parsed.payload) return parsed;
+    if (parsed.kind === "dana_lain" && parsed.payload) return parsed;
     return null;
   } catch {
     return null;

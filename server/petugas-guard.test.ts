@@ -84,7 +84,8 @@ describe("executePetugasPaymentWrite", () => {
       CREATE TABLE tim_kasukretan (
         id TEXT PRIMARY KEY,
         banjar_id TEXT NOT NULL,
-        jabatan TEXT NOT NULL
+        jabatan TEXT NOT NULL,
+        tipe TEXT NOT NULL DEFAULT 'banjar'
       );
       CREATE TABLE user (
         id TEXT PRIMARY KEY,
@@ -111,13 +112,15 @@ describe("executePetugasPaymentWrite", () => {
         tanggal_setor TEXT,
         setoran_id TEXT
       );
-      INSERT INTO tim_kasukretan (id, banjar_id, jabatan) VALUES
-        ('t-petugas', 'banjar-a', 'Petugas'),
-        ('t-lain', 'banjar-a', 'Petugas'),
-        ('t-bendahara', 'banjar-a', 'Bendahara');
+      INSERT INTO tim_kasukretan (id, banjar_id, jabatan, tipe) VALUES
+        ('t-petugas', 'banjar-a', 'Petugas', 'banjar'),
+        ('t-lain', 'banjar-a', 'Petugas', 'banjar'),
+        ('t-bendahara', 'banjar-a', 'Bendahara', 'banjar'),
+        ('t-bantuan', 'banjar-a', 'Petugas', 'bantuan');
       INSERT INTO user (id, tim_kasukretan_id, aktif) VALUES
         ('u-petugas', 't-petugas', 1),
-        ('u-bendahara', 't-bendahara', 1);
+        ('u-bendahara', 't-bendahara', 1),
+        ('u-bantuan', 't-bantuan', 1);
       INSERT INTO krama (id, banjar_id) VALUES
         ('krama-a', 'banjar-a'),
         ('krama-b', 'banjar-b');
@@ -167,6 +170,28 @@ describe("executePetugasPaymentWrite", () => {
     expect(await tersimpan("paturunan_pembayaran")).toEqual(
       rows.map((r) => ({ ...r, tanggalSetor: null, setoranId: null }))
     );
+  });
+
+  it("menolak Tim Bantuan menulis Paturunan", async () => {
+    const bantuan = akun("u-bantuan");
+    const cmd = stmt("paturunan_pembayaran", [
+      { id: "tolak", kramaId: "krama-a", jumlah: 10000, petugasId: "t-bantuan" },
+    ]);
+    await expectTolak(
+      executePetugasPaymentWrite(bantuan, cmd.guard, cmd.sql, cmd.bind),
+      "Tim Bantuan tidak boleh mengumpulkan Paturunan."
+    );
+    expect(await tersimpan("paturunan_pembayaran")).toEqual([]);
+  });
+
+  it("Tim Bantuan boleh menulis Dudukan", async () => {
+    const bantuan = akun("u-bantuan");
+    const cmd = stmt("dudukan_pembayaran", [
+      { id: "ok-dud", kramaId: "krama-a", jumlah: 15000, petugasId: "t-bantuan" },
+    ]);
+    await expect(executePetugasPaymentWrite(bantuan, cmd.guard, cmd.sql, cmd.bind)).resolves.toEqual({
+      rowsAffected: 1,
+    });
   });
 
   it("tetap menyimpan satu baris", async () => {

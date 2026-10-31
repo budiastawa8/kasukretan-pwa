@@ -26,7 +26,11 @@ export function normalizeRole(value: unknown): Role | null {
   return null;
 }
 
-export const PETUGAS_PAYMENT_TABLES = new Set(["paturunan_pembayaran", "dudukan_pembayaran"]);
+export const PETUGAS_PAYMENT_TABLES = new Set([
+  "paturunan_pembayaran",
+  "dudukan_pembayaran",
+  "penerimaan_dana_lain",
+]);
 
 export type PetugasGuard = { verb: "insert" | "delete"; table: string };
 
@@ -63,6 +67,7 @@ const KEUANGAN_TABLES = new Set([
   "transaksi_pemasukan_pos",
   "transaksi_transfer",
   "setoran",
+  "penerimaan_dana_lain",
 ]);
 
 /** Penanda internal aplikasi (status migrasi/sinkron) — boleh ditulis peran apa pun yang bisa menulis. */

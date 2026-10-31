@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
+import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { DateInput } from "../ui/DateInput";
 import { formatRupiah } from "../../lib/dudukan-hitung";
 import {
@@ -10,6 +11,7 @@ import {
   type PeriodePreset as Preset,
 } from "../../lib/periode-preset";
 import {
+  deletePembayaranBelumDisetor,
   listPembayaranOlehPetugas,
   type PembayaranSetoranItem,
 } from "../../lib/services/setoran";
@@ -22,6 +24,8 @@ export function PembayaranSayaCard({ petugasId }: { petugasId: string }) {
   const [rows, setRows] = useState<PembayaranSetoranItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [hapusItem, setHapusItem] = useState<PembayaranSetoranItem | null>(null);
+  const [hapusBusy, setHapusBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -61,7 +65,8 @@ export function PembayaranSayaCard({ petugasId }: { petugasId: string }) {
   return (
     <Card title="Pembayaran yang saya catat">
       <p className="mb-2 text-xs text-muted leading-snug">
-        Hanya transaksi Dudukan yang Anda input. Total penerimaan banjar tidak ditampilkan.
+        Transaksi Dudukan, Punia Kasukretan, dan Dana Kerjasama yang Anda input. Belum disetor bisa
+        dihapus. Total penerimaan banjar tidak ditampilkan.
       </p>
       <div className="flex flex-wrap gap-1.5">
         {(Object.keys(PRESET_LABEL) as Preset[]).map((p) => (
@@ -112,22 +117,65 @@ export function PembayaranSayaCard({ petugasId }: { petugasId: string }) {
       )}
       {!loading && rows.length > 0 && (
         <ul className="mt-2 max-h-64 space-y-1.5 overflow-y-auto text-sm">
-          {[...rows].reverse().map((r) => (
-            <li
-              key={`${r.sumber}-${r.id}`}
-              className="rounded border border-copper-100 bg-white px-2.5 py-1.5"
-            >
-              <div className="flex justify-between gap-2">
-                <p className="font-medium text-copper-950 truncate">{r.kepala_nama}</p>
-                <p className="shrink-0 tabular-nums font-medium">{formatRupiah(r.jumlah)}</p>
-              </div>
-              <p className="text-[11px] text-muted">
-                {formatTanggalLahir(r.tanggal)} · {r.nomor_kartu} · {r.uraian}
-              </p>
-            </li>
-          ))}
+          {[...rows].reverse().map((r) => {
+            const bisaHapus = !r.setoran_id && !r.tanggal_setor;
+            return (
+              <li
+                key={`${r.sumber}-${r.id}`}
+                className="rounded border border-copper-100 bg-white px-2.5 py-1.5"
+              >
+                <div className="flex justify-between gap-2">
+                  <p className="font-medium text-copper-950 truncate">{r.kepala_nama}</p>
+                  <div className="shrink-0 flex items-center gap-1">
+                    <p className="tabular-nums font-medium">{formatRupiah(r.jumlah)}</p>
+                    {bisaHapus && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        icon={Trash2}
+                        iconOnly
+                        className="h-7 w-7 text-red-800"
+                        title="Hapus (belum disetor)"
+                        onClick={() => setHapusItem(r)}
+                      />
+                    )}
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted">
+                  {formatTanggalLahir(r.tanggal)} · {r.nomor_kartu} · {r.uraian}
+                  {!r.tanggal_setor ? " · Belum disetor" : ""}
+                </p>
+              </li>
+            );
+          })}
         </ul>
       )}
+
+      <ConfirmDialog
+        open={hapusItem != null}
+        title="Hapus pembayaran?"
+        message={
+          hapusItem
+            ? `${hapusItem.kepala_nama} · ${hapusItem.uraian} · ${formatRupiah(hapusItem.jumlah)}`
+            : ""
+        }
+        confirmLabel="Ya, hapus"
+        busy={hapusBusy}
+        onConfirm={() => {
+          if (!hapusItem) return;
+          setHapusBusy(true);
+          void deletePembayaranBelumDisetor(hapusItem.sumber, hapusItem.id)
+            .then(async () => {
+              setHapusItem(null);
+              await load();
+            })
+            .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+            .finally(() => setHapusBusy(false));
+        }}
+        onCancel={() => {
+          if (!hapusBusy) setHapusItem(null);
+        }}
+      />
     </Card>
   );
 }

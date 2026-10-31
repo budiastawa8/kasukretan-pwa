@@ -556,6 +556,36 @@ CREATE TABLE IF NOT EXISTS lembaga_badan (
 CREATE INDEX IF NOT EXISTS idx_lembaga_badan_desa ON lembaga_badan(desa_adat_id);
 CREATE INDEX IF NOT EXISTS idx_lembaga_badan_nama ON lembaga_badan(nama);
 
+-- Punia Kasukretan & Dana Kerjasama: diterima petugas, masuk buku kas setelah setor.
+CREATE TABLE IF NOT EXISTS penerimaan_dana_lain (
+  id TEXT PRIMARY KEY,
+  jenis TEXT NOT NULL,
+  pos_pemasukan_id TEXT NOT NULL REFERENCES pos_pemasukan(id),
+  jumlah REAL NOT NULL,
+  tanggal TEXT NOT NULL,
+  petugas_id TEXT REFERENCES tim_kasukretan(id),
+  akun_keuangan_id TEXT REFERENCES akun_keuangan(id),
+  keterangan TEXT,
+  sumber_tipe TEXT NOT NULL,
+  krama_id TEXT REFERENCES krama(id),
+  lembaga_badan_id TEXT REFERENCES lembaga_badan(id),
+  sumber_nama TEXT,
+  kegiatan TEXT,
+  mitra_jenis TEXT,
+  jumlah_orang INTEGER,
+  satuan_waktu TEXT,
+  lama REAL,
+  tarif_satuan REAL,
+  setoran_id TEXT REFERENCES setoran(id),
+  tanggal_setor TEXT,
+  created_by TEXT REFERENCES user(id),
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_penerimaan_dana_lain_setor ON penerimaan_dana_lain (setoran_id);
+CREATE INDEX IF NOT EXISTS idx_penerimaan_dana_lain_tanggal_setor ON penerimaan_dana_lain (tanggal_setor);
+CREATE INDEX IF NOT EXISTS idx_penerimaan_dana_lain_petugas ON penerimaan_dana_lain (petugas_id);
+CREATE INDEX IF NOT EXISTS idx_penerimaan_dana_lain_tanggal ON penerimaan_dana_lain (tanggal);
+
 CREATE TABLE IF NOT EXISTS penomoran_ipma_counter (
   id TEXT PRIMARY KEY,
   desa_adat_id TEXT NOT NULL REFERENCES desa_adat(id),

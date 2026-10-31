@@ -127,7 +127,8 @@ function TimFormFields({
           </Select>
           {form.tipe === "bantuan" && (
             <p className="mt-0.5 text-[11px] text-muted leading-snug">
-              Hanya pengumpulan Dudukan di satu banjar; tanpa lihat penerimaan banjar.
+              Dudukan, Punia Kasukretan & Dana Kerjasama di satu banjar; tanpa Paturunan /
+              penerimaan agregat banjar.
             </p>
           )}
         </div>
@@ -328,12 +329,12 @@ export function TimKasukretanMasterTab({
   return (
     <div className={MASTER_PAGE}>
       <p className="text-sm text-muted leading-snug">
-        Tim Banjar memungut <strong>Paturunan</strong> dan <strong>Dudukan</strong> per banjar.
+        Tim Banjar memungut Paturunan, Dudukan, Punia Kasukretan, dan Dana Kerjasama per banjar.
         {timBantuanAktif ? (
           <>
             {" "}
-            <strong>Tim Bantuan</strong> hanya mengumpulkan Dudukan di banjar tugas (aktifkan di
-            Profil Desa).
+            <strong>Tim Bantuan</strong> mengumpulkan Dudukan, Punia Kasukretan & Dana Kerjasama di
+            banjar tugas (tanpa Paturunan).
           </>
         ) : (
           <> Aktifkan Tim Bantuan di Profil Desa bila desa memakainya.</>

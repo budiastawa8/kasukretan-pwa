@@ -40,6 +40,8 @@ import { PETUGAS_STRUK_PREVIEW_PATH } from "./lib/petugas-struk-preview";
 import { LaporanHubPage } from "./pages/laporan/LaporanHubPage";
 import { LaporanPaturunanPage } from "./pages/laporan/LaporanPaturunanPage";
 import { LaporanPuniaPage } from "./pages/laporan/LaporanPuniaPage";
+import { LaporanPenerimaanDanaLainPage } from "./pages/laporan/LaporanPenerimaanDanaLainPage";
+import { LaporanPosisiUangDanaLainPage } from "./pages/laporan/LaporanPosisiUangDanaLainPage";
 import { LaporanCapaianPaturunanTempekPage } from "./pages/laporan/LaporanCapaianPaturunanTempekPage";
 import { LaporanDudukanPage } from "./pages/laporan/LaporanDudukanPage";
 import { LaporanMipilPage } from "./pages/laporan/LaporanMipilPage";
@@ -287,6 +289,14 @@ export default function App() {
             <Route path="/laporan/pemasih" element={<LaporanPemasihPage />} />
             <Route path="/laporan/paturunan" element={<LaporanPaturunanPage />} />
             <Route path="/laporan/punia" element={<LaporanPuniaPage />} />
+            <Route
+              path="/laporan/penerimaan-dana-lain"
+              element={<LaporanPenerimaanDanaLainPage />}
+            />
+            <Route
+              path="/laporan/posisi-uang-dana-lain"
+              element={<LaporanPosisiUangDanaLainPage />}
+            />
             <Route
               path="/laporan/capaian-paturunan-tempek"
               element={<LaporanCapaianPaturunanTempekPage />}

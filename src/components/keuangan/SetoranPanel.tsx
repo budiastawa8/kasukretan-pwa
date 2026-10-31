@@ -27,6 +27,13 @@ import {
 } from "../../lib/setoran-telat";
 import { cn, formatTanggalLahir, today } from "../../lib/utils";
 import { hasWhatsAppContact, openWhatsAppChat } from "../../lib/whatsapp";
+import type { PenerimaanDanaLainJenis, PenerimaanDanaLainRow } from "../../lib/types";
+import {
+  deletePenerimaanDanaLain,
+  labelJenisPenerimaanDanaLain,
+  listPenerimaanDanaLain,
+} from "../../lib/services/penerimaan-dana-lain";
+import { PenerimaanDanaLainDialog } from "../dana-lain/PenerimaanDanaLainDialog";
 import { SetoranTelatBendaharaBanner } from "../setoran/SetoranTelatBanner";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
@@ -34,6 +41,7 @@ import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { DateInput } from "../ui/DateInput";
 import { Input, Label } from "../ui/Input";
 import { LIST_CARD, LIST_CARD_PHONE, LIST_HEAD_ROW, LIST_TABLE, LIST_TABLE_ELEMENT } from "../ui/list-compact";
+import { Link } from "react-router-dom";
 
 const TANPA_PETUGAS = "__tanpa__";
 
@@ -125,6 +133,11 @@ export function SetoranPanel({
   const [batalId, setBatalId] = useState<string | null>(null);
   const [batalBusy, setBatalBusy] = useState(false);
   const [pdfBusy, setPdfBusy] = useState<string | null>(null);
+  const [catatJenis, setCatatJenis] = useState<PenerimaanDanaLainJenis | null>(null);
+  const [editDanaLainId, setEditDanaLainId] = useState<string | null>(null);
+  const [riwayatDanaLain, setRiwayatDanaLain] = useState<PenerimaanDanaLainRow[]>([]);
+  const [hapusDanaLainId, setHapusDanaLainId] = useState<string | null>(null);
+  const [hapusDanaLainBusy, setHapusDanaLainBusy] = useState(false);
 
   async function unduhPdf(s: SetoranRow) {
     setPdfBusy(s.id);
@@ -142,9 +155,14 @@ export function SetoranPanel({
     setLoading(true);
     setError("");
     try {
-      const [r, s] = await Promise.all([listUangBelumDisetorPerPetugas(), listSetoran({ limit: 50 })]);
+      const [r, s, dana] = await Promise.all([
+        listUangBelumDisetorPerPetugas(),
+        listSetoran({ limit: 50 }),
+        listPenerimaanDanaLain({ limit: 15 }),
+      ]);
       setRingkasan(r);
       setRiwayat(s);
+      setRiwayatDanaLain(dana);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -251,6 +269,82 @@ export function SetoranPanel({
   return (
     <>
       <SetoranTelatBendaharaBanner ringkasan={ringkasan} onRefresh={() => void load()} />
+      {canEdit && (
+        <Card title="Punia & Dana Kerjasama">
+          <p className="text-xs text-muted mb-2 leading-snug">
+            Catat Punia Kasukretan atau Dana Kerjasama dari kantor. Bisa langsung masuk buku kas atau
+            dicatat sebagai uang di tangan petugas.
+          </p>
+          <div className="flex flex-wrap gap-2 mb-2">
+            <Button
+              type="button"
+              icon={HandCoins}
+              className="h-9 text-sm"
+              onClick={() => setCatatJenis("punia_kasukretan")}
+            >
+              Catat Punia Kasukretan
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              icon={HandCoins}
+              className="h-9 text-sm"
+              onClick={() => setCatatJenis("dana_kerjasama")}
+            >
+              Catat Dana Kerjasama
+            </Button>
+            <Link
+              to="/laporan/penerimaan-dana-lain"
+              className="inline-flex items-center text-xs font-medium text-copper-800 hover:underline px-1"
+            >
+              Lihat laporan
+            </Link>
+          </div>
+          {riwayatDanaLain.length > 0 && (
+            <ul className="divide-y divide-copper-100 border border-copper-100 rounded-md max-h-56 overflow-y-auto text-xs">
+              {riwayatDanaLain.map((r) => (
+                <li key={r.id} className="flex items-start justify-between gap-2 px-2 py-1.5">
+                  <span className="min-w-0">
+                    <span className="text-muted">{formatTanggalLahir(r.tanggal)}</span>
+                    {" · "}
+                    <span className="font-medium text-copper-950">
+                      {r.sumber_nama || "—"}
+                    </span>
+                    <span className="block text-muted truncate">
+                      {labelJenisPenerimaanDanaLain(r.jenis)}
+                      {r.kegiatan ? ` · ${r.kegiatan}` : ""}
+                      {!r.tanggal_setor ? " · Belum disetor" : ""}
+                    </span>
+                  </span>
+                  <span className="shrink-0 flex items-center gap-1.5">
+                    <span className="tabular-nums font-medium">{formatRupiah(r.jumlah)}</span>
+                    {!r.setoran_id && canEdit && (
+                      <>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="h-7 px-1.5 text-[11px]"
+                          onClick={() => setEditDanaLainId(r.id)}
+                        >
+                          Ubah
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="h-7 px-1.5 text-[11px] text-red-800"
+                          onClick={() => setHapusDanaLainId(r.id)}
+                        >
+                          Hapus
+                        </Button>
+                      </>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      )}
       <Card title="Uang belum disetor (dipegang petugas)">
         <p className="text-xs text-muted mb-2 leading-snug">
           Pembayaran yang dicatat dengan centang “langsung masuk buku kas” dimatikan belum tercatat di buku
@@ -505,6 +599,64 @@ export function SetoranPanel({
           </div>
         )}
       </Card>
+
+      {catatJenis && !editDanaLainId && (
+        <PenerimaanDanaLainDialog
+          open
+          onClose={() => setCatatJenis(null)}
+          jenis={catatJenis}
+          createdBy={userId}
+          onSaved={({ jumlah, sumberNama }) => {
+            setInfo(
+              `Tercatat ${formatRupiah(jumlah)} dari ${sumberNama} (${
+                catatJenis === "punia_kasukretan" ? "Punia Kasukretan" : "Dana Kerjasama"
+              }).`
+            );
+            void load();
+            onChanged();
+          }}
+        />
+      )}
+
+      {editDanaLainId && (
+        <PenerimaanDanaLainDialog
+          open
+          onClose={() => setEditDanaLainId(null)}
+          jenis="punia_kasukretan"
+          editingId={editDanaLainId}
+          createdBy={userId}
+          onSaved={({ jumlah, sumberNama }) => {
+            setInfo(`Diperbarui: ${formatRupiah(jumlah)} dari ${sumberNama}.`);
+            setEditDanaLainId(null);
+            void load();
+            onChanged();
+          }}
+        />
+      )}
+
+      <ConfirmDialog
+        open={hapusDanaLainId != null}
+        title="Hapus penerimaan?"
+        message="Penerimaan Punia/Kerjasama ini akan dihapus. Jika sudah masuk buku kas (setor langsung), saldo ikut berkurang."
+        confirmLabel="Ya, hapus"
+        busy={hapusDanaLainBusy}
+        onConfirm={() => {
+          if (!hapusDanaLainId) return;
+          setHapusDanaLainBusy(true);
+          void deletePenerimaanDanaLain(hapusDanaLainId)
+            .then(async () => {
+              setHapusDanaLainId(null);
+              setInfo("Penerimaan dihapus.");
+              await load();
+              onChanged();
+            })
+            .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+            .finally(() => setHapusDanaLainBusy(false));
+        }}
+        onCancel={() => {
+          if (!hapusDanaLainBusy) setHapusDanaLainId(null);
+        }}
+      />
 
       <ConfirmDialog
         open={batalId != null}

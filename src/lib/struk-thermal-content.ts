@@ -1,10 +1,12 @@
 import { formatBulanIndonesia, formatRupiah } from "./dudukan-hitung";
 import type { PetugasStrukPreviewState } from "./petugas-struk-preview";
+import { labelJenisPenerimaanDanaLain } from "./services/penerimaan-dana-lain";
 import type { StrukThermalWidthMm } from "./struk-pembayaran-dudukan-pdf";
 import { formatTanggalLahir } from "./utils";
 
 export const STRUK_FOOTER_DUDUKAN = "Terima kasih atas kontribusi anda.";
 export const STRUK_FOOTER_PATURUNAN = "Matur Suksma";
+export const STRUK_FOOTER_DANA_LAIN = "Matur Suksma";
 
 export type StrukThermalContent = {
   docTitle: string;
@@ -43,6 +45,30 @@ export function buildStrukThermalContent(
       tanggal: formatTanggalLahir(p.tanggal),
       petugas: p.petugasNama,
       footer: STRUK_FOOTER_DUDUKAN,
+    };
+  }
+
+  if (state.kind === "dana_lain") {
+    const p = state.payload;
+    const fields: { label: string; value: string }[] = [
+      { label: "Nama", value: p.sumberNama },
+      { label: "Sumber", value: p.sumberTipeLabel },
+    ];
+    if (p.nomorKartu) fields.push({ label: "No. Kartu", value: p.nomorKartu });
+    if (p.kegiatan?.trim()) fields.push({ label: "Kegiatan", value: p.kegiatan.trim() });
+    if (p.mitraJenis?.trim()) fields.push({ label: "Mitra", value: p.mitraJenis.trim() });
+    return {
+      docTitle: `BUKTI ${labelJenisPenerimaanDanaLain(p.jenis).toUpperCase()}`,
+      desaNama,
+      fields,
+      tableLeftHeader: "Rincian",
+      tableRows: [
+        { left: labelJenisPenerimaanDanaLain(p.jenis), right: formatRupiah(p.jumlah) },
+      ],
+      total: formatRupiah(p.total),
+      tanggal: formatTanggalLahir(p.tanggal),
+      petugas: p.petugasNama,
+      footer: STRUK_FOOTER_DANA_LAIN,
     };
   }
 

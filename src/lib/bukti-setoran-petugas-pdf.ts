@@ -29,12 +29,13 @@ const LINE_H = 5 * MM;
 const ROW_H = 6 * MM;
 const SECTION_GAP = 4 * MM;
 
-/** Urutan section di PDF: Dudukan dulu, lalu Paturunan. */
-const SUMBER_ORDER: SumberPembayaran[] = ["dudukan", "paturunan"];
+/** Urutan section di PDF: Dudukan, Paturunan, lalu Punia/Kerjasama. */
+const SUMBER_ORDER: SumberPembayaran[] = ["dudukan", "paturunan", "dana_lain"];
 
 const SUMBER_LABEL: Record<SumberPembayaran, string> = {
   dudukan: "Dudukan",
   paturunan: "Paturunan",
+  dana_lain: "Punia & Dana Kerjasama",
 };
 
 type Kolom = { header: string; fraction: number; align?: "right" };
@@ -161,15 +162,17 @@ export function countKramaPerSumber(items: PembayaranSetoranItem[]): Record<Sumb
   const sets: Record<SumberPembayaran, Set<string>> = {
     dudukan: new Set(),
     paturunan: new Set(),
+    dana_lain: new Set(),
   };
   for (const item of items) {
     const nomor = item.nomor_kartu.trim();
-    if (!nomor) continue;
+    if (!nomor || nomor === "—") continue;
     sets[item.sumber].add(nomor);
   }
   return {
     dudukan: sets.dudukan.size,
     paturunan: sets.paturunan.size,
+    dana_lain: sets.dana_lain.size,
   };
 }
 

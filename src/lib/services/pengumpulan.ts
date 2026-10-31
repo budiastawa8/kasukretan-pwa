@@ -30,7 +30,7 @@ export type PetugasLapangan = {
   banjar_nama: string;
   semua_banjar: boolean;
   tipe: TimKasukretanTipe;
-  /** Tim Bantuan: hanya Dudukan, 1 banjar, tanpa penerimaan agregat banjar. */
+  /** Tim Bantuan: tanpa Paturunan, 1 banjar, tanpa penerimaan agregat banjar. */
   is_tim_bantuan: boolean;
 };
 
@@ -62,12 +62,26 @@ export type RingkasanPengumpulan = {
   bulanTunggakanDudukan: number;
 };
 
-export type ModePengumpulan = "paturunan" | "dudukan";
+export type ModePengumpulan =
+  | "paturunan"
+  | "dudukan"
+  | "punia_kasukretan"
+  | "dana_kerjasama";
 
-const KLASIFIKASI_MODE: Record<ModePengumpulan, string[]> = {
+const KLASIFIKASI_MODE: Record<"paturunan" | "dudukan", string[]> = {
   paturunan: ["MIPIL"],
   dudukan: ["KRAMA_TAMIU", "TAMIU"],
 };
+
+export function isModePengumpulanKrama(mode: ModePengumpulan): mode is "paturunan" | "dudukan" {
+  return mode === "paturunan" || mode === "dudukan";
+}
+
+export function isModePengumpulanDanaLain(
+  mode: ModePengumpulan
+): mode is "punia_kasukretan" | "dana_kerjasama" {
+  return mode === "punia_kasukretan" || mode === "dana_kerjasama";
+}
 
 export function isKramaMipil(k: KramaPengumpulan): boolean {
   return KLASIFIKASI_MODE.paturunan.includes(k.klasifikasi_kode);
@@ -78,7 +92,7 @@ export function isKramaPemasih(k: KramaPengumpulan): boolean {
 }
 
 /** Mode pengumpulan yang cocok untuk krama ini (null = tidak punya iuran). */
-export function modeUntukKrama(k: KramaPengumpulan): ModePengumpulan | null {
+export function modeUntukKrama(k: KramaPengumpulan): "paturunan" | "dudukan" | null {
   if (isKramaMipil(k)) return "paturunan";
   if (isKramaPemasih(k)) return "dudukan";
   return null;
@@ -88,10 +102,12 @@ export function bolehPengumpulanKrama(petugas: PetugasLapangan, krama: KramaPeng
   return petugas.semua_banjar || krama.banjar_id === petugas.banjar_id;
 }
 
-/** Mode yang boleh dipilih petugas (Tim Bantuan hanya Dudukan). */
+/** Mode yang boleh dipilih petugas (Tim Bantuan: tanpa Paturunan). */
 export function modePengumpulanDiizinkan(petugas: PetugasLapangan): ModePengumpulan[] {
-  if (petugas.is_tim_bantuan) return ["dudukan"];
-  return ["paturunan", "dudukan"];
+  if (petugas.is_tim_bantuan) {
+    return ["dudukan", "punia_kasukretan", "dana_kerjasama"];
+  }
+  return ["paturunan", "dudukan", "punia_kasukretan", "dana_kerjasama"];
 }
 
 export function bolehModePengumpulan(petugas: PetugasLapangan, mode: ModePengumpulan): boolean {
@@ -227,6 +243,33 @@ export async function getStrukCetakUlang(
   const db = await getDb();
   const back = { backTo: "/pengumpulan", backLabel: "Pengumpulan" };
 
+  if (item.sumber === "dana_lain") {
+    const { getPenerimaanDanaLain, SUMBER_TIPE_OPTIONS } = await import("./penerimaan-dana-lain");
+    const row = await getPenerimaanDanaLain(item.id);
+    if (!row) return null;
+    const sumberLabel =
+      SUMBER_TIPE_OPTIONS.find((o) => o.value === row.sumber_tipe)?.label ?? row.sumber_tipe;
+    const slug = (row.sumber_nama || "mitra").replace(/\W/g, "").slice(0, 24);
+    return {
+      kind: "dana_lain",
+      payload: {
+        filename: `struk-${row.jenis}-${slug}-${row.tanggal}`,
+        jenis: row.jenis,
+        sumberNama: row.sumber_nama?.trim() || "—",
+        sumberTipeLabel: sumberLabel,
+        nomorKartu: item.nomor_kartu !== "—" ? item.nomor_kartu : null,
+        kegiatan: row.kegiatan,
+        mitraJenis: row.mitra_jenis,
+        jumlah: row.jumlah,
+        total: row.jumlah,
+        tanggal: row.tanggal,
+        petugasNama: petugas.nama,
+        keterangan: row.keterangan,
+      },
+      ...back,
+    };
+  }
+
   if (item.sumber === "paturunan") {
     const [ref] = await db.select<{ krama_id: string; iuran_id: string; iuran_nama: string }[]>(
       `SELECT p.krama_id, p.iuran_id, i.nama as iuran_nama
@@ -304,7 +347,7 @@ export async function findKramaByNomorKartu(nomorKartu: string): Promise<KramaPe
 export async function cariKramaPengumpulan(
   petugas: PetugasLapangan,
   q: string,
-  mode: ModePengumpulan,
+  mode: "paturunan" | "dudukan",
   limit = 20
 ): Promise<KramaPengumpulan[]> {
   const classified = classifySearchQuery(q);

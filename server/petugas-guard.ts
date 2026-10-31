@@ -4,11 +4,16 @@ import { dbSelect, getClient, rowsToObjects } from "./db.js";
 import type { PetugasGuard } from "./policy.js";
 import { convertSql } from "./sql-convert.js";
 
-type PetugasTim = { id: string; banjar_id: string; jabatan: string };
+type PetugasTim = {
+  id: string;
+  banjar_id: string;
+  jabatan: string;
+  tipe: string;
+};
 
 async function loadPetugasTim(userId: string): Promise<PetugasTim> {
   const rows = (await dbSelect(
-    `SELECT t.id, t.banjar_id, t.jabatan
+    `SELECT t.id, t.banjar_id, t.jabatan, COALESCE(t.tipe, 'banjar') as tipe
      FROM user u JOIN tim_kasukretan t ON t.id = u.tim_kasukretan_id
      WHERE u.id = ? AND u.aktif = 1`,
     [userId]
@@ -23,9 +28,20 @@ async function loadPetugasTim(userId: string): Promise<PetugasTim> {
   return tim;
 }
 
+function isTimBantuan(tim: PetugasTim): boolean {
+  return tim.tipe === "bantuan";
+}
+
+/** Tim Bantuan tidak pernah "semua banjar", meski jabatan pejabat. */
+function bolehSemuaBanjar(tim: PetugasTim): boolean {
+  if (isTimBantuan(tim)) return false;
+  return isJabatanPenerimaSemuaBanjar(tim.jabatan);
+}
+
 function alasanTolakBaruPetugas(
   row: Record<string, unknown> | undefined,
-  tim: PetugasTim
+  tim: PetugasTim,
+  table: string
 ): string | null {
   if (!row) return "Krama pembayaran tidak ditemukan.";
   if (row.petugas_id !== tim.id) return "Petugas pembayaran harus akun Anda sendiri.";
@@ -33,7 +49,14 @@ function alasanTolakBaruPetugas(
     return "Pembayaran dari petugas lapangan harus berstatus belum disetor.";
   }
   if (!(Number(row.jumlah) > 0)) return "Jumlah pembayaran harus lebih dari 0.";
-  if (row.banjar_id !== tim.banjar_id && !isJabatanPenerimaSemuaBanjar(tim.jabatan)) {
+  // Punia/Kerjasama boleh tanpa krama (free text). Banjar dicek hanya jika krama terpilih.
+  if (table === "penerimaan_dana_lain") {
+    if (row.banjar_id != null && row.banjar_id !== tim.banjar_id && !bolehSemuaBanjar(tim)) {
+      return "Krama ini bukan dari banjar wilayah Anda.";
+    }
+    return null;
+  }
+  if (row.banjar_id !== tim.banjar_id && !bolehSemuaBanjar(tim)) {
     return "Krama ini bukan dari banjar wilayah Anda.";
   }
   return null;
@@ -56,7 +79,7 @@ function rowidBarisTerakhir(value: bigint | undefined): bigint | null {
  * Baris baru dikenali lewat rentang rowid `(lastInsertRowid - rowsAffected, lastInsertRowid]`.
  * SQLite mengisi rowid berurutan untuk INSERT ... VALUES pada tabel rowid biasa selama
  * perintah tidak menyebut rowid. Trigger yang menyisipkan baris ke tabel yang sama akan
- * merusak rentang itu; skema `paturunan_pembayaran` dan `dudukan_pembayaran` tidak punya trigger.
+ * merusak rentang itu; skema pembayaran petugas tidak punya trigger.
  */
 export async function executePetugasPaymentWrite(
   user: PublicUser,
@@ -65,6 +88,11 @@ export async function executePetugasPaymentWrite(
   bind: unknown[]
 ): Promise<{ rowsAffected: number }> {
   const tim = await loadPetugasTim(user.id);
+
+  if (guard.verb === "insert" && guard.table === "paturunan_pembayaran" && isTimBantuan(tim)) {
+    throw new HttpError(403, "Tim Bantuan tidak boleh mengumpulkan Paturunan.");
+  }
+
   const { sql: converted, args } = convertSql(sql, bind);
   const client = await getClient();
 
@@ -109,7 +137,7 @@ export async function executePetugasPaymentWrite(
       throw new HttpError(403, PESAN_BARIS_TIDAK_JELAS);
     }
     for (const row of rows) {
-      const alasan = alasanTolakBaruPetugas(row, tim);
+      const alasan = alasanTolakBaruPetugas(row, tim, guard.table);
       if (alasan) throw new HttpError(403, alasan);
     }
     await tx.commit();

@@ -61,7 +61,7 @@ function TimKasukretanSelect({
       </Select>
       <p className="mt-1 text-[11px] text-muted leading-snug">
         Tim Banjar: wilayah = banjar petugas (Ketua/Sekretaris/Bendahara = semua banjar). Tim Bantuan:
-        hanya Dudukan di banjar tugas.
+        Dudukan, Punia & Kerjasama di banjar tugas (tanpa Paturunan).
       </p>
     </div>
   );

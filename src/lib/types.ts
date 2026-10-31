@@ -492,6 +492,48 @@ export interface DudukanPembayaranRow {
   created_at?: string;
 }
 
+/** Jenis penerimaan Punia Kasukretan / Dana Kerjasama (bukan Punia Paturunan). */
+export type PenerimaanDanaLainJenis = "punia_kasukretan" | "dana_kerjasama";
+
+export type PenerimaanDanaLainSumberTipe =
+  | "krama_mipil"
+  | "krama_tamiu"
+  | "tamiu"
+  | "lembaga"
+  | "pelaku_usaha"
+  | "lainnya";
+
+export type PenerimaanDanaLainSatuanWaktu = "hari" | "bulan";
+
+/** Penerimaan Punia Kasukretan atau Dana Kerjasama (uang di tangan → setoran). */
+export interface PenerimaanDanaLainRow {
+  id: string;
+  jenis: PenerimaanDanaLainJenis;
+  pos_pemasukan_id: string;
+  pos_pemasukan_nama?: string | null;
+  jumlah: number;
+  tanggal: string;
+  petugas_id?: string | null;
+  petugas_nama?: string | null;
+  akun_keuangan_id?: string | null;
+  akun_keuangan_nama?: string | null;
+  keterangan?: string | null;
+  sumber_tipe: PenerimaanDanaLainSumberTipe;
+  krama_id?: string | null;
+  lembaga_badan_id?: string | null;
+  sumber_nama?: string | null;
+  kegiatan?: string | null;
+  mitra_jenis?: string | null;
+  jumlah_orang?: number | null;
+  satuan_waktu?: PenerimaanDanaLainSatuanWaktu | null;
+  lama?: number | null;
+  tarif_satuan?: number | null;
+  setoran_id?: string | null;
+  tanggal_setor?: string | null;
+  created_by?: string | null;
+  created_at?: string;
+}
+
 /** Iuran paturunan (kampanye) dengan nominal dasar Rp. */
 export interface IuranPaturunanRow {
   id: string;

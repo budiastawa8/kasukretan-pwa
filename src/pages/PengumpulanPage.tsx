@@ -8,14 +8,17 @@ import {
   Printer,
   ScanLine,
   Search,
+  Trash2,
   Wallet,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { KartuQrScanner } from "../components/KartuQrScanner";
 import { PaturunanPembayaranDialog } from "../components/paturunan/PaturunanPembayaranDialog";
 import { DudukanPembayaranDialog } from "../components/dudukan/DudukanPembayaranDialog";
+import { PenerimaanDanaLainDialog } from "../components/dana-lain/PenerimaanDanaLainDialog";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
+import { ConfirmDialog } from "../components/ui/ConfirmDialog";
 import { Input } from "../components/ui/Input";
 import { parseKartuQrPayload } from "../lib/kartu-qr";
 import { formatRupiah } from "../lib/dudukan-hitung";
@@ -36,6 +39,8 @@ import {
   getStrukCetakUlang,
   isKramaMipil,
   isKramaPemasih,
+  isModePengumpulanDanaLain,
+  isModePengumpulanKrama,
   modePengumpulanDiizinkan,
   modeUntukKrama,
   type KramaPengumpulan,
@@ -44,9 +49,14 @@ import {
   type RingkasanPaturunanPengumpulan,
   type RingkasanPengumpulan,
 } from "../lib/services/pengumpulan";
-import { listPembayaranBelumDisetor, type PembayaranSetoranItem } from "../lib/services/setoran";
+import {
+  deletePembayaranBelumDisetor,
+  listPembayaranBelumDisetor,
+  type PembayaranSetoranItem,
+} from "../lib/services/setoran";
 import { hariSejakTanggal, isSetoranTelat } from "../lib/setoran-telat";
 import { cn, formatTanggalLahir } from "../lib/utils";
+import type { PenerimaanDanaLainJenis } from "../lib/types";
 
 const MODE_STORAGE_KEY = "kasukretan.pengumpulan_mode.v1";
 const MODE_STORAGE_KEY_LEGACY = "kasukretan.pungut_mode.v1";
@@ -54,16 +64,30 @@ const MODE_STORAGE_KEY_LEGACY = "kasukretan.pungut_mode.v1";
 const MODE_LABEL: Record<ModePengumpulan, string> = {
   paturunan: "Paturunan",
   dudukan: "Dudukan",
+  punia_kasukretan: "Punia Kasukretan",
+  dana_kerjasama: "Dana Kerjasama",
 };
+
+const MODE_ALL: ModePengumpulan[] = [
+  "paturunan",
+  "dudukan",
+  "punia_kasukretan",
+  "dana_kerjasama",
+];
 
 function readMode(): ModePengumpulan | null {
   try {
     const v =
       localStorage.getItem(MODE_STORAGE_KEY) ?? localStorage.getItem(MODE_STORAGE_KEY_LEGACY);
-    return v === "paturunan" || v === "dudukan" ? v : null;
+    return MODE_ALL.includes(v as ModePengumpulan) ? (v as ModePengumpulan) : null;
   } catch {
     return null;
   }
+}
+
+function peganganCocokMode(p: PembayaranSetoranItem, mode: ModePengumpulan): boolean {
+  if (mode === "paturunan" || mode === "dudukan") return p.sumber === mode;
+  return p.sumber === "dana_lain" && p.jenis_dana === mode;
 }
 
 function useModePengumpulan() {
@@ -87,24 +111,29 @@ function PilihMode({
   onPilih: (m: ModePengumpulan) => void;
   allowed: ModePengumpulan[];
 }) {
-  const showPaturunan = allowed.includes("paturunan");
-  const showDudukan = allowed.includes("dudukan");
+  const items = (
+    [
+      { mode: "paturunan", sub: "Krama mipil" },
+      { mode: "dudukan", sub: "Krama pemasih" },
+      { mode: "punia_kasukretan", sub: "Sukarela / insidental" },
+      { mode: "dana_kerjasama", sub: "Patroli / perjanjian" },
+    ] as const satisfies readonly { mode: ModePengumpulan; sub: string }[]
+  ).filter((i) => allowed.includes(i.mode));
   return (
     <div className="mt-3 space-y-2">
       <p className="text-sm text-copper-950 font-medium">Mau mengumpulkan apa?</p>
-      <div className={cn("grid gap-2", showPaturunan && showDudukan ? "grid-cols-2" : "grid-cols-1")}>
-        {showPaturunan && (
-          <Button type="button" className="h-20 flex-col text-base" onClick={() => onPilih("paturunan")}>
-            Paturunan
-            <span className="block text-[11px] font-normal opacity-90">Krama mipil</span>
+      <div className={cn("grid gap-2", items.length > 1 ? "grid-cols-2" : "grid-cols-1")}>
+        {items.map((i) => (
+          <Button
+            key={i.mode}
+            type="button"
+            className="h-20 flex-col text-base"
+            onClick={() => onPilih(i.mode)}
+          >
+            {MODE_LABEL[i.mode]}
+            <span className="block text-[11px] font-normal opacity-90">{i.sub}</span>
           </Button>
-        )}
-        {showDudukan && (
-          <Button type="button" className="h-20 flex-col text-base" onClick={() => onPilih("dudukan")}>
-            Dudukan
-            <span className="block text-[11px] font-normal opacity-90">Krama pemasih</span>
-          </Button>
-        )}
+        ))}
       </div>
     </div>
   );
@@ -130,10 +159,13 @@ export function PengumpulanPage() {
 
   const [bayarIuran, setBayarIuran] = useState<RingkasanPaturunanPengumpulan | null>(null);
   const [bayarDudukan, setBayarDudukan] = useState(false);
+  const [bayarDanaLain, setBayarDanaLain] = useState<PenerimaanDanaLainJenis | null>(null);
 
   const [pegangan, setPegangan] = useState<PembayaranSetoranItem[]>([]);
   const [strukBaru, setStrukBaru] = useState<PetugasStrukPreviewState | null>(null);
   const [strukUlangBusy, setStrukUlangBusy] = useState<string | null>(null);
+  const [hapusItem, setHapusItem] = useState<PembayaranSetoranItem | null>(null);
+  const [hapusBusy, setHapusBusy] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -145,10 +177,6 @@ export function PengumpulanPage() {
 
   useEffect(() => {
     if (!petugas) return;
-    if (petugas.is_tim_bantuan) {
-      if (mode !== "dudukan") setMode("dudukan");
-      return;
-    }
     if (mode && !bolehModePengumpulan(petugas, mode)) setMode(null);
   }, [petugas, mode, setMode]);
 
@@ -242,7 +270,7 @@ export function PengumpulanPage() {
 
   async function cari(e: React.FormEvent) {
     e.preventDefault();
-    if (!petugas || !mode) return;
+    if (!petugas || !mode || !isModePengumpulanKrama(mode)) return;
     setCariBusy(true);
     setError("");
     try {
@@ -311,7 +339,8 @@ export function PengumpulanPage() {
   }
 
   const totalSemuaPegangan = pegangan.reduce((s, p) => s + p.jumlah, 0);
-  const peganganMode = mode ? pegangan.filter((p) => p.sumber === mode) : pegangan;
+  const peganganMode = mode ? pegangan.filter((p) => peganganCocokMode(p, mode)) : pegangan;
+  const modeDanaLain = mode != null && isModePengumpulanDanaLain(mode);
   const totalPegangan = peganganMode.reduce((s, p) => s + p.jumlah, 0);
   const tanggalTertuaPegangan =
     pegangan.length > 0
@@ -338,7 +367,7 @@ export function PengumpulanPage() {
         </p>
         <p className="text-xs text-muted">
           Wilayah: {petugas.semua_banjar ? "semua banjar" : `Banjar ${petugas.banjar_nama}`}
-          {petugas.is_tim_bantuan ? " · hanya Dudukan" : ""}
+          {petugas.is_tim_bantuan ? " · tanpa Paturunan" : ""}
         </p>
         {!mode ? (
           <PilihMode onPilih={gantiMode} allowed={modePengumpulanDiizinkan(petugas)} />
@@ -349,46 +378,57 @@ export function PengumpulanPage() {
                 Mengumpulkan:{" "}
                 <strong className="text-copper-950">{MODE_LABEL[mode]}</strong>
               </p>
-              {!petugas.is_tim_bantuan && (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                icon={ArrowLeftRight}
+                onClick={() => gantiMode(null)}
+              >
+                Ganti
+              </Button>
+            </div>
+            {modeDanaLain ? (
+              <Button
+                type="button"
+                icon={HandCoins}
+                className="mt-2 h-12 w-full text-base"
+                onClick={() => setBayarDanaLain(mode)}
+              >
+                Catat {MODE_LABEL[mode]}
+              </Button>
+            ) : (
+              <>
                 <Button
                   type="button"
-                  variant="secondary"
-                  size="sm"
-                  icon={ArrowLeftRight}
-                  onClick={() => gantiMode(null)}
+                  icon={ScanLine}
+                  className="mt-2 h-12 w-full text-base"
+                  onClick={() => {
+                    setError("");
+                    setScanOpen(true);
+                  }}
                 >
-                  Ganti
+                  Scan QR kartu {mode === "paturunan" ? "mipil" : "pemasih"}
                 </Button>
-              )}
-            </div>
-            <Button
-              type="button"
-              icon={ScanLine}
-              className="mt-2 h-12 w-full text-base"
-              onClick={() => {
-                setError("");
-                setScanOpen(true);
-              }}
-            >
-              Scan QR kartu {mode === "paturunan" ? "mipil" : "pemasih"}
-            </Button>
-            <form onSubmit={cari} className="mt-2 flex gap-1.5">
-              <Input
-                className="h-10 text-sm"
-                placeholder="Atau cari nama / nomor kartu"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-              />
-              <Button
-                type="submit"
-                variant="secondary"
-                icon={Search}
-                className="h-10 shrink-0"
-                disabled={cariBusy || q.trim().length < 2}
-              >
-                Cari
-              </Button>
-            </form>
+                <form onSubmit={cari} className="mt-2 flex gap-1.5">
+                  <Input
+                    className="h-10 text-sm"
+                    placeholder="Atau cari nama / nomor kartu"
+                    value={q}
+                    onChange={(e) => setQ(e.target.value)}
+                  />
+                  <Button
+                    type="submit"
+                    variant="secondary"
+                    icon={Search}
+                    className="h-10 shrink-0"
+                    disabled={cariBusy || q.trim().length < 2}
+                  >
+                    Cari
+                  </Button>
+                </form>
+              </>
+            )}
           </>
         )}
         {hasilCari.length > 0 && (
@@ -428,7 +468,7 @@ export function PengumpulanPage() {
         )}
       </Card>
 
-      {krama && (
+      {krama && !modeDanaLain && (
         <Card title="Krama">
           <p className="font-mono text-[11px] text-copper-700">{krama.nomor_kartu}</p>
           <p className="text-base font-semibold text-copper-950 leading-snug">{krama.kepala_nama}</p>
@@ -547,7 +587,7 @@ export function PengumpulanPage() {
         </p>
         {mode && totalSemuaPegangan !== totalPegangan && (
           <p className="mt-0.5 text-xs text-copper-800">
-            Total semua (Paturunan + Dudukan):{" "}
+            Total semua jenis:{" "}
             <strong className="tabular-nums">{formatRupiah(totalSemuaPegangan)}</strong>
           </p>
         )}
@@ -573,7 +613,7 @@ export function PengumpulanPage() {
                   <span className="font-medium text-copper-950">{p.kepala_nama}</span>
                   <span className="block text-muted truncate">{p.uraian}</span>
                 </span>
-                <span className="shrink-0 flex items-center gap-1.5">
+                <span className="shrink-0 flex items-center gap-1">
                   <span className="tabular-nums font-medium">{formatRupiah(p.jumlah)}</span>
                   <Button
                     type="button"
@@ -581,11 +621,21 @@ export function PengumpulanPage() {
                     icon={Printer}
                     className="h-8 px-2 text-xs"
                     title="Cetak ulang struk"
-                    disabled={strukUlangBusy != null}
+                    disabled={strukUlangBusy != null || hapusBusy}
                     onClick={() => void cetakUlang(p)}
                   >
                     {strukUlangBusy === `${p.sumber}:${p.id}` ? "…" : "Struk"}
                   </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    icon={Trash2}
+                    iconOnly
+                    className="h-8 w-8 text-red-800"
+                    title="Hapus (belum disetor)"
+                    disabled={hapusBusy}
+                    onClick={() => setHapusItem(p)}
+                  />
                 </span>
               </li>
             ))}
@@ -667,6 +717,70 @@ export function PengumpulanPage() {
           lockedPetugasId={petugas.id}
         />
       )}
+
+      {bayarDanaLain && (
+        <PenerimaanDanaLainDialog
+          open
+          onClose={() => setBayarDanaLain(null)}
+          jenis={bayarDanaLain}
+          petugasLapangan={petugas}
+          createdBy={user?.id}
+          onSaved={({ id, jumlah, sumberNama }) => {
+            setFlash(
+              `Tercatat ${formatRupiah(jumlah)} dari ${sumberNama} — masuk uang di tangan Anda.`
+            );
+            void loadPegangan();
+            void (async () => {
+              try {
+                const state = await getStrukCetakUlang(petugas, {
+                  sumber: "dana_lain",
+                  id,
+                  tanggal: "",
+                  jumlah,
+                  nomor_kartu: "—",
+                  kepala_nama: sumberNama,
+                  uraian: "",
+                  akun_nama: null,
+                  petugas_id: petugas.id,
+                  created_at: "",
+                  jenis_dana: bayarDanaLain,
+                });
+                if (state) setStrukBaru(state);
+              } catch {
+                /* struk opsional */
+              }
+            })();
+          }}
+        />
+      )}
+
+      <ConfirmDialog
+        open={hapusItem != null}
+        title="Hapus dari uang di tangan?"
+        message={
+          hapusItem
+            ? `${hapusItem.kepala_nama} · ${hapusItem.uraian} · ${formatRupiah(hapusItem.jumlah)}. Transaksi dihapus dan tidak masuk buku kas.`
+            : ""
+        }
+        confirmLabel="Ya, hapus"
+        busy={hapusBusy}
+        onConfirm={() => {
+          if (!hapusItem) return;
+          setHapusBusy(true);
+          void deletePembayaranBelumDisetor(hapusItem.sumber, hapusItem.id)
+            .then(async () => {
+              setFlash(`Dihapus: ${hapusItem.kepala_nama} · ${formatRupiah(hapusItem.jumlah)}`);
+              setHapusItem(null);
+              setStrukBaru(null);
+              await loadPegangan();
+            })
+            .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+            .finally(() => setHapusBusy(false));
+        }}
+        onCancel={() => {
+          if (!hapusBusy) setHapusItem(null);
+        }}
+      />
     </div>
   );
 }

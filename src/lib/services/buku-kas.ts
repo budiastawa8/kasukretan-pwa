@@ -202,11 +202,14 @@ export async function getSaldoAkun(akunKeuanganId: string): Promise<number> {
        SELECT jumlah FROM dudukan_pembayaran
        WHERE akun_keuangan_id = ? AND tanggal_setor IS NOT NULL
        UNION ALL
+       SELECT jumlah FROM penerimaan_dana_lain
+       WHERE akun_keuangan_id = ? AND tanggal_setor IS NOT NULL
+       UNION ALL
        SELECT pp.jumlah FROM transaksi_pemasukan_pos pp
        JOIN transaksi_pemasukan t ON t.id = pp.transaksi_id
        WHERE t.akun_keuangan_id = ?
      )`,
-    [akunKeuanganId, akunKeuanganId, akunKeuanganId]
+    [akunKeuanganId, akunKeuanganId, akunKeuanganId, akunKeuanganId]
   );
   const transferMasuk = await db.select<{ total: number }[]>(
     `SELECT COALESCE(SUM(jumlah), 0) as total
@@ -266,6 +269,9 @@ export async function listRingkasanSaldoAkun(): Promise<RingkasanSaldoAkun[]> {
          WHERE tanggal_setor IS NOT NULL
          UNION ALL
          SELECT akun_keuangan_id, jumlah FROM dudukan_pembayaran
+         WHERE tanggal_setor IS NOT NULL
+         UNION ALL
+         SELECT akun_keuangan_id, jumlah FROM penerimaan_dana_lain
          WHERE tanggal_setor IS NOT NULL
          UNION ALL
          SELECT t.akun_keuangan_id, pp.jumlah
@@ -576,6 +582,54 @@ export async function listBukuKas(params: {
       tanggal: p.tanggal,
       uraian,
       masuk: Math.round(Number(p.total) || 0),
+      keluar: 0,
+      jenis: "pemasukan_lain",
+      ref_id: p.id,
+      created_at: p.created_at,
+    });
+  }
+
+  const danaLain = await db.select<
+    {
+      id: string;
+      tanggal: string;
+      pos_nama: string | null;
+      sumber_nama: string | null;
+      kegiatan: string | null;
+      keterangan: string | null;
+      petugas_nama: string | null;
+      total: number;
+      created_at: string;
+    }[]
+  >(
+    `SELECT p.id, p.tanggal_setor as tanggal, pb.nama as pos_nama,
+            COALESCE(NULLIF(TRIM(p.sumber_nama), ''), pd.nama_lengkap, lb.nama) as sumber_nama,
+            p.kegiatan, p.keterangan, tk.nama as petugas_nama,
+            p.jumlah as total, p.created_at
+     FROM penerimaan_dana_lain p
+     LEFT JOIN pos_pemasukan pb ON pb.id = p.pos_pemasukan_id
+     LEFT JOIN krama k ON k.id = p.krama_id
+     LEFT JOIN penduduk pd ON pd.id = k.kepala_penduduk_id
+     LEFT JOIN lembaga_badan lb ON lb.id = p.lembaga_badan_id
+     LEFT JOIN tim_kasukretan tk ON tk.id = p.petugas_id
+     WHERE p.akun_keuangan_id = ? AND p.tanggal_setor IS NOT NULL`,
+    [akunId]
+  );
+  for (const p of danaLain) {
+    const total = Math.round(Number(p.total) || 0);
+    if (total <= 0) continue;
+    const parts = [
+      p.pos_nama?.trim() || "Dana Kasukretan",
+      p.sumber_nama?.trim(),
+      p.kegiatan?.trim(),
+      p.petugas_nama?.trim() ? `Petugas ${p.petugas_nama.trim()}` : null,
+      p.keterangan?.trim(),
+    ].filter(Boolean);
+    raw.push({
+      id: `pdl-${p.id}`,
+      tanggal: p.tanggal,
+      uraian: parts.join(" · "),
+      masuk: total,
       keluar: 0,
       jenis: "pemasukan_lain",
       ref_id: p.id,
@@ -975,6 +1029,53 @@ export async function listLaporanBukuKas(params: {
     });
   }
 
+  const danaLainLaporan = await db.select<
+    {
+      id: string;
+      tanggal: string;
+      pos_nama: string | null;
+      sumber_nama: string | null;
+      kegiatan: string | null;
+      keterangan: string | null;
+      petugas_nama: string | null;
+      total: number;
+      created_at: string;
+    }[]
+  >(
+    `SELECT p.id, p.tanggal_setor as tanggal, pb.nama as pos_nama,
+            COALESCE(NULLIF(TRIM(p.sumber_nama), ''), pd.nama_lengkap, lb.nama) as sumber_nama,
+            p.kegiatan, p.keterangan, tk.nama as petugas_nama,
+            p.jumlah as total, p.created_at
+     FROM penerimaan_dana_lain p
+     LEFT JOIN pos_pemasukan pb ON pb.id = p.pos_pemasukan_id
+     LEFT JOIN krama k ON k.id = p.krama_id
+     LEFT JOIN penduduk pd ON pd.id = k.kepala_penduduk_id
+     LEFT JOIN lembaga_badan lb ON lb.id = p.lembaga_badan_id
+     LEFT JOIN tim_kasukretan tk ON tk.id = p.petugas_id
+     WHERE p.akun_keuangan_id = ? AND p.tanggal_setor IS NOT NULL`,
+    [akunId]
+  );
+  for (const p of danaLainLaporan) {
+    const total = Math.round(Number(p.total) || 0);
+    if (total <= 0) continue;
+    const parts = [
+      p.pos_nama?.trim() || "Dana Kasukretan",
+      p.sumber_nama?.trim(),
+      p.kegiatan?.trim(),
+      p.petugas_nama?.trim() ? `Petugas ${p.petugas_nama.trim()}` : null,
+      p.keterangan?.trim(),
+    ].filter(Boolean);
+    raw.push({
+      id: `pdl-${p.id}`,
+      tanggal: p.tanggal,
+      uraian: parts.join(" · "),
+      pemasukan: total,
+      pengeluaran: 0,
+      jenis: "pemasukan_lain",
+      created_at: p.created_at,
+    });
+  }
+
   for (const p of pengeluaran) {
     const total = Math.round(Number(p.total) || 0);
     if (total <= 0) continue;
@@ -1249,6 +1350,19 @@ async function collectRekapPosAggForAkun(params: {
     [akunId, ...dateSetor.args]
   );
   addPemasukanPos(map, POS_REKAP_DUDUKAN, dudukan[0]?.total ?? 0, 2);
+
+  const danaLainPos = await db.select<{ nama: string; urutan: number; total: number }[]>(
+    `SELECT pb.nama, pb.urutan, COALESCE(SUM(p.jumlah), 0) as total
+     FROM penerimaan_dana_lain p
+     JOIN pos_pemasukan pb ON pb.id = p.pos_pemasukan_id
+     WHERE p.akun_keuangan_id = ? AND p.tanggal_setor IS NOT NULL${dateSetor.sql}
+     GROUP BY pb.id
+     HAVING total > 0`,
+    [akunId, ...dateSetor.args]
+  );
+  for (const row of danaLainPos) {
+    addPemasukanPos(map, row.nama.trim() || "—", row.total, 100 + (Number(row.urutan) || 0));
+  }
 
   const transferMasuk = await db.select<{ total: number }[]>(
     `SELECT COALESCE(SUM(t.jumlah), 0) as total

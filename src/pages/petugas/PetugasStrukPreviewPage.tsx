@@ -4,6 +4,7 @@ import { Bluetooth, FileDown, Printer } from "lucide-react";
 import { BackLink } from "../../components/ui/BackLink";
 import { Button } from "../../components/ui/Button";
 import {
+  StrukThermalSheetDanaLain,
   StrukThermalSheetDudukan,
   StrukThermalSheetPaturunan,
   STRUK_THERMAL_WIDTH_DEFAULT,
@@ -11,7 +12,9 @@ import {
 import { downloadBytes } from "../../lib/download-bytes";
 import { formatRupiah } from "../../lib/dudukan-hitung";
 import { readPetugasStrukPreview } from "../../lib/petugas-struk-preview";
+import { labelJenisPenerimaanDanaLain } from "../../lib/services/penerimaan-dana-lain";
 import { buildStrukThermalContent } from "../../lib/struk-thermal-content";
+import { buildStrukDanaLainPdfBytes } from "../../lib/struk-pembayaran-dana-lain-pdf";
 import {
   buildStrukDudukanPdfBytes,
   type StrukThermalWidthMm,
@@ -168,7 +171,9 @@ export function PetugasStrukPreviewPage() {
           ? await buildStrukDudukanPdfBytes(previewState.payload, desa, {
               widthMm: thermalWidthMm,
             })
-          : await buildStrukPaturunanPdfBytes(previewState.payload, desa);
+          : previewState.kind === "dana_lain"
+            ? await buildStrukDanaLainPdfBytes(previewState.payload, desa)
+            : await buildStrukPaturunanPdfBytes(previewState.payload, desa);
 
       const base = previewState.payload.filename;
       const suffix = previewState.kind === "dudukan" ? `-${thermalWidthMm}mm` : "";
@@ -190,10 +195,16 @@ export function PetugasStrukPreviewPage() {
   const kramaNama =
     previewState.kind === "dudukan"
       ? previewState.payload.krama.pengajeg_nama
-      : previewState.payload.krama.kepala_nama;
+      : previewState.kind === "dana_lain"
+        ? previewState.payload.sumberNama
+        : previewState.payload.krama.kepala_nama;
 
   const title =
-    previewState.kind === "dudukan" ? "Struk Pembayaran Dudukan" : "Struk Pembayaran Paturunan";
+    previewState.kind === "dudukan"
+      ? "Struk Pembayaran Dudukan"
+      : previewState.kind === "dana_lain"
+        ? `Struk ${labelJenisPenerimaanDanaLain(previewState.payload.jenis)}`
+        : "Struk Pembayaran Paturunan";
 
   return (
     <div className="struk-cetak-page">
@@ -269,6 +280,12 @@ export function PetugasStrukPreviewPage() {
           <p className="text-sm text-muted print:hidden">Memuat data desa…</p>
         ) : previewState.kind === "dudukan" ? (
           <StrukThermalSheetDudukan
+            desaNama={desaNama}
+            payload={previewState.payload}
+            widthMm={thermalWidthMm}
+          />
+        ) : previewState.kind === "dana_lain" ? (
+          <StrukThermalSheetDanaLain
             desaNama={desaNama}
             payload={previewState.payload}
             widthMm={thermalWidthMm}
