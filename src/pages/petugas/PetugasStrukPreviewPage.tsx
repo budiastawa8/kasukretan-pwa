@@ -61,26 +61,26 @@ function initialPrinterReadiness(): PrinterReadiness {
 function printerHint(r: PrinterReadiness | null): { text: string; className: string } {
   if (!r || r.status === "unsupported") {
     return {
-      text: "Bluetooth tidak tersedia — cetak lewat dialog browser (pakai Chrome di Android)",
+      text: "Bluetooth tidak tersedia — gunakan Cetak (dialog browser) atau PDF",
       className: "text-amber-800",
     };
   }
   if (r.status === "ready") {
     return {
-      text: `Printer tersimpan: ${r.name} — siap Cetak (tanpa pairing ulang)`,
+      text: `Siap: ${r.name} — langsung tap Cetak`,
       className: "text-emerald-800",
     };
   }
   if (r.status === "permission_lost") {
     return {
       text: r.name
-        ? `Printer pernah dipakai (${r.name}) — izin browser hilang. Tap Printer sekali, lalu Cetak.`
-        : "Izin Bluetooth browser hilang. Tap Printer sekali untuk menghubungkan lagi.",
+        ? `Izin hilang (${r.name}) — tap ikon Bluetooth sekali`
+        : "Izin Bluetooth hilang — tap ikon Bluetooth sekali",
       className: "text-amber-900",
     };
   }
   return {
-    text: "Tap Printer sekali untuk memilih printer, lalu Cetak. Jangan hapus data situs agar tetap diingat.",
+    text: "Belum ada printer — tap ikon Bluetooth sekali, lalu Cetak",
     className: "text-copper-800",
   };
 }
@@ -180,7 +180,7 @@ export function PetugasStrukPreviewPage() {
       setPrinting(true);
       try {
         const result = await printEscPosViaBluetooth(escpos);
-        setStatus(`Tercetak ke ${result.deviceName}`, "ok");
+        setStatus(`Tercetak · ${result.deviceName}`, "ok");
         setPrinterLabel(result.deviceName);
         applyReadiness({ status: "ready", name: result.deviceName });
         return;
@@ -221,7 +221,7 @@ export function PetugasStrukPreviewPage() {
       const label = name || getCachedPrinterName() || "Printer thermal";
       setPrinterLabel(label);
       applyReadiness({ status: "ready", name: label });
-      setStatus(`Printer terhubung: ${label}`, "ok");
+      setStatus(`Siap: ${label} — langsung tap Cetak`, "ok");
     } catch (e) {
       if (e instanceof DOMException && e.name === "NotFoundError") return;
       const msg = e instanceof Error ? e.message : String(e);
@@ -277,81 +277,102 @@ export function PetugasStrukPreviewPage() {
         ? `Struk ${labelJenisPenerimaanDanaLain(previewState.payload.jenis)}`
         : "Struk Pembayaran Paturunan";
 
+  const hint = printerHint(bluetoothReady ? printerReady : { status: "unsupported" });
+  /** Satu baris saja: pesan aksi (cetak/pair) menimpa hint dasar. */
+  const statusLine = statusMsg
+    ? {
+        text: statusMsg,
+        className:
+          statusTone === "ok"
+            ? "text-emerald-700"
+            : statusTone === "warn"
+              ? "text-amber-800"
+              : "text-red-700",
+      }
+    : hint;
+  const needPair =
+    bluetoothReady &&
+    (printerReady?.status === "permission_lost" || printerReady?.status === "never_paired");
+
   return (
     <div className="struk-cetak-page">
       <header className="struk-cetak-toolbar print:hidden">
-        <BackLink to={previewState.backTo}>{previewState.backLabel}</BackLink>
-        <div className="struk-cetak-toolbar__title">
-          <h1>{title}</h1>
-          <p>
-            {kramaNama} · {formatRupiah(previewState.payload.total)}
-          </p>
-          {(() => {
-            const hint = printerHint(bluetoothReady ? printerReady : { status: "unsupported" });
-            return <p className={cn("text-[11px] mt-0.5 font-medium", hint.className)}>{hint.text}</p>;
-          })()}
-          {statusMsg ? (
-            <p
-              className={
-                statusTone === "ok"
-                  ? "text-[11px] text-emerald-700 mt-0.5 font-medium"
-                  : statusTone === "warn"
-                    ? "text-[11px] text-amber-800 mt-0.5 font-medium"
-                    : "text-[11px] text-red-700 mt-0.5 font-medium"
-              }
-            >
-              {statusMsg}
+        <div className="struk-cetak-toolbar__top">
+          <BackLink to={previewState.backTo} className="struk-cetak-back">
+            {previewState.backLabel}
+          </BackLink>
+          <div className="struk-cetak-toolbar__title">
+            <h1>{title}</h1>
+            <p>
+              {kramaNama} · {formatRupiah(previewState.payload.total)}
             </p>
-          ) : null}
+          </div>
         </div>
-        <div className="flex items-center gap-1 flex-wrap">
-          <span className="text-xs text-copper-700">Kertas:</span>
-          {([58, 80] as const).map((w) => (
+
+        <p className={cn("struk-cetak-status", statusLine.className)}>{statusLine.text}</p>
+
+        <div className="struk-cetak-toolbar__actions">
+          <div className="struk-cetak-toolbar__secondary" role="group" aria-label="Opsi kertas dan printer">
+            {([58, 80] as const).map((w) => (
+              <Button
+                key={w}
+                type="button"
+                variant={thermalWidthMm === w ? "primary" : "secondary"}
+                className="h-10 min-w-12 px-2.5 text-xs"
+                onClick={() => setThermalWidthMm(w)}
+              >
+                {w}
+              </Button>
+            ))}
+            {bluetoothReady && (
+              <Button
+                type="button"
+                variant={needPair ? "primary" : "secondary"}
+                icon={Bluetooth}
+                iconOnly={!needPair && !pairing}
+                className={cn("h-10", needPair || pairing ? "px-3 text-xs" : undefined)}
+                disabled={pairing || printing}
+                onClick={() => void handlePairPrinter()}
+                title={
+                  pairing
+                    ? "Menghubungkan…"
+                    : needPair
+                      ? printerLabel
+                        ? `Hubungkan ulang: ${printerLabel}`
+                        : "Pilih printer Bluetooth"
+                      : printerLabel
+                        ? `Ganti printer (sekarang: ${printerLabel})`
+                        : "Ganti printer"
+                }
+                aria-label={
+                  needPair
+                    ? "Hubungkan printer Bluetooth"
+                    : `Ganti printer${printerLabel ? `: ${printerLabel}` : ""}`
+                }
+              >
+                {pairing ? "Menghubungkan…" : needPair ? "Hubungkan" : null}
+              </Button>
+            )}
             <Button
-              key={w}
               type="button"
-              variant={thermalWidthMm === w ? "primary" : "secondary"}
-              className="h-8 px-2 text-xs"
-              onClick={() => setThermalWidthMm(w)}
-            >
-              {w} mm
-            </Button>
-          ))}
-          {bluetoothReady && (
-            <Button
-              type="button"
-              variant={printerReady?.status === "permission_lost" ? "primary" : "secondary"}
-              icon={Bluetooth}
-              className="h-8 px-2 text-xs"
-              disabled={pairing || printing}
-              onClick={() => void handlePairPrinter()}
-              title={printerLabel ? `Printer: ${printerLabel}` : "Pilih printer Bluetooth"}
-            >
-              {pairing
-                ? "Menghubungkan…"
-                : printerReady?.status === "permission_lost"
-                  ? "Hubungkan ulang"
-                  : printerReady?.status === "ready"
-                    ? "Ganti printer"
-                    : "Printer"}
-            </Button>
-          )}
+              variant="secondary"
+              icon={FileDown}
+              iconOnly
+              className="h-10"
+              disabled={loadingDesa || savingPdf}
+              onClick={() => void handleSavePdf()}
+              title={savingPdf ? "Menyimpan PDF…" : "Unduh PDF"}
+              aria-label="Unduh PDF"
+            />
+          </div>
           <Button
             type="button"
             icon={Printer}
+            className="struk-cetak-toolbar__print h-11 flex-1 text-base font-semibold"
             onClick={() => void handlePrint()}
             disabled={loadingDesa || printing}
           >
             {printing ? "Mencetak…" : "Cetak"}
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            icon={FileDown}
-            disabled={loadingDesa || savingPdf}
-            onClick={() => void handleSavePdf()}
-          >
-            {savingPdf ? "Menyimpan…" : "PDF"}
           </Button>
         </div>
       </header>
