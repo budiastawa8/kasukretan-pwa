@@ -11,23 +11,20 @@ import {
   SETORAN_TELAT_UPDATED_EVENT,
   shouldSendSetoranTelatNotif,
   snoozeSetoranTelat,
-  buildPesanWhatsAppSetoranTelat,
 } from "../../lib/setoran-telat";
 import {
   listUangBelumDisetorPerPetugas,
   type UangBelumDisetorPetugas,
 } from "../../lib/services/setoran";
 import { getPetugasLapanganSaya } from "../../lib/services/pengumpulan";
-import {
-  hasWhatsAppContact,
-  openWhatsAppChat,
-} from "../../lib/whatsapp";
+import { hasWhatsAppContact } from "../../lib/whatsapp";
 import {
   notificationPermission,
   requestNotificationPermission,
   showAppNotification,
 } from "../../lib/web-notification";
 import { formatRupiah } from "../../lib/dudukan-hitung";
+import { ingatPetugasSetor, labelTombolIngatSetor } from "../../lib/setoran-ingat-ui";
 import { Button } from "../ui/Button";
 
 async function maybeNotifyPetugas(row: UangBelumDisetorPetugas): Promise<void> {
@@ -152,7 +149,9 @@ export function SetoranTelatBendaharaBanner({
 }) {
   const { user } = useAuth();
   const boleh = canEditKeuangan(user?.peran);
-  const [waBusy, setWaBusy] = useState<string | null>(null);
+  const [ingatBusy, setIngatBusy] = useState<string | null>(null);
+  const [flash, setFlash] = useState("");
+  const [flashError, setFlashError] = useState("");
   const [snoozeTick, setSnoozeTick] = useState(0);
 
   useEffect(() => {
@@ -170,13 +169,22 @@ export function SetoranTelatBendaharaBanner({
   void snoozeTick;
   if (!telat.length) return null;
 
-  async function kirimWa(row: UangBelumDisetorPetugas) {
-    if (!row.petugas_id || !hasWhatsAppContact(row.petugas_nomor_kontak)) return;
-    setWaBusy(row.petugas_id);
+  async function kirimIngat(row: UangBelumDisetorPetugas) {
+    if (!row.petugas_id) return;
+    setIngatBusy(row.petugas_id);
+    setFlash("");
+    setFlashError("");
     try {
-      await openWhatsAppChat(row.petugas_nomor_kontak!, buildPesanWhatsAppSetoranTelat(row));
+      const out = await ingatPetugasSetor(row);
+      if (out.mode === "fonnte") {
+        setFlash(`Pengingat terkirim ke ${out.petugas_nama}.`);
+      } else if (out.mode === "whatsapp_web") {
+        setFlash("Fonnte belum siap — chat WhatsApp dibuka; tap Kirim di WhatsApp.");
+      } else {
+        setFlashError(out.message);
+      }
     } finally {
-      setWaBusy(null);
+      setIngatBusy(null);
     }
   }
 
@@ -191,6 +199,8 @@ export function SetoranTelatBendaharaBanner({
           <p className="font-medium">
             {telat.length} petugas belum menyetor lebih dari sehari
           </p>
+          {flash ? <p className="mt-1 text-[11px] text-emerald-800">{flash}</p> : null}
+          {flashError ? <p className="mt-1 text-[11px] text-red-700">{flashError}</p> : null}
           <ul className="mt-1.5 space-y-1.5">
             {telat.map((r) => (
               <li
@@ -209,10 +219,10 @@ export function SetoranTelatBendaharaBanner({
                       variant="secondary"
                       icon={MessageCircle}
                       className="h-8 text-[11px]"
-                      disabled={waBusy === r.petugas_id}
-                      onClick={() => void kirimWa(r)}
+                      disabled={ingatBusy === r.petugas_id}
+                      onClick={() => void kirimIngat(r)}
                     >
-                      {waBusy === r.petugas_id ? "Membuka…" : "WhatsApp"}
+                      {labelTombolIngatSetor(ingatBusy === r.petugas_id)}
                     </Button>
                   ) : (
                     <Link

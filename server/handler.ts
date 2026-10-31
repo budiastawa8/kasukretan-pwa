@@ -30,6 +30,8 @@ import {
 } from "./portal-routes.js";
 import { handlePublikCekTunggakanRoute } from "./publik-cek-tunggakan.js";
 import { handlePublikCekPetugasRoute } from "./publik-cek-petugas.js";
+import { ingatPetugasSetor, setoranIngatStatus } from "./setoran-ingat.js";
+import { isFonnteConfigured } from "./fonnte.js";
 
 type ApiRequest = IncomingMessage & { body?: unknown };
 
@@ -133,6 +135,7 @@ async function handleRoute(path: string, req: ApiRequest, res: ServerResponse): 
       dbReady,
       dbError,
       kkScan: { configured: isKkScanConfigured(), engine: isKkScanConfigured() ? "gemini" : null },
+      fonnte: { configured: isFonnteConfigured() },
     });
     return;
   }
@@ -217,6 +220,21 @@ async function handleRoute(path: string, req: ApiRequest, res: ServerResponse): 
       engine: isKkScanConfigured() ? "gemini" : null,
       model: isKkScanConfigured() ? kkScanModel() : null,
     });
+    return;
+  }
+
+  /** Status pengingat setor via Fonnte. */
+  if (path === "setoran/ingat-status" && method === "GET") {
+    send(res, 200, { ok: true, ...setoranIngatStatus() });
+    return;
+  }
+
+  /** Kirim pengingat setor ke petugas (WhatsApp lewat Fonnte). */
+  if (path === "setoran/ingat-petugas" && method === "POST") {
+    const body = await readBody(req);
+    const petugasId = String(body.petugasId ?? body.petugas_id ?? "");
+    const result = await ingatPetugasSetor(user, petugasId);
+    send(res, 200, result);
     return;
   }
 

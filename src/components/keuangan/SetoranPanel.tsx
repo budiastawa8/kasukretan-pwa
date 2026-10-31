@@ -21,12 +21,10 @@ import {
   type UangBelumDisetorPetugas,
 } from "../../lib/services/setoran";
 import { formatRupiah } from "../../lib/dudukan-hitung";
-import {
-  buildPesanWhatsAppSetoranTelat,
-  isSetoranTelat,
-} from "../../lib/setoran-telat";
+import { isSetoranTelat } from "../../lib/setoran-telat";
+import { ingatPetugasSetor, labelTombolIngatSetor } from "../../lib/setoran-ingat-ui";
 import { cn, formatTanggalLahir, today } from "../../lib/utils";
-import { hasWhatsAppContact, openWhatsAppChat } from "../../lib/whatsapp";
+import { hasWhatsAppContact } from "../../lib/whatsapp";
 import type { PenerimaanDanaLainJenis, PenerimaanDanaLainRow } from "../../lib/types";
 import {
   deletePenerimaanDanaLain,
@@ -139,6 +137,26 @@ export function SetoranPanel({
   const [riwayatDanaLain, setRiwayatDanaLain] = useState<PenerimaanDanaLainRow[]>([]);
   const [hapusDanaLainId, setHapusDanaLainId] = useState<string | null>(null);
   const [hapusDanaLainBusy, setHapusDanaLainBusy] = useState(false);
+  const [ingatBusyId, setIngatBusyId] = useState<string | null>(null);
+
+  async function kirimIngatSetor(r: UangBelumDisetorPetugas) {
+    if (!r.petugas_id) return;
+    setIngatBusyId(r.petugas_id);
+    setError("");
+    setInfo("");
+    try {
+      const out = await ingatPetugasSetor(r);
+      if (out.mode === "fonnte") {
+        setInfo(`Pengingat setor terkirim ke ${out.petugas_nama} via WhatsApp.`);
+      } else if (out.mode === "whatsapp_web") {
+        setInfo("Fonnte belum siap — chat WhatsApp dibuka; tap Kirim di WhatsApp.");
+      } else {
+        setError(out.message);
+      }
+    } finally {
+      setIngatBusyId(null);
+    }
+  }
 
   async function unduhPdf(s: SetoranRow) {
     setPdfBusy(s.id);
@@ -415,21 +433,24 @@ export function SetoranPanel({
                       </span>
                     </span>
                   </button>
-                  {telat && hasWhatsAppContact(r.petugas_nomor_kontak) ? (
+                  {telat && r.petugas_id && hasWhatsAppContact(r.petugas_nomor_kontak) ? (
                     <Button
                       type="button"
                       variant="secondary"
                       icon={MessageCircle}
                       className="mt-1 h-8 w-full text-[11px]"
-                      onClick={() =>
-                        void openWhatsAppChat(
-                          r.petugas_nomor_kontak!,
-                          buildPesanWhatsAppSetoranTelat(r)
-                        )
-                      }
+                      disabled={ingatBusyId === r.petugas_id}
+                      onClick={() => void kirimIngatSetor(r)}
                     >
-                      Pengingat WhatsApp
+                      {labelTombolIngatSetor(ingatBusyId === r.petugas_id)}
                     </Button>
+                  ) : telat && r.petugas_id && !hasWhatsAppContact(r.petugas_nomor_kontak) ? (
+                    <Link
+                      to="/master?tab=tim"
+                      className="mt-1 flex h-8 w-full items-center justify-center rounded-md border border-amber-300 bg-amber-50/80 text-[11px] font-medium text-amber-950 hover:bg-amber-50"
+                    >
+                      Isi kontak untuk ingat setor
+                    </Link>
                   ) : null}
                 </li>
               );
