@@ -476,13 +476,18 @@ export function DudukanPembayaranDialog({
     );
   }
 
+  /** Bayar semua tunggakan saja — bulan di muka (belum kewajiban) tidak ikut. */
   function isiSemuaSisa() {
+    const adaTunggakan = tunggakanBulan.length > 0;
     setBulanList((prev) =>
-      prev.map((b) =>
-        b.sisa > 0 ? { ...b, dipilih: true, jumlahInput: b.sisa } : b
-      )
+      prev.map((b) => {
+        const tunggakan = b.sisa > 0 && !b.di_muka;
+        return tunggakan
+          ? { ...b, dipilih: true, jumlahInput: b.sisa }
+          : { ...b, dipilih: false, jumlahInput: "" };
+      })
     );
-    if (isPhone) setMobileBayarStep("meta");
+    if (isPhone && adaTunggakan) setMobileBayarStep("meta");
   }
 
   function kosongkanPilihan() {
@@ -492,10 +497,10 @@ export function DudukanPembayaranDialog({
     if (isPhone) setMobileBayarStep("pilih");
   }
 
-  /** Pilih N bulan terlama yang masih punya sisa (urutan list = kronologis). */
+  /** Pilih N bulan tunggakan terlama (urutan list = kronologis; di muka dikecualikan). */
   function pilihNBulanTerlama(n: number) {
     setBulanList((prev) => {
-      const eligible = prev.filter((b) => b.sisa > 0);
+      const eligible = prev.filter((b) => b.sisa > 0 && !b.di_muka);
       const pick = new Set(
         eligible.slice(0, Math.max(0, n)).map((b) => periodeId(b.tahun, b.bulan))
       );
@@ -851,18 +856,17 @@ export function DudukanPembayaranDialog({
             {(!isPhone || mobileBayarStep === "pilih") && (
               <div className="shrink-0 space-y-1.5">
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <Button
-                    type="button"
-                    className={cn("text-xs font-semibold", isPhone ? "h-10 flex-1" : "h-8")}
-                    onClick={isiSemuaSisa}
-                  >
-                    Bayar semua
-                    {bulanDenganSisa.length > 0
-                      ? ` (${bulanDenganSisa.length} bln · ${formatRupiah(
-                          bulanDenganSisa.reduce((s, b) => s + b.sisa, 0)
-                        )})`
-                      : ""}
-                  </Button>
+                  {tunggakanBulan.length > 0 && (
+                    <Button
+                      type="button"
+                      className={cn("text-xs font-semibold", isPhone ? "h-10 flex-1" : "h-8")}
+                      onClick={isiSemuaSisa}
+                      title="Hanya tunggakan — bulan di muka tidak ikut"
+                    >
+                      Bayar semua tunggakan
+                      {` (${tunggakanBulan.length} bln · ${formatRupiah(totalSisa)})`}
+                    </Button>
+                  )}
                   {jumlahDipilih > 0 && (
                     <Button
                       type="button"
@@ -887,11 +891,11 @@ export function DudukanPembayaranDialog({
                     </Button>
                   )}
                 </div>
-                {bulanDenganSisa.length > 3 && (
+                {tunggakanBulan.length > 3 && (
                   <div className="flex flex-wrap items-center gap-1">
                     <span className="text-[11px] text-muted mr-0.5">Cepat:</span>
                     {[3, 6]
-                      .filter((n) => n < bulanDenganSisa.length)
+                      .filter((n) => n < tunggakanBulan.length)
                       .map((n) => (
                         <button
                           key={n}
@@ -913,7 +917,7 @@ export function DudukanPembayaranDialog({
                     )}
                   </div>
                 )}
-                {bulanDenganSisa.length <= 3 && bulanLunas > 0 && (
+                {tunggakanBulan.length <= 3 && bulanLunas > 0 && (
                   <button
                     type="button"
                     className="text-[11px] text-copper-800 hover:underline"

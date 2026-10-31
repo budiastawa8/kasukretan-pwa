@@ -239,11 +239,15 @@ export function PetugasDudukanPage() {
     );
   }
 
+  /** Bayar semua tunggakan saja — bulan di muka (belum kewajiban) tidak ikut. */
   function isiSemuaSisa() {
     setBulanList((prev) =>
-      prev.map((b) =>
-        b.sisa > 0 ? { ...b, dipilih: true, jumlahInput: b.sisa } : b
-      )
+      prev.map((b) => {
+        const tunggakan = b.sisa > 0 && !b.di_muka;
+        return tunggakan
+          ? { ...b, dipilih: true, jumlahInput: b.sisa }
+          : { ...b, dipilih: false, jumlahInput: "" };
+      })
     );
     setPaySheetOpen(true);
     setPayError("");
@@ -521,9 +525,15 @@ export function PetugasDudukanPage() {
 
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-semibold text-copper-900">Pilih periode dudukan</p>
-            {bulanList.some((b) => b.sisa > 0) && (
-              <Button type="button" variant="secondary" className="h-7 text-xs px-2" onClick={isiSemuaSisa}>
-                Isi semua sisa
+            {bulanList.some((b) => b.sisa > 0 && !b.di_muka) && (
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-7 text-xs px-2"
+                onClick={isiSemuaSisa}
+                title="Hanya tunggakan — bulan di muka tidak ikut"
+              >
+                Isi semua tunggakan
               </Button>
             )}
           </div>
