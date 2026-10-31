@@ -45,10 +45,35 @@ const CONNECT_TIMEOUT_MS = 12_000;
 const ADVERTISEMENT_WAIT_MS = 5_000;
 const WRITE_RECOVERY_ATTEMPTS = 2;
 
+export type PrinterPermissionKind = "never_paired" | "permission_lost";
+
 export class PrinterNotConfiguredError extends Error {
-  constructor() {
-    super("Printer belum dihubungkan. Tap tombol Printer sekali untuk memilih printer.");
+  readonly kind: PrinterPermissionKind;
+
+  constructor(kind: PrinterPermissionKind = "never_paired", printerName?: string | null) {
+    const name = printerName?.trim();
+    const message =
+      kind === "permission_lost"
+        ? `Printer${name ? ` “${name}”` : ""} pernah dipakai, tetapi izin Bluetooth browser hilang. Tap tombol Printer sekali untuk menghubungkan lagi (Chrome Android · jangan hapus data situs).`
+        : "Printer belum dihubungkan. Tap tombol Printer sekali untuk memilih printer.";
+    super(message);
     this.name = "PrinterNotConfiguredError";
+    this.kind = kind;
+  }
+}
+
+/** Status printer untuk UI: siap cetak vs perlu pair ulang. */
+export type PrinterReadiness =
+  | { status: "unsupported" }
+  | { status: "ready"; name: string }
+  | { status: "permission_lost"; name: string | null }
+  | { status: "never_paired" };
+
+function storedPrinterNameOnly(): string | null {
+  try {
+    return localStorage.getItem(PRINTER_NAME_KEY);
+  } catch {
+    return null;
   }
 }
 
@@ -343,6 +368,38 @@ async function requestPrinterDevice(): Promise<BluetoothDevice> {
   });
 }
 
+/**
+ * Cek kesiapan printer untuk UI.
+ * - ready: browser masih mengizinkan perangkat → Cetak tanpa dialog
+ * - permission_lost: nama/ID ada di HP, tapi getDevices() kosong → perlu tap Printer sekali
+ * - never_paired: belum pernah pair di browser ini
+ */
+export async function probePrinterReadiness(): Promise<PrinterReadiness> {
+  if (!isThermalBluetoothSupported()) return { status: "unsupported" };
+
+  if (sessionPrinter) {
+    return {
+      status: "ready",
+      name: sessionPrinter.name?.trim() || storedPrinterNameOnly() || "Printer thermal",
+    };
+  }
+
+  const device = await pickAuthorizedDevice();
+  if (device) {
+    rememberPrinter(device, true);
+    return {
+      status: "ready",
+      name: device.name?.trim() || storedPrinterNameOnly() || "Printer thermal",
+    };
+  }
+
+  const savedName = storedPrinterNameOnly();
+  if (savedPrinterId() || savedName) {
+    return { status: "permission_lost", name: savedName };
+  }
+  return { status: "never_paired" };
+}
+
 /** Muat printer tersimpan saat halaman dibuka — tanpa dialog pairing. */
 export async function warmUpSavedPrinter(): Promise<BluetoothDevice | null> {
   if (sessionPrinter) return sessionPrinter;
@@ -361,7 +418,11 @@ async function resolvePrinterForPrint(): Promise<BluetoothDevice> {
     return authorized;
   }
 
-  throw new PrinterNotConfiguredError();
+  const savedName = storedPrinterNameOnly();
+  if (savedPrinterId() || savedName) {
+    throw new PrinterNotConfiguredError("permission_lost", savedName);
+  }
+  throw new PrinterNotConfiguredError("never_paired");
 }
 
 export type ThermalPrintResult = { mode: "bluetooth"; deviceName: string };
