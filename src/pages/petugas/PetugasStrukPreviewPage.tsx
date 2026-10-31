@@ -59,8 +59,14 @@ export function PetugasStrukPreviewPage() {
   const [printing, setPrinting] = useState(false);
   const [pairing, setPairing] = useState(false);
   const [statusMsg, setStatusMsg] = useState("");
+  const [statusTone, setStatusTone] = useState<"ok" | "error">("ok");
   const [printerLabel, setPrinterLabel] = useState<string | null>(() => getCachedPrinterName());
   const bluetoothReady = isThermalBluetoothSupported();
+
+  function setStatus(msg: string, tone: "ok" | "error" = "ok") {
+    setStatusTone(tone);
+    setStatusMsg(msg);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -99,7 +105,10 @@ export function PetugasStrukPreviewPage() {
     if (!bluetoothReady) return;
     return onPrinterConnectionChange((connected) => {
       if (!connected && !busyRef.current) {
-        setStatusMsg("Printer terputus (mungkin mode hemat daya) — akan tersambung lagi otomatis saat Cetak");
+        setStatus(
+          "Printer terputus (mungkin mode hemat daya) — akan tersambung lagi otomatis saat Cetak",
+          "error"
+        );
       }
     });
   }, [bluetoothReady]);
@@ -120,15 +129,17 @@ export function PetugasStrukPreviewPage() {
       setPrinting(true);
       try {
         const result = await printEscPosViaBluetooth(escpos);
-        setStatusMsg(`Tercetak ke ${result.deviceName}`);
+        setStatus(`Tercetak ke ${result.deviceName}`, "ok");
         setPrinterLabel(result.deviceName);
         return;
       } catch (e) {
         if (e instanceof PrinterNotConfiguredError) {
+          setStatus(e.message, "error");
           window.alert(e.message);
           return;
         }
         const msg = e instanceof Error ? e.message : String(e);
+        setStatus(msg, "error");
         const retry = window.confirm(
           `${msg}\n\nCoba cetak lewat dialog browser sebagai cadangan?`
         );
@@ -152,10 +163,12 @@ export function PetugasStrukPreviewPage() {
       const name = await pairThermalPrinter();
       const label = name || getCachedPrinterName() || "Printer thermal";
       setPrinterLabel(label);
-      setStatusMsg(`Printer terhubung: ${label}`);
+      setStatus(`Printer terhubung: ${label}`, "ok");
     } catch (e) {
       if (e instanceof DOMException && e.name === "NotFoundError") return;
-      window.alert(e instanceof Error ? e.message : String(e));
+      const msg = e instanceof Error ? e.message : String(e);
+      setStatus(msg, "error");
+      window.alert(msg);
     } finally {
       setPairing(false);
     }
@@ -227,7 +240,15 @@ export function PetugasStrukPreviewPage() {
             </p>
           )}
           {statusMsg ? (
-            <p className="text-[11px] text-copper-800 mt-0.5 font-medium">{statusMsg}</p>
+            <p
+              className={
+                statusTone === "ok"
+                  ? "text-[11px] text-emerald-700 mt-0.5 font-medium"
+                  : "text-[11px] text-red-700 mt-0.5 font-medium"
+              }
+            >
+              {statusMsg}
+            </p>
           ) : null}
         </div>
         <div className="flex items-center gap-1 flex-wrap">

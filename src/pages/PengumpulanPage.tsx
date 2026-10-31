@@ -57,6 +57,7 @@ import {
 import { hariSejakTanggal, isSetoranTelat } from "../lib/setoran-telat";
 import { cn, formatTanggalLahir } from "../lib/utils";
 import type { PenerimaanDanaLainJenis } from "../lib/types";
+import "../styles/pengumpulan-module.css";
 
 const MODE_STORAGE_KEY = "kasukretan.pengumpulan_mode.v1";
 const MODE_STORAGE_KEY_LEGACY = "kasukretan.pungut_mode.v1";
@@ -323,18 +324,20 @@ export function PengumpulanPage() {
   }
 
   if (!petugasLoaded) {
-    return <p className="text-sm text-muted">Memuat…</p>;
+    return <p className="pengumpulan-module text-sm text-muted">Memuat…</p>;
   }
 
   if (!petugas) {
     return (
-      <Card title="Pengumpulan iuran">
-        <p className="text-sm text-amber-900">
-          Akun Anda belum dihubungkan ke nama di Tim Kasukretan. Minta admin membuka Pengaturan →
-          Pengguna, lalu memilih nama petugas untuk akun ini.
-        </p>
-        {error && <p className="mt-2 text-xs text-red-700">{error}</p>}
-      </Card>
+      <div className="pengumpulan-module max-w-xl mx-auto">
+        <Card title="Pengumpulan iuran">
+          <p className="text-sm text-amber-900">
+            Akun Anda belum dihubungkan ke nama di Tim Kasukretan. Minta admin membuka Pengaturan →
+            Pengguna, lalu memilih nama petugas untuk akun ini.
+          </p>
+          {error && <p className="mt-2 text-xs text-red-700">{error}</p>}
+        </Card>
+      </div>
     );
   }
 
@@ -356,7 +359,7 @@ export function PengumpulanPage() {
   const tidakAktif = krama != null && krama.status_krama !== "aktif";
 
   return (
-    <div className="space-y-3 max-w-xl mx-auto">
+    <div className="pengumpulan-module space-y-3 max-w-xl mx-auto">
       <Card title="Pengumpulan iuran">
         <p className="text-sm text-copper-950 font-medium">
           {petugas.nama}{" "}
@@ -412,7 +415,7 @@ export function PengumpulanPage() {
                 </Button>
                 <form onSubmit={cari} className="mt-2 flex gap-1.5">
                   <Input
-                    className="h-10 text-sm"
+                    className="h-10 text-sm border-copper-400 shadow-sm"
                     placeholder="Atau cari nama / nomor kartu"
                     value={q}
                     onChange={(e) => setQ(e.target.value)}

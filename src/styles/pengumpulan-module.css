@@ -1,0 +1,25 @@
+/* Modul Pengumpulan: panel lebih gelap dari field form agar petugas mudah melihat tempat input. */
+.pengumpulan-module {
+  --pengumpulan-panel: #f0e0d0;
+  --pengumpulan-field: #ffffff;
+  --pengumpulan-field-border: #c9956a;
+}
+
+.pengumpulan-module.bg-card,
+.pengumpulan-module .bg-card {
+  background-color: var(--pengumpulan-panel);
+}
+
+.pengumpulan-module input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not([type="submit"]):not([type="button"]),
+.pengumpulan-module select,
+.pengumpulan-module textarea {
+  background-color: var(--pengumpulan-field) !important;
+  border-color: var(--pengumpulan-field-border);
+}
+
+.pengumpulan-module input:focus,
+.pengumpulan-module select:focus,
+.pengumpulan-module textarea:focus {
+  border-color: #b87333;
+  box-shadow: 0 0 0 3px rgba(184, 115, 51, 0.22);
+}

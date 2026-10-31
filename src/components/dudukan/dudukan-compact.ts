@@ -14,7 +14,7 @@ export const DUDUKAN_DIALOG_TAB =
   "flex-1 inline-flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-semibold transition-colors";
 
 export const DUDUKAN_DIALOG_ZONE_BAYAR =
-  "rounded-lg border-2 border-copper-300 bg-copper-50/50 p-1.5 space-y-1";
+  "rounded-lg border-2 border-copper-300 bg-copper-100/90 p-1.5 space-y-1 [&_input]:bg-white [&_select]:bg-white [&_input]:border-copper-400 [&_select]:border-copper-400";
 
 export const DUDUKAN_DIALOG_ZONE_RIWAYAT =
   "rounded-lg border border-copper-200 bg-slate-50/80 p-1.5 space-y-1";

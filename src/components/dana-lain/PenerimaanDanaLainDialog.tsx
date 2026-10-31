@@ -33,6 +33,7 @@ import type {
   PenerimaanDanaLainSumberTipe,
   TimKasukretan,
 } from "../../lib/types";
+import "../../styles/pengumpulan-module.css";
 
 type Props = {
   open: boolean;
@@ -239,7 +240,7 @@ export function PenerimaanDanaLainDialog({
       open={open}
       onClose={onClose}
       title={title}
-      className="max-w-lg"
+      className="pengumpulan-module max-w-lg"
       onEnter={() => {
         if (!busy && !loadingEdit) void simpan();
       }}
