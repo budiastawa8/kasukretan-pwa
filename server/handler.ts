@@ -233,7 +233,13 @@ async function handleRoute(path: string, req: ApiRequest, res: ServerResponse): 
   if (path === "setoran/ingat-petugas" && method === "POST") {
     const body = await readBody(req);
     const petugasId = String(body.petugasId ?? body.petugas_id ?? "");
-    const result = await ingatPetugasSetor(user, petugasId);
+    const message =
+      typeof body.message === "string"
+        ? body.message
+        : typeof body.pesan === "string"
+          ? body.pesan
+          : undefined;
+    const result = await ingatPetugasSetor(user, petugasId, message);
     send(res, 200, result);
     return;
   }

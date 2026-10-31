@@ -92,9 +92,12 @@ export function setoranIngatStatus(): { configured: boolean } {
 /**
  * Kirim pengingat setor via Fonnte ke satu petugas yang masih pegang uang.
  */
+const MAX_MESSAGE_CHARS = 4000;
+
 export async function ingatPetugasSetor(
   user: PublicUser,
-  petugasIdRaw: string
+  petugasIdRaw: string,
+  messageOverride?: string | null
 ): Promise<{ ok: true; petugas_nama: string; target: string; detail?: string }> {
   assertBolehIngatkan(user);
 
@@ -128,9 +131,15 @@ export async function ingatPetugasSetor(
     );
   }
 
+  const custom = typeof messageOverride === "string" ? messageOverride.trim() : "";
+  if (custom.length > MAX_MESSAGE_CHARS) {
+    throw new HttpError(400, `Pesan terlalu panjang (maks. ${MAX_MESSAGE_CHARS} karakter).`);
+  }
+  const message = custom || buildPesan(row);
+
   const result = await sendFonnteText({
     target: row.petugas_nomor_kontak,
-    message: buildPesan(row),
+    message,
   });
 
   lastSentAt.set(petugasId, Date.now());

@@ -22,8 +22,10 @@ export async function ingatPetugasSetor(row: UangBelumDisetorPetugas): Promise<I
     };
   }
 
+  const pesan = buildPesanWhatsAppSetoranTelat(row);
+
   try {
-    const res = await ingatPetugasSetorViaFonnte(row.petugas_id);
+    const res = await ingatPetugasSetorViaFonnte(row.petugas_id, pesan);
     return { mode: "fonnte", petugas_nama: res.petugas_nama };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -31,10 +33,7 @@ export async function ingatPetugasSetor(row: UangBelumDisetorPetugas): Promise<I
       /FONNTE_TOKEN|belum dikonfigurasi|503/i.test(msg) ||
       msg.toLowerCase().includes("fonnte belum");
     if (belumFonnte) {
-      const opened = await openWhatsAppChat(
-        row.petugas_nomor_kontak!,
-        buildPesanWhatsAppSetoranTelat(row)
-      );
+      const opened = await openWhatsAppChat(row.petugas_nomor_kontak!, pesan);
       if (opened) return { mode: "whatsapp_web" };
       return { mode: "error", message: "Gagal membuka WhatsApp." };
     }

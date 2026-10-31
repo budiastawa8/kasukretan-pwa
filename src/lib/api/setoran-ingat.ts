@@ -14,10 +14,11 @@ export async function fetchSetoranIngatStatus(): Promise<{ configured: boolean }
 
 /** Kirim pengingat setor via Fonnte (server). Hanya admin/keuangan. */
 export async function ingatPetugasSetorViaFonnte(
-  petugasId: string
+  petugasId: string,
+  message?: string
 ): Promise<IngatPetugasSetorResult> {
   return lanFetch<IngatPetugasSetorResult>("/setoran/ingat-petugas", {
     method: "POST",
-    body: JSON.stringify({ petugasId }),
+    body: JSON.stringify({ petugasId, message: message?.trim() || undefined }),
   });
 }

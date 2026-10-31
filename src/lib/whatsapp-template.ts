@@ -7,6 +7,7 @@ const STORAGE_KEY_UMUM = "kasukretan.whatsapp.dudukan.umum";
 const STORAGE_KEY_PATURUNAN_TUNGGAKAN = "kasukretan.whatsapp.paturunan.tunggakan";
 const STORAGE_KEY_PATURUNAN_UMUM = "kasukretan.whatsapp.paturunan.umum";
 const STORAGE_KEY_MIPIL_UMUM = "kasukretan.whatsapp.mipil.umum";
+const STORAGE_KEY_SETORAN_TELAT = "kasukretan.whatsapp.setoran.telat";
 
 export const DEFAULT_DUDUKAN_TUNGGAKAN_TEMPLATE =
   "Yth. Bapak/Ibu {nama}, dudukan Kasukretan sebesar {total} ({bulan} bulan, periode {periode}) belum lunas. Mohon konfirmasi. Terima kasih.";
@@ -23,6 +24,16 @@ export const DEFAULT_PATURUNAN_UMUM_TEMPLATE =
 export const DEFAULT_MIPIL_UMUM_TEMPLATE =
   "Yth. Bapak/Ibu {nama}, terkait Krama Mipil Kasukretan. Mohon konfirmasi. Terima kasih.";
 
+/** Pengingat setor petugas (Fonnte / WhatsApp). */
+export const DEFAULT_SETORAN_TELAT_TEMPLATE = [
+  "Halo {nama},",
+  "",
+  "Anda masih memegang uang setoran sebesar {total} ({transaksi} transaksi) sejak {tanggal} ({hari} hari).",
+  "Mohon segera disetorkan ke bendahara agar masuk buku kas desa.",
+  "",
+  "Terima kasih.",
+].join("\n");
+
 export const WHATSAPP_TEMPLATE_PLACEHOLDERS = [
   { key: "{nama}", desc: "Nama pengajeg" },
   { key: "{total}", desc: "Total sisa (Rp)" },
@@ -32,6 +43,14 @@ export const WHATSAPP_TEMPLATE_PLACEHOLDERS = [
 
 export const MIPIL_WHATSAPP_TEMPLATE_PLACEHOLDERS = [
   { key: "{nama}", desc: "Nama pengarep" },
+] as const;
+
+export const SETORAN_TELAT_WHATSAPP_TEMPLATE_PLACEHOLDERS = [
+  { key: "{nama}", desc: "Nama petugas Tim Kasukretan" },
+  { key: "{total}", desc: "Total uang di tangan (Rp)" },
+  { key: "{transaksi}", desc: "Jumlah transaksi belum disetor" },
+  { key: "{tanggal}", desc: "Tanggal transaksi tertua (dd/mm/yyyy)" },
+  { key: "{hari}", desc: "Berapa hari sejak tanggal tertua" },
 ] as const;
 
 export const PATURUNAN_WHATSAPP_TEMPLATE_PLACEHOLDERS = [
@@ -120,10 +139,23 @@ export function resetMipilWhatsAppTemplates(): void {
   localStorage.removeItem(STORAGE_KEY_MIPIL_UMUM);
 }
 
+export function getSetoranTelatTemplate(): string {
+  return readTemplate(STORAGE_KEY_SETORAN_TELAT, DEFAULT_SETORAN_TELAT_TEMPLATE);
+}
+
+export function saveSetoranTelatTemplate(template: string): void {
+  localStorage.setItem(STORAGE_KEY_SETORAN_TELAT, template.trim());
+}
+
+export function resetSetoranTelatWhatsAppTemplate(): void {
+  localStorage.removeItem(STORAGE_KEY_SETORAN_TELAT);
+}
+
 export function resetAllWhatsAppTemplates(): void {
   resetDudukanWhatsAppTemplates();
   resetPaturunanWhatsAppTemplates();
   resetMipilWhatsAppTemplates();
+  resetSetoranTelatWhatsAppTemplate();
 }
 
 export function applyWhatsAppTemplate(
@@ -186,4 +218,21 @@ export function buildPaturunanWhatsAppMessageFromTemplate(params: {
 export function buildMipilWhatsAppMessageFromTemplate(params: { nama: string }): string {
   const nama = params.nama.trim() || "Bapak/Ibu";
   return applyWhatsAppTemplate(getMipilUmumTemplate(), { nama });
+}
+
+export function buildSetoranTelatWhatsAppMessageFromTemplate(params: {
+  nama: string;
+  total: number;
+  jumlahTransaksi: number;
+  tanggalTertua: string;
+  hari: number;
+}): string {
+  const nama = params.nama.trim() || "Petugas";
+  return applyWhatsAppTemplate(getSetoranTelatTemplate(), {
+    nama,
+    total: formatRupiah(params.total),
+    transaksi: String(Math.max(0, Math.round(params.jumlahTransaksi))),
+    tanggal: params.tanggalTertua,
+    hari: String(Math.max(0, Math.round(params.hari))),
+  });
 }

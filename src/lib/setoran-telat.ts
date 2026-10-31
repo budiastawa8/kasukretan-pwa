@@ -6,6 +6,7 @@ import { parseIsoDateString } from "./date-iso";
 import type { UangBelumDisetorPetugas } from "./services/setoran";
 import { formatRupiah } from "./dudukan-hitung";
 import { formatTanggalLahir, pad2, today } from "./utils";
+import { buildSetoranTelatWhatsAppMessageFromTemplate } from "./whatsapp-template";
 
 const SNOOZE_KEY = "kasukretan.setoran_telat_snooze.v1";
 const NOTIF_SENT_KEY = "kasukretan.setoran_telat_notif.v1";
@@ -44,14 +45,13 @@ export function ringkasanTeksSetoranTelat(row: UangBelumDisetorPetugas): string 
 
 export function buildPesanWhatsAppSetoranTelat(row: UangBelumDisetorPetugas): string {
   const hari = hariSejakTanggal(row.tanggal_tertua) ?? 0;
-  return [
-    `Halo ${row.petugas_nama},`,
-    "",
-    `Anda masih memegang uang setoran sebesar ${formatRupiah(row.total)} (${row.jumlah_transaksi} transaksi) sejak ${formatTanggalLahir(row.tanggal_tertua)} (${hari} hari).`,
-    "Mohon segera disetorkan ke bendahara agar masuk buku kas desa.",
-    "",
-    "Terima kasih.",
-  ].join("\n");
+  return buildSetoranTelatWhatsAppMessageFromTemplate({
+    nama: row.petugas_nama,
+    total: row.total,
+    jumlahTransaksi: row.jumlah_transaksi,
+    tanggalTertua: formatTanggalLahir(row.tanggal_tertua),
+    hari,
+  });
 }
 
 type SnoozeMap = Record<string, string>;

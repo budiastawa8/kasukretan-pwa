@@ -24,7 +24,7 @@ import { UsersPanel } from "../components/settings/UsersPanel";
 import { WhatsAppTemplatePanel } from "../components/settings/WhatsAppTemplatePanel";
 import { AppAboutPanel } from "../components/settings/AppAboutPanel";
 import { ChangePasswordPanel } from "../components/settings/ChangePasswordPanel";
-import { isAdmin } from "../lib/auth-roles";
+import { canEditKeuangan, isAdmin } from "../lib/auth-roles";
 import {
   isOnlineModuleEnabledSync,
   refreshOnlineModuleLicense,
@@ -94,6 +94,7 @@ export function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const admin = isAdmin(user?.peran);
   const canEdit = admin;
+  const canEditWaTemplates = admin || canEditKeuangan(user?.peran);
   const desktop = isDesktopApp();
   const onlineFromHook = useOnlineModuleEnabled();
   const [onlineBump, setOnlineBump] = useState(0);
@@ -322,7 +323,7 @@ export function SettingsPage() {
             </form>
           </Card>
 
-          {canEdit && <WhatsAppTemplatePanel />}
+          {canEditWaTemplates && <WhatsAppTemplatePanel />}
 
           <AppAboutPanel />
         </div>
