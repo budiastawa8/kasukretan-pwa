@@ -159,13 +159,18 @@ export function usePembayaranAkunDanPetugas(options: {
     );
   }, [options.banjarId]);
 
+  const listAkunRef = useRef(options.listAkunTransaksional);
+  const getDefaultAkunRef = useRef(options.getDefaultAkunId);
+  listAkunRef.current = options.listAkunTransaksional;
+  getDefaultAkunRef.current = options.getDefaultAkunId;
+
   const loadAkun = useCallback(
     async (forPetugasId?: string | null) => {
       const pid = forPetugasId ?? options.lockedPetugasId ?? petugasId;
       const [akuns, allAkun, defaultId] = await Promise.all([
-        options.listAkunTransaksional(pid),
+        listAkunRef.current(pid),
         listAkunKeuangan(true),
-        options.getDefaultAkunId(pid).catch(() => ""),
+        getDefaultAkunRef.current(pid).catch(() => ""),
       ]);
       setAkunList(akuns);
       setAkunLabelCtx(allAkun);
@@ -174,7 +179,7 @@ export function usePembayaranAkunDanPetugas(options: {
         return defaultId || akuns[0]?.id || "";
       });
     },
-    [options.listAkunTransaksional, options.getDefaultAkunId, options.lockedPetugasId, petugasId]
+    [options.lockedPetugasId, petugasId]
   );
 
   useEffect(() => {

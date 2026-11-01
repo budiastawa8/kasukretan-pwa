@@ -74,6 +74,14 @@ function bisaKeringanan(b: DudukanTunggakanBulan) {
   return b.sisa > 0 && !b.keringanan_id && !b.di_muka;
 }
 
+/** Referensi stabil — hindari loop loadAkun di usePembayaranAkunDanPetugas. */
+async function getDefaultAkunDudukanUntukPetugas(
+  petugasId?: string | null
+): Promise<string> {
+  if (await isPetugasTimBantuanAktif(petugasId)) return getDefaultAkunTimBantuanId();
+  return getDefaultAkunDudukanId();
+}
+
 export function DudukanPembayaranDialog({
   open,
   onClose,
@@ -128,11 +136,8 @@ export function DudukanPembayaranDialog({
   } = usePembayaranAkunDanPetugas({
     open,
     banjarId: detail?.banjar_id ?? "",
-    listAkunTransaksional: (pid) => listAkunForPembayaranDudukan(pid),
-    getDefaultAkunId: async (pid) => {
-      if (await isPetugasTimBantuanAktif(pid)) return getDefaultAkunTimBantuanId();
-      return getDefaultAkunDudukanId();
-    },
+    listAkunTransaksional: listAkunForPembayaranDudukan,
+    getDefaultAkunId: getDefaultAkunDudukanUntukPetugas,
     lockedPetugasId,
   });
   const [tanggal, setTanggal] = useState(today());
