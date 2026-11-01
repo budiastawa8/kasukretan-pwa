@@ -746,7 +746,7 @@ export function KeuanganPage() {
         selectedAkunId={tab === "buku-kas" ? akunId : undefined}
         onSelectAkun={pilihAkunDariRingkasan}
         loading={ringkasanLoading}
-        layout="three-col"
+        layout="kelompok-row"
       />
 
       <div className="flex gap-1 p-0.5 rounded-md bg-copper-100/80 border border-copper-200 w-full sm:w-fit overflow-x-auto app-scroll-x">

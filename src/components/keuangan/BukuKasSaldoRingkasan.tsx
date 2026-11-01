@@ -11,6 +11,8 @@ function jenisBadgeClass(jenis: RingkasanSaldoAkun["akun_jenis"]): string {
       return "bg-amber-100 text-amber-900";
     case "kas_paturunan":
       return "bg-violet-100 text-violet-900";
+    case "dana_tim_bantuan":
+      return "bg-teal-100 text-teal-900";
     case "bank":
       return "bg-sky-100 text-sky-900";
     case "ewallet":
@@ -50,7 +52,7 @@ function kelompokTheme(jenis: RingkasanSaldoAkun["akun_jenis"]): KelompokTheme {
       subCard: "border-amber-200 bg-white hover:border-amber-300",
       subSelected: "border-amber-500 bg-amber-50/80 ring-1 ring-amber-300",
       Icon: HandCoins,
-      indukLabel: "Induk Dana Dudukan",
+      indukLabel: "Induk",
     };
   }
   if (jenis === "kas_paturunan") {
@@ -67,7 +69,24 @@ function kelompokTheme(jenis: RingkasanSaldoAkun["akun_jenis"]): KelompokTheme {
       subCard: "border-violet-200 bg-white hover:border-violet-300",
       subSelected: "border-violet-500 bg-violet-50/80 ring-1 ring-violet-300",
       Icon: Coins,
-      indukLabel: "Induk Dana Paturunan",
+      indukLabel: "Induk",
+    };
+  }
+  if (jenis === "dana_tim_bantuan") {
+    return {
+      section: "border-teal-300/80 bg-teal-50/40",
+      parent:
+        "border-2 border-teal-400 bg-gradient-to-br from-teal-100/90 via-teal-50 to-white shadow-sm",
+      parentSelected: "ring-2 ring-teal-500 border-teal-500",
+      parentIconWrap: "bg-teal-600 text-white",
+      parentTitle: "text-teal-950",
+      parentSaldo: "text-teal-950",
+      badge: "bg-teal-700 text-white",
+      subGrid: "border-teal-200/80 bg-white/60",
+      subCard: "border-teal-200 bg-white hover:border-teal-300",
+      subSelected: "border-teal-500 bg-teal-50/80 ring-1 ring-teal-300",
+      Icon: Layers,
+      indukLabel: "Induk",
     };
   }
   return {
@@ -82,7 +101,7 @@ function kelompokTheme(jenis: RingkasanSaldoAkun["akun_jenis"]): KelompokTheme {
     subCard: "border-copper-200 bg-white hover:border-copper-300",
     subSelected: "border-copper-500 bg-copper-50 ring-1 ring-copper-300",
     Icon: Layers,
-    indukLabel: "Induk kelompok",
+    indukLabel: "Induk",
   };
 }
 
@@ -189,8 +208,8 @@ function SaldoCard({
           )}
           <p
             className={cn(
-              "font-bold tabular-nums mt-1",
-              isParent && theme && cn("text-xl", theme.parentSaldo),
+              "font-bold tabular-nums mt-1 tracking-tight",
+              isParent && theme && cn("text-lg xl:text-xl", theme.parentSaldo),
               isSub && "text-base text-copper-950",
               variant === "standalone" && "text-lg text-copper-950",
               row.saldo < 0 && "text-red-700"
@@ -272,8 +291,12 @@ export function BukuKasSaldoRingkasan({
   selectedAkunId?: string;
   onSelectAkun?: (akunId: string) => void;
   loading?: boolean;
-  /** Keuangan page: tiga kelompok akun sejajar. Dashboard: grid 2 kolom. */
-  layout?: "default" | "three-col";
+  /**
+   * Keuangan (`kelompok-row`): 1 → 2×2 → 4 sejajar.
+   * Dashboard (`default`): grid 2 kolom.
+   * `three-col` tetap didukung (= `kelompok-row`).
+   */
+  layout?: "default" | "three-col" | "kelompok-row";
 }) {
   const isPhone = useIsPhoneClient();
 
@@ -301,13 +324,31 @@ export function BukuKasSaldoRingkasan({
     .filter((b): b is Extract<SaldoBlock, { kind: "standalone" }> => b.kind === "standalone")
     .map((b) => b.row);
   const clickable = !!onSelectAkun;
-  const threeCol = layout === "three-col";
+  const kelompokRow = layout === "three-col" || layout === "kelompok-row";
+  const kelompokCount = Math.max(1, kelompokBlocks.length);
   const kelompokGridClass = isPhone
     ? "grid gap-3 grid-cols-1 items-start"
-    : threeCol
-      ? "grid gap-3 grid-cols-1 lg:grid-cols-3 items-start"
+    : kelompokRow
+      ? cn(
+          "grid gap-3 items-start",
+          // Hindari baris orphan (3+1): medium 2 kolom, layar lebar = jumlah kelompok (max 4).
+          "sm:grid-cols-2",
+          kelompokCount >= 4
+            ? "xl:grid-cols-4"
+            : kelompokCount === 3
+              ? "xl:grid-cols-3"
+              : "xl:grid-cols-2"
+        )
       : "grid gap-3 lg:grid-cols-2 items-start";
-  const standaloneSpanClass = isPhone ? "" : threeCol ? "lg:col-span-3" : "lg:col-span-2";
+  const standaloneSpanClass = isPhone
+    ? ""
+    : kelompokRow
+      ? kelompokCount >= 4
+        ? "xl:col-span-4 sm:col-span-2"
+        : kelompokCount === 3
+          ? "xl:col-span-3 sm:col-span-2"
+          : "sm:col-span-2"
+      : "lg:col-span-2";
   const standaloneGridClass = isPhone
     ? "grid gap-2 grid-cols-1"
     : "grid gap-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4";
@@ -386,9 +427,9 @@ export function BukuKasSaldoRingkasan({
 
       {onSelectAkun && (
         <p className="text-[11px] text-muted">
-          {threeCol
-            ? "Dana Paturunan · Dana Dudukan · Dana Kasukretan Lainnya. Klik kartu induk atau sub-akun untuk buka buku kas."
-            : "Kiri: Dana Paturunan · Kanan: Dana Dudukan. Klik kartu induk atau sub-akun untuk buka buku kas."}
+          {kelompokRow
+            ? "Klik kartu induk atau sub-akun untuk membuka buku kas kelompok itu."
+            : "Klik kartu induk atau sub-akun untuk buka buku kas."}
         </p>
       )}
     </div>
