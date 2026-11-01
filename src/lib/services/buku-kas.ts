@@ -1,5 +1,6 @@
 import { parseIsoDateString } from "../date-iso";
 import { getDb } from "../db/client";
+import { isTimBantuanFiturAktif } from "../tim-bantuan";
 import {
   formatSubAkunKelompokNama,
   getAkunKeuangan,
@@ -8,8 +9,10 @@ import {
   sortKelompokAkun,
   listAkunKeuangan,
 } from "./akun-keuangan";
+import { getDesaAdat } from "./desa";
 import type {
   AkunKeuanganJenis,
+  AkunKeuanganRow,
   BukuKasBaris,
   BukuKasJenisTransaksi,
   LaporanBukuKasBaris,
@@ -314,12 +317,56 @@ export async function listRingkasanSaldoAkun(): Promise<RingkasanSaldoAkun[]> {
   });
 }
 
+/**
+ * Toggle Tim Bantuan mati dan saldo gabungan Dana Tim Bantuan = 0
+ * → sembunyikan pembukuan kelompok itu dari ringkasan/filter operasional.
+ */
+export async function isDanaTimBantuanPembukuanDisembunyikan(
+  flat?: RingkasanSaldoAkun[],
+  allAkun?: AkunKeuanganRow[]
+): Promise<boolean> {
+  const desa = await getDesaAdat();
+  if (isTimBantuanFiturAktif(desa)) return false;
+  const [saldoRows, akunRows] = await Promise.all([
+    flat ? Promise.resolve(flat) : listRingkasanSaldoAkun(),
+    allAkun ? Promise.resolve(allAkun) : listAkunKeuangan(true),
+  ]);
+  const kelompok = akunRows.find(
+    (a) => isAkunKelompokRow(a) && a.jenis === "dana_tim_bantuan"
+  );
+  if (!kelompok) return true;
+  const saldoById = new Map(saldoRows.map((r) => [r.akun_id, r.saldo]));
+  const saldo = akunRows
+    .filter((s) => s.parent_akun_id === kelompok.id && !isAkunKelompokRow(s))
+    .reduce((sum, c) => sum + (saldoById.get(c.id) ?? 0), 0);
+  return saldo === 0;
+}
+
+/** Buang kelompok + sub-akun Dana Tim Bantuan dari daftar akun operasional. */
+export function filterAkunTanpaDanaTimBantuanTersembunyi(
+  akun: AkunKeuanganRow[],
+  hide: boolean
+): AkunKeuanganRow[] {
+  if (!hide) return akun;
+  const kelompokIds = new Set(
+    akun
+      .filter((a) => isAkunKelompokRow(a) && a.jenis === "dana_tim_bantuan")
+      .map((a) => a.id)
+  );
+  return akun.filter((a) => {
+    if (isAkunKelompokRow(a) && a.jenis === "dana_tim_bantuan") return false;
+    if (a.parent_akun_id && kelompokIds.has(a.parent_akun_id)) return false;
+    return true;
+  });
+}
+
 /** Ringkasan saldo dengan baris induk kelompok (agregat sub-akun). */
 export async function listRingkasanSaldoDisplay(): Promise<{
   rows: RingkasanSaldoAkun[];
   totalSaldo: number;
 }> {
   const [flat, allAkun] = await Promise.all([listRingkasanSaldoAkun(), listAkunKeuangan(true)]);
+  const hideDanaTimBantuan = await isDanaTimBantuanPembukuanDisembunyikan(flat, allAkun);
   const saldoById = new Map(flat.map((r) => [r.akun_id, r]));
   const kelompok = sortKelompokAkun(allAkun.filter((a) => isAkunKelompokRow(a)));
   const subs = allAkun.filter((a) => a.parent_akun_id && !isAkunKelompokRow(a));
@@ -340,13 +387,18 @@ export async function listRingkasanSaldoDisplay(): Promise<{
         totalSaldo += s.saldo;
       }
     }
+    const saldo = pemasukan - pengeluaran;
+    if (hideDanaTimBantuan && k.jenis === "dana_tim_bantuan") {
+      // Saldo sudah 0; jangan tampilkan kartu/pembukuan kelompok.
+      continue;
+    }
     rows.push({
       akun_id: k.id,
       akun_nama: k.nama,
       akun_jenis: k.jenis,
       pemasukan,
       pengeluaran,
-      saldo: pemasukan - pengeluaran,
+      saldo,
       is_kelompok: true,
       depth: 0,
     });

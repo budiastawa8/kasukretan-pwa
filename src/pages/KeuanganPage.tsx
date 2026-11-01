@@ -11,7 +11,9 @@ import {
   resolveAkunDisplayNama,
 } from "../lib/services/akun-keuangan";
 import {
+  filterAkunTanpaDanaTimBantuanTersembunyi,
   getSaldoAkun,
+  isDanaTimBantuanPembukuanDisembunyikan,
   loadBukuKasForAkun,
   listRingkasanSaldoDisplay,
   type RingkasanSaldoAkun,
@@ -191,11 +193,13 @@ export function KeuanganPage() {
 
   useEffect(() => {
     void (async () => {
-      const [a, p, pm] = await Promise.all([
+      const [aRaw, p, pm, hideDanaTimBantuan] = await Promise.all([
         listAkunKeuanganHierarkis(true),
         listPosBiaya(true),
         listPosPemasukan(true),
+        isDanaTimBantuanPembukuanDisembunyikan(),
       ]);
+      const a = filterAkunTanpaDanaTimBantuanTersembunyi(aRaw, hideDanaTimBantuan);
       setAkun(a);
       setPosBiaya(p);
       setPosPemasukan(pm);
