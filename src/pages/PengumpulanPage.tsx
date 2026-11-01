@@ -330,7 +330,7 @@ export function PengumpulanPage() {
   if (!petugas) {
     return (
       <div className="pengumpulan-module max-w-xl mx-auto">
-        <Card title="Pengumpulan iuran">
+        <Card title="Pengumpulan Dana Partisipasi">
           <p className="text-sm text-amber-900">
             Akun Anda belum dihubungkan ke nama di Tim Kasukretan. Minta admin membuka Pengaturan →
             Pengguna, lalu memilih nama petugas untuk akun ini.
@@ -360,7 +360,7 @@ export function PengumpulanPage() {
 
   return (
     <div className="pengumpulan-module space-y-3 max-w-xl mx-auto">
-      <Card title="Pengumpulan iuran">
+      <Card title="Pengumpulan Dana Partisipasi">
         <p className="text-sm text-copper-950 font-medium">
           {petugas.nama}{" "}
           <span className="text-muted font-normal">
