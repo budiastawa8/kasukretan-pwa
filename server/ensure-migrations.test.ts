@@ -65,6 +65,17 @@ describe("ensureServerMigrations", () => {
     dbSelect.mockResolvedValueOnce([{ name: "id" }, { name: "tim_bantuan_aktif" }]);
     dbSelect.mockResolvedValueOnce([{ name: "id" }, { name: "nomor_kartu" }]);
     dbSelect.mockResolvedValueOnce([{ x: 1 }]);
+    // seed kas_tim_bantuan_alokasi bila kosong
+    dbSelect.mockResolvedValueOnce([{ c: 0 }]);
+    dbSelect.mockResolvedValueOnce([
+      { pos_biaya_id: "pos1", persen: 30, urutan: 1 },
+      { pos_biaya_id: "pos2", persen: 70, urutan: 2 },
+    ]);
+    // ensureColumn plafon_pool: PRAGMA tanpa kolom → ALTER
+    dbSelect.mockResolvedValueOnce([{ name: "id" }, { name: "akun_keuangan_id" }]);
+    // seed Dana Tim Bantuan: kelompok belum ada → INSERT; tunai belum ada → INSERT
+    dbSelect.mockResolvedValueOnce([]);
+    dbSelect.mockResolvedValueOnce([]);
     dbExecute.mockResolvedValue({ rowsAffected: 0 });
 
     const { ensureServerMigrations } = await import("./ensure-migrations.js");
@@ -97,6 +108,24 @@ describe("ensureServerMigrations", () => {
     expect(dbExecute).toHaveBeenCalledWith(
       "CREATE INDEX IF NOT EXISTS idx_pembayaran_hapus_log_sumber ON pembayaran_hapus_log (sumber)"
     );
+    expect(
+      dbExecute.mock.calls.some(
+        (c) =>
+          typeof c[0] === "string" &&
+          c[0].includes("CREATE TABLE IF NOT EXISTS kas_tim_bantuan_alokasi")
+      )
+    ).toBe(true);
+    expect(dbExecute).toHaveBeenCalledWith(
+      "ALTER TABLE transaksi_pengeluaran ADD COLUMN plafon_pool TEXT NOT NULL DEFAULT 'utama'"
+    );
+    expect(
+      dbExecute.mock.calls.some(
+        (c) =>
+          typeof c[0] === "string" &&
+          c[0].includes("Dana Tim Bantuan") &&
+          c[0].includes("INSERT INTO akun_keuangan")
+      )
+    ).toBe(true);
   });
 
   it("tidak ALTER bila kolom sudah ada; backfill hanya jika ada baris stale", async () => {
@@ -108,6 +137,11 @@ describe("ensureServerMigrations", () => {
       .mockResolvedValueOnce(TIM_FULL)
       .mockResolvedValueOnce(TIM_FULL);
     mockAfterKartuColumns({ staleNorm: [{ x: 1 }] });
+    // seed sudah ada + plafon_pool sudah ada + Dana Tim Bantuan sudah ada
+    dbSelect.mockResolvedValueOnce([{ c: 1 }]);
+    dbSelect.mockResolvedValueOnce([{ name: "id" }, { name: "plafon_pool" }]);
+    dbSelect.mockResolvedValueOnce([{ id: "kel-tb" }]);
+    dbSelect.mockResolvedValueOnce([{ id: "tunai-tb" }]);
     dbExecute.mockResolvedValue({ rowsAffected: 0 });
 
     const { ensureServerMigrations } = await import("./ensure-migrations.js");
@@ -133,6 +167,10 @@ describe("ensureServerMigrations", () => {
       .mockResolvedValueOnce(TIM_FULL)
       .mockResolvedValueOnce(TIM_FULL);
     mockAfterKartuColumns({ staleNorm: [] });
+    dbSelect.mockResolvedValueOnce([{ c: 1 }]);
+    dbSelect.mockResolvedValueOnce([{ name: "id" }, { name: "plafon_pool" }]);
+    dbSelect.mockResolvedValueOnce([{ id: "kel-tb" }]);
+    dbSelect.mockResolvedValueOnce([{ id: "tunai-tb" }]);
     dbExecute.mockResolvedValue({ rowsAffected: 0 });
 
     const { ensureServerMigrations } = await import("./ensure-migrations.js");

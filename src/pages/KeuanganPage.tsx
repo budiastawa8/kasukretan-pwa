@@ -17,7 +17,11 @@ import {
   type RingkasanSaldoAkun,
 } from "../lib/services/buku-kas";
 import { listPosBiaya } from "../lib/services/pos-biaya";
-import { listAlokasiKasDudukan } from "../lib/services/kas-dudukan-alokasi";
+import {
+  labelPlafonPool,
+  listAlokasiPlafon,
+  type PlafonPool,
+} from "../lib/services/kas-dudukan-alokasi";
 import { listPosPemasukan } from "../lib/services/pos-pemasukan";
 import {
   createTransaksiPemasukan,
@@ -187,16 +191,14 @@ export function KeuanganPage() {
 
   useEffect(() => {
     void (async () => {
-      const [a, p, pm, alok] = await Promise.all([
+      const [a, p, pm] = await Promise.all([
         listAkunKeuanganHierarkis(true),
         listPosBiaya(true),
         listPosPemasukan(true),
-        listAlokasiKasDudukan(),
       ]);
       setAkun(a);
       setPosBiaya(p);
       setPosPemasukan(pm);
-      setAlokasiPosIds(new Set(alok.map((x) => x.pos_biaya_id)));
       if (a[0] && !akunId) setAkunId(a[0].id);
       const firstTransaksional = a.find((x) => !isAkunKelompokRow(x));
       if (firstTransaksional && !pgAkunId) setPgAkunId(firstTransaksional.id);
@@ -437,20 +439,33 @@ export function KeuanganPage() {
   const totalPg = pgBaris.reduce((s, b) => s + (Number(b.jumlah) > 0 ? Math.round(Number(b.jumlah)) : 0), 0);
 
   const pgAkun = useMemo(() => akun.find((a) => a.id === pgAkunId), [akun, pgAkunId]);
-  const isPgKasDudukan = isAkunSubOfKelompok(pgAkun, "kas_dudukan", akun);
-  const posUntukPengeluaran = useMemo(() => {
-    if (!isPgKasDudukan) return posBiaya;
-    return posBiaya.filter((p) => alokasiPosIds.has(p.id));
-  }, [isPgKasDudukan, posBiaya, alokasiPosIds]);
+  const isPgPlafonUtama =
+    isAkunSubOfKelompok(pgAkun, "kas_dudukan", akun) ||
+    isAkunSubOfKelompok(pgAkun, "dana_kasukretan_lainnya", akun) ||
+    isAkunSubOfKelompok(pgAkun, "dana_tim_bantuan", akun);
+  const pgPlafonPool: PlafonPool = isAkunSubOfKelompok(pgAkun, "dana_tim_bantuan", akun)
+    ? "bantuan"
+    : "utama";
 
   useEffect(() => {
-    if (!isPgKasDudukan) return;
+    void listAlokasiPlafon(pgPlafonPool).then((alok) => {
+      setAlokasiPosIds(new Set(alok.map((x) => x.pos_biaya_id)));
+    });
+  }, [pgPlafonPool]);
+
+  const posUntukPengeluaran = useMemo(() => {
+    if (!isPgPlafonUtama) return posBiaya;
+    return posBiaya.filter((p) => alokasiPosIds.has(p.id));
+  }, [isPgPlafonUtama, posBiaya, alokasiPosIds]);
+
+  useEffect(() => {
+    if (!isPgPlafonUtama) return;
     setPgBaris((prev) =>
       prev.map((b) =>
         b.posBiayaId && !alokasiPosIds.has(b.posBiayaId) ? { ...b, posBiayaId: "" } : b
       )
     );
-  }, [isPgKasDudukan, alokasiPosIds, pgAkunId]);
+  }, [isPgPlafonUtama, alokasiPosIds, pgAkunId]);
   const totalPm = pmBaris.reduce((s, b) => s + (Number(b.jumlah) > 0 ? Math.round(Number(b.jumlah)) : 0), 0);
 
   function resetFormPemasukan() {
@@ -1477,19 +1492,23 @@ export function KeuanganPage() {
                     <Input value={pgKet} onChange={(e) => setPgKet(e.target.value)} placeholder="Opsional" />
                   </div>
                 </div>
-                {isPgKasDudukan && pgAkunId && (
+                {isPgPlafonUtama && pgAkunId && (
                   <KasDudukanPlafonPanel
                     akunKeuanganId={pgAkunId}
                     tanggal={pgTanggal}
                     baris={pgBaris}
                     excludeTransaksiId={editingId}
+                    pool={pgPlafonPool}
                   />
                 )}
                 <div className="space-y-2">
                   <p className="text-xs font-medium text-copper-900">
                     Pos biaya
-                    {isPgKasDudukan && (
-                      <span className="font-normal text-muted ml-1">(hanya alokasi Dana Dudukan)</span>
+                    {isPgPlafonUtama && (
+                      <span className="font-normal text-muted ml-1">
+                        (plafon {labelPlafonPool(pgPlafonPool)}
+                        {pgPlafonPool === "bantuan" ? " — akun Dana Tim Bantuan" : ""})
+                      </span>
                     )}
                   </p>
                   {pgBaris.map((b, i) => (

@@ -15,8 +15,9 @@ import {
 } from "../../lib/services/akun-keuangan";
 import { createPosBiaya, deletePosBiaya, listPosBiaya, updatePosBiaya } from "../../lib/services/pos-biaya";
 import {
-  listAlokasiKasDudukan,
-  updateAlokasiKasDudukan,
+  isPlafonTimBantuanAktif,
+  listAlokasiPlafon,
+  updateAlokasiPlafon,
 } from "../../lib/services/kas-dudukan-alokasi";
 import {
   createPosPemasukan,
@@ -79,18 +80,35 @@ export function KeuanganMasterTab({ canEdit }: { canEdit: boolean }) {
   const [alokasi, setAlokasi] = useState<KasDudukanAlokasiRow[]>([]);
   const [alokasiDraft, setAlokasiDraft] = useState<{ id: string; persen: number }[]>([]);
   const [alokasiBusy, setAlokasiBusy] = useState(false);
+  const [alokasiBantuan, setAlokasiBantuan] = useState<KasDudukanAlokasiRow[]>([]);
+  const [alokasiBantuanDraft, setAlokasiBantuanDraft] = useState<{ id: string; persen: number }[]>(
+    []
+  );
+  const [alokasiBantuanBusy, setAlokasiBantuanBusy] = useState(false);
+  const [timBantuanAktif, setTimBantuanAktif] = useState(false);
 
   const alokasiPosIds = useMemo(() => new Set(alokasi.map((a) => a.pos_biaya_id)), [alokasi]);
   const totalPersenAlokasi = alokasiDraft.reduce((s, a) => s + (Number(a.persen) || 0), 0);
+  const totalPersenAlokasiBantuan = alokasiBantuanDraft.reduce(
+    (s, a) => s + (Number(a.persen) || 0),
+    0
+  );
 
   const refresh = useCallback(async () => {
     const rows = await listAkunKeuanganHierarkis(false);
     setAkun(rows);
     setPos(await listPosBiaya(false));
     setPosMasuk(await listPosPemasukan(false));
-    const alok = await listAlokasiKasDudukan();
+    const [alok, alokBantuan, bantuanAktif] = await Promise.all([
+      listAlokasiPlafon("utama"),
+      listAlokasiPlafon("bantuan"),
+      isPlafonTimBantuanAktif(),
+    ]);
     setAlokasi(alok);
     setAlokasiDraft(alok.map((a) => ({ id: a.id, persen: a.persen })));
+    setAlokasiBantuan(alokBantuan);
+    setAlokasiBantuanDraft(alokBantuan.map((a) => ({ id: a.id, persen: a.persen })));
+    setTimBantuanAktif(bantuanAktif);
     const firstKelompok = rows.find((a) => isAkunKelompokRow(a));
     if (firstKelompok && !subKelompokId) setSubKelompokId(firstKelompok.id);
   }, [subKelompokId]);
@@ -167,12 +185,27 @@ export function KeuanganMasterTab({ canEdit }: { canEdit: boolean }) {
     setAlokasiBusy(true);
     setError("");
     try {
-      await updateAlokasiKasDudukan(alokasiDraft);
+      await updateAlokasiPlafon("utama", alokasiDraft);
       await refresh();
     } catch (err) {
       setError(formatError(err));
     } finally {
       setAlokasiBusy(false);
+    }
+  }
+
+  async function simpanAlokasiBantuan(e: React.FormEvent) {
+    e.preventDefault();
+    if (!canEdit) return;
+    setAlokasiBantuanBusy(true);
+    setError("");
+    try {
+      await updateAlokasiPlafon("bantuan", alokasiBantuanDraft);
+      await refresh();
+    } catch (err) {
+      setError(formatError(err));
+    } finally {
+      setAlokasiBantuanBusy(false);
     }
   }
 
@@ -545,12 +578,12 @@ export function KeuanganMasterTab({ canEdit }: { canEdit: boolean }) {
       </Card>
 
       <Card
-        title="Alokasi pengeluaran Dana Dudukan"
+        title="Alokasi plafon Tim Banjar"
         className={cn(cardClass, !isPhone && "lg:col-span-2 xl:col-span-3")}
       >
         <p className="text-[11px] text-muted mb-3">
-          Plafon per pos dihitung dari total penerimaan dudukan per tahun kalender × persentase. Total
-          persentase harus 100%.
+          Plafon per pos dihitung dari setoran Dudukan, Punia Kasukretan, dan Dana Kerjasama Tim Banjar
+          per tahun kalender × persentase. Total persentase harus 100%.
         </p>
         {canEdit ? (
           <form onSubmit={simpanAlokasi} className="space-y-3">
@@ -649,6 +682,118 @@ export function KeuanganMasterTab({ canEdit }: { canEdit: boolean }) {
           </ul>
         )}
       </Card>
+
+      {timBantuanAktif && (
+        <Card
+          title="Alokasi plafon Tim Bantuan"
+          className={cn(cardClass, !isPhone && "lg:col-span-2 xl:col-span-3")}
+        >
+          <p className="text-[11px] text-muted mb-3">
+            Plafon terpisah untuk setoran Dudukan, Punia, dan Dana Kerjasama yang dikumpulkan Tim
+            Bantuan. Persentase boleh berbeda dari Tim Banjar. Total harus 100%.
+          </p>
+          {canEdit ? (
+            <form onSubmit={simpanAlokasiBantuan} className="space-y-3">
+              {isPhone ? (
+                <ul className="space-y-2">
+                  {alokasiBantuan.map((a) => {
+                    const draft = alokasiBantuanDraft.find((d) => d.id === a.id);
+                    return (
+                      <li
+                        key={a.id}
+                        className="rounded-lg border border-copper-200 bg-copper-50/40 px-3 py-2.5 space-y-2"
+                      >
+                        <p className="text-sm font-medium text-copper-950">{a.pos_biaya_nama}</p>
+                        <div>
+                          <Label className="text-xs">Persentase (%)</Label>
+                          <Input
+                            type="number"
+                            min={0.01}
+                            max={100}
+                            step={0.01}
+                            value={draft?.persen ?? a.persen}
+                            onChange={(e) => {
+                              const v = Number(e.target.value);
+                              setAlokasiBantuanDraft((prev) =>
+                                prev.map((d) => (d.id === a.id ? { ...d, persen: v } : d))
+                              );
+                            }}
+                            required
+                          />
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-xs text-muted border-b border-copper-200">
+                        <th className="pr-3 py-1">Pos biaya</th>
+                        <th className="py-1 w-28">Persentase (%)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {alokasiBantuan.map((a) => {
+                        const draft = alokasiBantuanDraft.find((d) => d.id === a.id);
+                        return (
+                          <tr key={a.id} className="border-b border-copper-100">
+                            <td className="pr-3 py-2">{a.pos_biaya_nama}</td>
+                            <td className="py-2">
+                              <Input
+                                type="number"
+                                min={0.01}
+                                max={100}
+                                step={0.01}
+                                className="h-8 text-sm"
+                                value={draft?.persen ?? a.persen}
+                                onChange={(e) => {
+                                  const v = Number(e.target.value);
+                                  setAlokasiBantuanDraft((prev) =>
+                                    prev.map((d) => (d.id === a.id ? { ...d, persen: v } : d))
+                                  );
+                                }}
+                                required
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <div
+                className={cn("flex flex-wrap items-center gap-3", isPhone && "flex-col items-stretch")}
+              >
+                <span
+                  className={`text-xs font-medium ${Math.abs(totalPersenAlokasiBantuan - 100) < 0.001 ? "text-emerald-800" : "text-red-700"}`}
+                >
+                  Total: {totalPersenAlokasiBantuan}%
+                </span>
+                <Button
+                  type="submit"
+                  disabled={
+                    alokasiBantuanBusy || Math.abs(totalPersenAlokasiBantuan - 100) > 0.001
+                  }
+                  className={actionBtnClass}
+                >
+                  {alokasiBantuanBusy ? "Menyimpan…" : "Simpan alokasi Tim Bantuan"}
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <ul className="text-sm space-y-1">
+              {alokasiBantuan.map((a) => (
+                <li key={a.id}>
+                  {a.pos_biaya_nama}: <strong>{a.persen}%</strong>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      )}
 
       <ConfirmDialog
         open={deleteTarget != null}

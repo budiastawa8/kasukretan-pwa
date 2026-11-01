@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { formatRupiah } from "../../lib/dudukan-hitung";
 import {
   getPlafonAlokasiDudukan,
+  labelPlafonPool,
   tahunDariTanggal,
+  type PlafonPool,
 } from "../../lib/services/kas-dudukan-alokasi";
 import type { PlafonAlokasiDudukanRow } from "../../lib/types";
 import { useIsPhoneClient } from "../../hooks/useClientFormFactor";
@@ -15,15 +17,19 @@ export function KasDudukanPlafonPanel({
   tanggal,
   baris,
   excludeTransaksiId,
+  pool = "utama",
 }: {
   akunKeuanganId: string;
   tanggal: string;
   baris: PosLine[];
   excludeTransaksiId?: string | null;
+  pool?: PlafonPool;
 }) {
   const isPhone = useIsPhoneClient();
   const [loading, setLoading] = useState(true);
   const [totalPenerimaan, setTotalPenerimaan] = useState(0);
+  const [totalDudukan, setTotalDudukan] = useState(0);
+  const [totalDanaLain, setTotalDanaLain] = useState(0);
   const [rows, setRows] = useState<PlafonAlokasiDudukanRow[]>([]);
   const [loadError, setLoadError] = useState("");
 
@@ -39,10 +45,12 @@ export function KasDudukanPlafonPanel({
     let cancelled = false;
     setLoading(true);
     setLoadError("");
-    void getPlafonAlokasiDudukan(akunKeuanganId, tahun, excludeTransaksiId ?? undefined)
+    void getPlafonAlokasiDudukan(akunKeuanganId, tahun, excludeTransaksiId ?? undefined, pool)
       .then((data) => {
         if (cancelled) return;
         setTotalPenerimaan(data.total_penerimaan);
+        setTotalDudukan(data.total_penerimaan_dudukan);
+        setTotalDanaLain(data.total_penerimaan_dana_lain);
         setRows(data.rows);
       })
       .catch((e) => {
@@ -54,7 +62,7 @@ export function KasDudukanPlafonPanel({
     return () => {
       cancelled = true;
     };
-  }, [akunKeuanganId, tahun, excludeTransaksiId]);
+  }, [akunKeuanganId, tahun, excludeTransaksiId, pool]);
 
   const draftByPos = useMemo(() => {
     const m = new Map<string, number>();
@@ -81,10 +89,13 @@ export function KasDudukanPlafonPanel({
     <div className="rounded-lg border border-copper-200 bg-copper-50/40 p-3 space-y-2">
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
         <span>
-          Plafon tahun <strong>{tahun}</strong>
+          Plafon {labelPlafonPool(pool)} tahun <strong>{tahun}</strong>
         </span>
         <span>
-          Penerimaan dudukan: <strong className="tabular-nums">{formatRupiah(totalPenerimaan)}</strong>
+          Dasar plafon: <strong className="tabular-nums">{formatRupiah(totalPenerimaan)}</strong>
+        </span>
+        <span className="text-muted">
+          Dudukan {formatRupiah(totalDudukan)} · Punia/Kerjasama {formatRupiah(totalDanaLain)}
         </span>
       </div>
       {isPhone ? (
@@ -176,8 +187,9 @@ export function KasDudukanPlafonPanel({
         </div>
       )}
       <p className="text-[10px] text-muted leading-snug">
-        Pengeluaran Dana Dudukan hanya boleh memakai pos alokasi di atas. Plafon dihitung dari penerimaan
-        dudukan tahun kalender yang sama.
+        {pool === "bantuan"
+          ? "Pengeluaran dari akun Dana Tim Bantuan memakai plafon Tim Bantuan. Dasar: setoran Dudukan, Punia, dan Kerjasama yang dikumpulkan Tim Bantuan."
+          : "Pengeluaran dari Dana Dudukan / Dana Kasukretan Lainnya memakai plafon Tim Banjar. Dasar: setoran Dudukan, Punia, dan Kerjasama Tim Banjar."}
       </p>
     </div>
   );

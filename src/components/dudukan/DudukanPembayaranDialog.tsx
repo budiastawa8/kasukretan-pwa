@@ -18,9 +18,11 @@ import {
   type DudukanTunggakanBulan,
 } from "../../lib/services/dudukan";
 import {
-  listAkunForPembayaranDudukan,
-  getDefaultAkunDudukanId,
   akunPembayaranOptionLabel,
+  getDefaultAkunDudukanId,
+  getDefaultAkunTimBantuanId,
+  isPetugasTimBantuanAktif,
+  listAkunForPembayaranDudukan,
 } from "../../lib/services/akun-keuangan";
 import { normalizeTanggalIsoForInput } from "../../lib/date-iso";
 import {
@@ -126,8 +128,11 @@ export function DudukanPembayaranDialog({
   } = usePembayaranAkunDanPetugas({
     open,
     banjarId: detail?.banjar_id ?? "",
-    listAkunTransaksional: listAkunForPembayaranDudukan,
-    getDefaultAkunId: getDefaultAkunDudukanId,
+    listAkunTransaksional: (pid) => listAkunForPembayaranDudukan(pid),
+    getDefaultAkunId: async (pid) => {
+      if (await isPetugasTimBantuanAktif(pid)) return getDefaultAkunTimBantuanId();
+      return getDefaultAkunDudukanId();
+    },
     lockedPetugasId,
   });
   const [tanggal, setTanggal] = useState(today());

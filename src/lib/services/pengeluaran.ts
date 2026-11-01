@@ -3,8 +3,13 @@ import { parseJumlahPembayaran } from "../paturunan-hitung";
 import { getDb } from "../db/client";
 import type { TransaksiPengeluaranRow } from "../types";
 import { uuid } from "../utils";
-import { assertAkunTransaksional, isAkunInKelompokKasDudukan } from "./akun-keuangan";
-import { assertPengeluaranKasDudukanAllowed } from "./kas-dudukan-alokasi";
+import { assertAkunTransaksional } from "./akun-keuangan";
+import {
+  assertPengeluaranKasDudukanAllowed,
+  isAkunDalamPlafonUtama,
+  resolvePlafonPoolFromAkun,
+  type PlafonPool,
+} from "./kas-dudukan-alokasi";
 
 export type PengeluaranPosInput = {
   posBiayaId: string;
@@ -83,25 +88,35 @@ export async function createTransaksiPengeluaran(params: {
   keterangan?: string;
   createdBy: string;
   pos: PengeluaranPosInput[];
+  /** Diabaikan — pool ditentukan dari akun (Dana Tim Bantuan → bantuan). */
+  plafonPool?: PlafonPool;
 }): Promise<string> {
   await assertAkunTransaksional(params.akunKeuanganId);
 
   const { tanggal, lines } = validatePengeluaranInput(params);
+  const plafonPool = await resolvePlafonPoolFromAkun(params.akunKeuanganId);
 
-  if (await isAkunInKelompokKasDudukan(params.akunKeuanganId)) {
-    await assertPengeluaranKasDudukanAllowed(params.akunKeuanganId, tanggal, lines);
+  if (await isAkunDalamPlafonUtama(params.akunKeuanganId)) {
+    await assertPengeluaranKasDudukanAllowed(
+      params.akunKeuanganId,
+      tanggal,
+      lines,
+      undefined,
+      plafonPool
+    );
   }
 
   const db = await getDb();
   const transaksiId = uuid();
   await db.execute(
-    `INSERT INTO transaksi_pengeluaran (id, akun_keuangan_id, tanggal, keterangan, created_by, created_at)
-     VALUES (?, ?, ?, ?, ?, datetime('now'))`,
+    `INSERT INTO transaksi_pengeluaran (id, akun_keuangan_id, tanggal, keterangan, plafon_pool, created_by, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`,
     [
       transaksiId,
       params.akunKeuanganId,
       tanggal,
       params.keterangan?.trim() || null,
+      plafonPool,
       params.createdBy,
     ]
   );
@@ -148,6 +163,8 @@ export async function updateTransaksiPengeluaran(
     tanggal: string;
     keterangan?: string;
     pos: PengeluaranPosInput[];
+    /** Diabaikan — pool ditentukan dari akun. */
+    plafonPool?: PlafonPool;
   }
 ): Promise<void> {
   await assertAkunTransaksional(params.akunKeuanganId);
@@ -160,16 +177,23 @@ export async function updateTransaksiPengeluaran(
   if (!existing[0]) throw new Error("Transaksi pengeluaran tidak ditemukan");
 
   const { tanggal, lines } = validatePengeluaranInput(params);
+  const plafonPool = await resolvePlafonPoolFromAkun(params.akunKeuanganId);
 
-  if (await isAkunInKelompokKasDudukan(params.akunKeuanganId)) {
-    await assertPengeluaranKasDudukanAllowed(params.akunKeuanganId, tanggal, lines, id);
+  if (await isAkunDalamPlafonUtama(params.akunKeuanganId)) {
+    await assertPengeluaranKasDudukanAllowed(
+      params.akunKeuanganId,
+      tanggal,
+      lines,
+      id,
+      plafonPool
+    );
   }
 
   await db.execute(
     `UPDATE transaksi_pengeluaran
-     SET akun_keuangan_id = ?, tanggal = ?, keterangan = ?
+     SET akun_keuangan_id = ?, tanggal = ?, keterangan = ?, plafon_pool = ?
      WHERE id = ?`,
-    [params.akunKeuanganId, tanggal, params.keterangan?.trim() || null, id]
+    [params.akunKeuanganId, tanggal, params.keterangan?.trim() || null, plafonPool, id]
   );
 
   await db.execute(`DELETE FROM transaksi_pengeluaran_pos WHERE transaksi_id = ?`, [id]);

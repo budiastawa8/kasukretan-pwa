@@ -14,10 +14,7 @@ import {
 import { isJabatanPenerimaSemuaBanjar } from "../petugas-jabatan";
 import type { DudukanPembayaranRow } from "../types";
 import { uuid } from "../utils";
-import {
-  assertAkunForPembayaranDudukan,
-  getDefaultAkunDudukanId,
-} from "./akun-keuangan";
+import { resolveAkunPembayaranOlehPetugas } from "./akun-keuangan";
 import { getKeringananPeriodeMapForKrama } from "./dudukan-keringanan";
 import { assertKramaAktifUntukPembayaran } from "./krama";
 import { assertPembayaranBelumMasukSetoran } from "./setoran";
@@ -661,8 +658,11 @@ export async function createPembayaranDudukanMulti(
   await assertPetugasForKrama(params.petugasId, params.kramaId);
 
   const db = await getDb();
-  const akunId = params.akunKeuanganId?.trim() || (await getDefaultAkunDudukanId());
-  await assertAkunForPembayaranDudukan(akunId);
+  const akunId = await resolveAkunPembayaranOlehPetugas({
+    petugasId: params.petugasId,
+    akunKeuanganId: params.akunKeuanganId,
+    mode: "dudukan",
+  });
 
   const skipValidasi = Boolean(opts?.riwayatImport);
   const [saveCtx, dibayarMap, keringananMap] = await Promise.all([
@@ -803,12 +803,15 @@ export async function updatePembayaranDudukan(
   await assertPetugasForKrama(params.petugasId, params.kramaId);
 
   const db = await getDb();
-  const akunId = params.akunKeuanganId?.trim();
-  if (akunId) await assertAkunForPembayaranDudukan(akunId);
+  const akunId = await resolveAkunPembayaranOlehPetugas({
+    petugasId: params.petugasId,
+    akunKeuanganId: params.akunKeuanganId,
+    mode: "dudukan",
+  });
   await db.execute(
     `UPDATE dudukan_pembayaran SET
       tahun = $1, bulan = $2, jumlah = $3, tanggal = $4, petugas_id = $5, keterangan = $6,
-      akun_keuangan_id = COALESCE($7, akun_keuangan_id),
+      akun_keuangan_id = $7,
       tanggal_setor = CASE WHEN tanggal_setor IS NULL THEN NULL ELSE $4 END
      WHERE id = $8`,
     [
@@ -818,7 +821,7 @@ export async function updatePembayaranDudukan(
       tanggal,
       params.petugasId,
       params.keterangan?.trim() || null,
-      akunId ?? null,
+      akunId,
       id,
     ]
   );

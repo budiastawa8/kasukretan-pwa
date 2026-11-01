@@ -9,9 +9,10 @@ import type {
 } from "../types";
 import { uuid } from "../utils";
 import {
-  assertAkunForDanaKasukretanLainnya,
-  getDefaultAkunDanaKasukretanLainnyaId,
+  isPetugasTimBantuanAktif,
   listAkunForDanaKasukretanLainnya,
+  listAkunForTimBantuan,
+  resolveAkunPembayaranOlehPetugas,
 } from "./akun-keuangan";
 import { POS_PEMASUKAN_DANA_NAMA, getPosPemasukanDanaByNama } from "./pos-dana-kasukretan";
 import { assertPembayaranBelumMasukSetoran } from "./setoran";
@@ -110,7 +111,10 @@ function sumberTipeDariKlasifikasi(kode: string | null | undefined): PenerimaanD
   return "lainnya";
 }
 
-export async function listAkunForPenerimaanDanaLain() {
+export async function listAkunForPenerimaanDanaLain(petugasId?: string | null) {
+  if (await isPetugasTimBantuanAktif(petugasId)) {
+    return listAkunForTimBantuan();
+  }
   return listAkunForDanaKasukretanLainnya();
 }
 
@@ -268,8 +272,11 @@ export async function createPenerimaanDanaLain(
     throw new Error("Isi nama pemberi/mitra, atau pilih krama/lembaga");
   }
 
-  const akunId = params.akunKeuanganId?.trim() || (await getDefaultAkunDanaKasukretanLainnyaId());
-  await assertAkunForDanaKasukretanLainnya(akunId);
+  const akunId = await resolveAkunPembayaranOlehPetugas({
+    petugasId: params.petugasId,
+    akunKeuanganId: params.akunKeuanganId,
+    mode: "dana_lain",
+  });
 
   const posId = await resolvePosId(params.jenis);
   const tanggalSetor = params.disetorLangsung === false ? null : tanggal;
@@ -348,9 +355,11 @@ export async function updatePenerimaanDanaLain(
     throw new Error("Isi nama pemberi/mitra, atau pilih krama/lembaga");
   }
 
-  const akunId = params.akunKeuanganId?.trim() || existing.akun_keuangan_id;
-  if (!akunId) throw new Error("Akun keuangan wajib");
-  await assertAkunForDanaKasukretanLainnya(akunId);
+  const akunId = await resolveAkunPembayaranOlehPetugas({
+    petugasId: params.petugasId ?? existing.petugas_id,
+    akunKeuanganId: params.akunKeuanganId ?? existing.akun_keuangan_id,
+    mode: "dana_lain",
+  });
 
   const posId = await resolvePosId(jenis);
   const db = await getDb();

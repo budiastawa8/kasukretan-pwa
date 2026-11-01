@@ -3,6 +3,7 @@
  * Klien PWA melewati migrasi lokal — kolom baru harus ditambahkan di sisi API.
  */
 
+import { randomUUID } from "node:crypto";
 import { dbExecute, dbSelect } from "./db.js";
 
 let ensurePromise: Promise<void> | null = null;
@@ -180,6 +181,69 @@ async function runEnsureMigrations(): Promise<void> {
   await dbExecute(
     `CREATE INDEX IF NOT EXISTS idx_pembayaran_hapus_log_sumber ON pembayaran_hapus_log (sumber)`
   );
+
+  // Plafon Tim Bantuan terpisah
+  await dbExecute(`
+    CREATE TABLE IF NOT EXISTS kas_tim_bantuan_alokasi (
+      id TEXT PRIMARY KEY,
+      pos_biaya_id TEXT NOT NULL UNIQUE REFERENCES pos_biaya(id),
+      persen REAL NOT NULL,
+      urutan INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+  const bantuanAlokasiCount = await dbSelect(
+    `SELECT COUNT(*) as c FROM kas_tim_bantuan_alokasi`
+  );
+  if (Number(bantuanAlokasiCount[0]?.c ?? 0) === 0) {
+    const dariUtama = await dbSelect(
+      `SELECT pos_biaya_id, persen, urutan FROM kas_dudukan_alokasi ORDER BY urutan`
+    );
+    for (const row of dariUtama) {
+      await dbExecute(
+        `INSERT INTO kas_tim_bantuan_alokasi (id, pos_biaya_id, persen, urutan, created_at)
+         VALUES (?, ?, ?, ?, datetime('now'))`,
+        [
+          randomUUID(),
+          String(row.pos_biaya_id),
+          Number(row.persen) || 0,
+          Number(row.urutan) || 0,
+        ]
+      );
+    }
+  }
+  await ensureColumn(
+    "transaksi_pengeluaran",
+    "plafon_pool",
+    "TEXT NOT NULL DEFAULT 'utama'"
+  );
+
+  // Kelompok + Tunai Dana Tim Bantuan
+  let kelompokTimBantuan = await dbSelect(
+    `SELECT id FROM akun_keuangan WHERE jenis = 'dana_tim_bantuan' AND is_kelompok = 1 LIMIT 1`
+  );
+  let kelompokTimBantuanId = String(kelompokTimBantuan[0]?.id ?? "");
+  if (!kelompokTimBantuanId) {
+    kelompokTimBantuanId = randomUUID();
+    await dbExecute(
+      `INSERT INTO akun_keuangan (id, nama, jenis, urutan, is_kelompok, aktif, created_at)
+       VALUES (?, 'Dana Tim Bantuan', 'dana_tim_bantuan', 4, 1, 1, datetime('now'))`,
+      [kelompokTimBantuanId]
+    );
+  }
+  const tunaiTimBantuan = await dbSelect(
+    `SELECT id FROM akun_keuangan
+     WHERE parent_akun_id = ? AND jenis = 'dana_tim_bantuan' AND COALESCE(is_kelompok, 0) = 0
+     ORDER BY urutan, nama LIMIT 1`,
+    [kelompokTimBantuanId]
+  );
+  if (!tunaiTimBantuan[0]) {
+    await dbExecute(
+      `INSERT INTO akun_keuangan (id, nama, jenis, urutan, is_kelompok, parent_akun_id, aktif, created_at)
+       VALUES (?, 'Dana Tim Bantuan - Tunai', 'dana_tim_bantuan', 1, 0, ?, 1, datetime('now'))`,
+      [randomUUID(), kelompokTimBantuanId]
+    );
+  }
 }
 
 /** Idempoten; aman dipanggil tiap request (hanya sekali benar-benar jalan per cold start). */

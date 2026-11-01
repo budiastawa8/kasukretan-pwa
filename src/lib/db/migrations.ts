@@ -584,6 +584,9 @@ export async function runMasterDataMigrations(db: Database): Promise<void> {
   await migrateKramaPortal(db);
   await migratePemasukanLain(db);
   await migrateKasDudukanAlokasi(db);
+  await migrateKasTimBantuanAlokasi(db);
+  await migrateTransaksiPengeluaranPlafonPool(db);
+  await migrateDanaTimBantuanAkun(db);
   await migrateDudukanPembayaranJenisSnapshot(db);
   await migrateAkunKelompokSub(db);
   await migrateSubAkunNamaPrefix(db);
@@ -1214,6 +1217,39 @@ async function migrateKasDudukanAlokasi(db: Database): Promise<void> {
     `INSERT INTO app_sync_meta (key, value) VALUES ('migration_kas_dudukan_alokasi_v1', '1')
      ON CONFLICT(key) DO UPDATE SET value = excluded.value`
   );
+}
+
+async function migrateKasTimBantuanAlokasi(db: Database): Promise<void> {
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS kas_tim_bantuan_alokasi (
+      id TEXT PRIMARY KEY,
+      pos_biaya_id TEXT NOT NULL UNIQUE REFERENCES pos_biaya(id),
+      persen REAL NOT NULL,
+      urutan INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+  const { seedKasTimBantuanAlokasiIfEmpty } = await import("../services/kas-dudukan-alokasi");
+  await seedKasTimBantuanAlokasiIfEmpty(db);
+}
+
+async function migrateTransaksiPengeluaranPlafonPool(db: Database): Promise<void> {
+  if (!(await tableHasColumn(db, "transaksi_pengeluaran", "plafon_pool"))) {
+    try {
+      await db.execute(
+        `ALTER TABLE transaksi_pengeluaran ADD COLUMN plafon_pool TEXT NOT NULL DEFAULT 'utama'`
+      );
+    } catch {
+      if (!(await tableHasColumn(db, "transaksi_pengeluaran", "plafon_pool"))) {
+        throw new Error("Gagal menambah kolom plafon_pool pada transaksi_pengeluaran");
+      }
+    }
+  }
+}
+
+async function migrateDanaTimBantuanAkun(db: Database): Promise<void> {
+  const { ensureDanaTimBantuanKelompokDanTunai } = await import("../services/akun-keuangan");
+  await ensureDanaTimBantuanKelompokDanTunai(db);
 }
 
 async function migrateDudukanPembayaranJenisSnapshot(db: Database): Promise<void> {

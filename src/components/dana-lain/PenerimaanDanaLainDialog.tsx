@@ -13,6 +13,8 @@ import { today } from "../../lib/utils";
 import {
   akunPembayaranOptionLabel,
   getDefaultAkunDanaKasukretanLainnyaId,
+  getDefaultAkunTimBantuanId,
+  isPetugasTimBantuanAktif,
 } from "../../lib/services/akun-keuangan";
 import { listTimKasukretan } from "../../lib/services/master";
 import {
@@ -124,9 +126,15 @@ export function PenerimaanDanaLainDialog({
     setCariHasil([]);
     void (async () => {
       try {
+        const petugasUntukAkun = isLapangan ? petugasLapangan?.id : null;
         const [akun, def, tim] = await Promise.all([
-          listAkunForPenerimaanDanaLain(),
-          getDefaultAkunDanaKasukretanLainnyaId().catch(() => ""),
+          listAkunForPenerimaanDanaLain(petugasUntukAkun),
+          (async () => {
+            if (await isPetugasTimBantuanAktif(petugasUntukAkun)) {
+              return getDefaultAkunTimBantuanId().catch(() => "");
+            }
+            return getDefaultAkunDanaKasukretanLainnyaId().catch(() => "");
+          })(),
           isLapangan ? Promise.resolve([] as TimKasukretan[]) : listTimKasukretan(),
         ]);
         setAkunList(akun);

@@ -129,8 +129,8 @@ export function PembayaranDialogTabs({
 export function usePembayaranAkunDanPetugas(options: {
   open: boolean;
   banjarId: string;
-  listAkunTransaksional: () => Promise<AkunKeuanganRow[]>;
-  getDefaultAkunId: () => Promise<string>;
+  listAkunTransaksional: (petugasId?: string | null) => Promise<AkunKeuanganRow[]>;
+  getDefaultAkunId: (petugasId?: string | null) => Promise<string>;
   /** Akun petugas lapangan: petugas selalu dirinya sendiri. */
   lockedPetugasId?: string;
 }) {
@@ -159,22 +159,33 @@ export function usePembayaranAkunDanPetugas(options: {
     );
   }, [options.banjarId]);
 
-  const loadAkun = useCallback(async () => {
-    const [akuns, allAkun, defaultId] = await Promise.all([
-      options.listAkunTransaksional(),
-      listAkunKeuangan(true),
-      options.getDefaultAkunId().catch(() => ""),
-    ]);
-    setAkunList(akuns);
-    setAkunLabelCtx(allAkun);
-    setAkunKeuanganId(defaultId || akuns[0]?.id || "");
-  }, [options.listAkunTransaksional, options.getDefaultAkunId]);
+  const loadAkun = useCallback(
+    async (forPetugasId?: string | null) => {
+      const pid = forPetugasId ?? options.lockedPetugasId ?? petugasId;
+      const [akuns, allAkun, defaultId] = await Promise.all([
+        options.listAkunTransaksional(pid),
+        listAkunKeuangan(true),
+        options.getDefaultAkunId(pid).catch(() => ""),
+      ]);
+      setAkunList(akuns);
+      setAkunLabelCtx(allAkun);
+      setAkunKeuanganId((prev) => {
+        if (prev && akuns.some((a) => a.id === prev)) return prev;
+        return defaultId || akuns[0]?.id || "";
+      });
+    },
+    [options.listAkunTransaksional, options.getDefaultAkunId, options.lockedPetugasId, petugasId]
+  );
 
   useEffect(() => {
     if (!options.open) return;
     void loadPetugas();
-    void loadAkun();
-  }, [options.open, loadPetugas, loadAkun]);
+  }, [options.open, loadPetugas]);
+
+  useEffect(() => {
+    if (!options.open) return;
+    void loadAkun(options.lockedPetugasId ?? petugasId);
+  }, [options.open, options.lockedPetugasId, petugasId, loadAkun]);
 
   useEffect(() => {
     if (!options.open) return;

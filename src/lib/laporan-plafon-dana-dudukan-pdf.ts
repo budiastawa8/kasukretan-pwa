@@ -112,13 +112,17 @@ export function buildLaporanPlafonDanaDudukanPdfInput(
   highlightRows.push(totalRowIdx);
 
   return {
-    filename: `laporan-plafon-dana-dudukan-${tahun}`,
-    judul: "Laporan Plafon Dana Dudukan",
-    subjudul: "Pencapaian alokasi pengeluaran tahunan",
+    filename: `laporan-plafon-dana-dudukan-${tahun}${laporan.pool === "bantuan" ? "-tim-bantuan" : ""}`,
+    judul:
+      laporan.pool === "bantuan"
+        ? "Laporan Plafon Tim Bantuan"
+        : "Laporan Plafon Tim Banjar",
+    subjudul: "Pencapaian alokasi pengeluaran tahunan (Dudukan + Punia + Kerjasama)",
     periode,
     metaLines: [
       `TAHUN: ${tahun}`,
-      `PENERIMAAN DUDUKAN: ${fmtRp(total_penerimaan)}`,
+      `POOL: ${laporan.pool === "bantuan" ? "Tim Bantuan" : "Tim Banjar"}`,
+      `DASAR PLAFON: ${fmtRp(total_penerimaan)} (Dudukan ${fmtRp(laporan.total_penerimaan_dudukan)} · Punia/Kerjasama ${fmtRp(laporan.total_penerimaan_dana_lain)})`,
     ],
     headers,
     rows: pdfRows,

@@ -35,7 +35,7 @@ export async function updatePosBiaya(
   const nama = params.nama.trim();
   if (!nama) throw new Error("Nama pos biaya wajib diisi");
   if (params.aktif === false && (await isPosAlokasiKasDudukan(id))) {
-    throw new Error("Pos alokasi Dana Dudukan wajib tetap aktif.");
+    throw new Error("Pos alokasi plafon wajib tetap aktif.");
   }
   const db = await getDb();
   await db.execute(
@@ -53,7 +53,7 @@ export async function updatePosBiaya(
 export async function deletePosBiaya(id: string): Promise<void> {
   if (await isPosAlokasiKasDudukan(id)) {
     throw new Error(
-      "Pos biaya ini bagian alokasi Dana Dudukan dan tidak dapat dihapus. Ubah persentase di master alokasi jika perlu."
+      "Pos biaya ini bagian alokasi plafon dan tidak dapat dihapus. Ubah persentase di master alokasi jika perlu."
     );
   }
   const db = await getDb();

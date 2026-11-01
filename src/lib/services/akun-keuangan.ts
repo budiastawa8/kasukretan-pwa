@@ -1,11 +1,14 @@
 import { getDb } from "../db/client";
+import { isTimBantuanFiturAktif, isTimBantuanTipe } from "../tim-bantuan";
 import type { AkunKeuanganJenis, AkunKeuanganKelompok, AkunKeuanganRow } from "../types";
 import { uuid } from "../utils";
+import { getDesaAdat } from "./desa";
 
 const JENIS_LABEL: Record<AkunKeuanganJenis, string> = {
   kas_dudukan: "Dana Dudukan",
   kas_paturunan: "Dana Paturunan",
   dana_kasukretan_lainnya: "Dana Kasukretan Lainnya",
+  dana_tim_bantuan: "Dana Tim Bantuan",
   bank: "Bank",
   ewallet: "Dompet digital",
 };
@@ -14,12 +17,14 @@ const AKUN_INTI: { jenis: AkunKeuanganKelompok; nama: string; urutan: number }[]
   { jenis: "kas_paturunan", nama: "Dana Paturunan", urutan: 1 },
   { jenis: "kas_dudukan", nama: "Dana Dudukan", urutan: 2 },
   { jenis: "dana_kasukretan_lainnya", nama: "Dana Kasukretan Lainnya", urutan: 3 },
+  { jenis: "dana_tim_bantuan", nama: "Dana Tim Bantuan", urutan: 4 },
 ];
 
 const SUB_JENIS_BY_KELOMPOK: Record<AkunKeuanganKelompok, AkunKeuanganJenis[]> = {
   kas_dudukan: ["kas_dudukan", "bank", "ewallet"],
   kas_paturunan: ["kas_paturunan", "bank", "ewallet"],
   dana_kasukretan_lainnya: ["dana_kasukretan_lainnya", "bank", "ewallet"],
+  dana_tim_bantuan: ["dana_tim_bantuan", "bank", "ewallet"],
 };
 
 export function labelAkunKeuanganJenis(jenis: AkunKeuanganJenis): string {
@@ -30,7 +35,8 @@ export function isAkunKeuanganInti(jenis: AkunKeuanganJenis): boolean {
   return (
     jenis === "kas_dudukan" ||
     jenis === "kas_paturunan" ||
-    jenis === "dana_kasukretan_lainnya"
+    jenis === "dana_kasukretan_lainnya" ||
+    jenis === "dana_tim_bantuan"
   );
 }
 
@@ -43,6 +49,7 @@ export function kelompokDisplayOrder(jenis: AkunKeuanganJenis): number {
   if (jenis === "kas_paturunan") return 1;
   if (jenis === "kas_dudukan") return 2;
   if (jenis === "dana_kasukretan_lainnya") return 3;
+  if (jenis === "dana_tim_bantuan") return 4;
   return 99;
 }
 
@@ -177,7 +184,8 @@ export async function resolveKelompokIdForAkun(akunId: string): Promise<string |
   if (
     row.jenis === "kas_dudukan" ||
     row.jenis === "kas_paturunan" ||
-    row.jenis === "dana_kasukretan_lainnya"
+    row.jenis === "dana_kasukretan_lainnya" ||
+    row.jenis === "dana_tim_bantuan"
   ) {
     return getKelompokAkunIntiId(row.jenis);
   }
@@ -221,7 +229,12 @@ async function listSubAkunForPembayaran(jenis: AkunKeuanganKelompok): Promise<Ak
   return rows.filter((a) => allowed.includes(a.jenis) && !isAkunKelompokRow(a));
 }
 
-export async function listAkunForPembayaranDudukan(): Promise<AkunKeuanganRow[]> {
+export async function listAkunForPembayaranDudukan(
+  petugasId?: string | null
+): Promise<AkunKeuanganRow[]> {
+  if (await isPetugasTimBantuanAktif(petugasId)) {
+    return listAkunForTimBantuan();
+  }
   return listSubAkunForPembayaran("kas_dudukan");
 }
 
@@ -231,6 +244,10 @@ export async function listAkunForPembayaranPaturunan(): Promise<AkunKeuanganRow[
 
 export async function listAkunForDanaKasukretanLainnya(): Promise<AkunKeuanganRow[]> {
   return listSubAkunForPembayaran("dana_kasukretan_lainnya");
+}
+
+export async function listAkunForTimBantuan(): Promise<AkunKeuanganRow[]> {
+  return listSubAkunForPembayaran("dana_tim_bantuan");
 }
 
 async function resolveDefaultSubAkunId(jenis: AkunKeuanganKelompok): Promise<string | null> {
@@ -273,6 +290,49 @@ export async function getDefaultAkunDanaKasukretanLainnyaId(): Promise<string> {
   return id;
 }
 
+export async function getDefaultAkunTimBantuanId(): Promise<string> {
+  await ensureDanaTimBantuanKelompokDanTunai();
+  const id = await resolveDefaultSubAkunId("dana_tim_bantuan");
+  if (!id) throw new Error("Akun Dana Tim Bantuan belum dikonfigurasi di Master Data");
+  return id;
+}
+
+/** Pastikan kelompok + sub-akun Tunai Tim Bantuan ada. */
+export async function ensureDanaTimBantuanKelompokDanTunai(
+  db?: Awaited<ReturnType<typeof getDb>>
+): Promise<{ kelompokId: string; tunaiId: string }> {
+  const database = db ?? (await getDb());
+  let kelompok = await database.select<{ id: string }[]>(
+    `SELECT id FROM akun_keuangan WHERE jenis = 'dana_tim_bantuan' AND is_kelompok = 1 LIMIT 1`
+  );
+  let kelompokId = kelompok[0]?.id;
+  if (!kelompokId) {
+    kelompokId = uuid();
+    await database.execute(
+      `INSERT INTO akun_keuangan (id, nama, jenis, urutan, is_kelompok, aktif, created_at)
+       VALUES (?, 'Dana Tim Bantuan', 'dana_tim_bantuan', 4, 1, 1, datetime('now'))`,
+      [kelompokId]
+    );
+  }
+
+  let tunai = await database.select<{ id: string }[]>(
+    `SELECT id FROM akun_keuangan
+     WHERE parent_akun_id = ? AND jenis = 'dana_tim_bantuan' AND COALESCE(is_kelompok, 0) = 0
+     ORDER BY urutan, nama LIMIT 1`,
+    [kelompokId]
+  );
+  let tunaiId = tunai[0]?.id;
+  if (!tunaiId) {
+    tunaiId = uuid();
+    await database.execute(
+      `INSERT INTO akun_keuangan (id, nama, jenis, urutan, is_kelompok, parent_akun_id, aktif, created_at)
+       VALUES (?, 'Dana Tim Bantuan - Tunai', 'dana_tim_bantuan', 1, 0, ?, 1, datetime('now'))`,
+      [tunaiId, kelompokId]
+    );
+  }
+  return { kelompokId, tunaiId };
+}
+
 async function resolveDefaultAkunIdLegacy(jenis: AkunKeuanganJenis): Promise<string | null> {
   const db = await getDb();
   const rows = await db.select<{ id: string }[]>(
@@ -305,8 +365,58 @@ export async function assertAkunForDanaKasukretanLainnya(akunId: string): Promis
   }
 }
 
+export async function assertAkunForTimBantuan(akunId: string): Promise<void> {
+  await assertAkunTransaksional(akunId);
+  if (!(await isAkunInKelompokInti(akunId, "dana_tim_bantuan"))) {
+    throw new Error("Akun tidak termasuk Dana Tim Bantuan");
+  }
+}
+
 export async function isAkunInKelompokDanaKasukretanLainnya(akunId: string): Promise<boolean> {
   return isAkunInKelompokInti(akunId, "dana_kasukretan_lainnya");
+}
+
+export async function isAkunInKelompokDanaTimBantuan(akunId: string): Promise<boolean> {
+  return isAkunInKelompokInti(akunId, "dana_tim_bantuan");
+}
+
+/** Petugas tipe bantuan dan fitur Tim Bantuan desa aktif. */
+export async function isPetugasTimBantuanAktif(
+  petugasId: string | null | undefined
+): Promise<boolean> {
+  if (!petugasId?.trim()) return false;
+  const desa = await getDesaAdat();
+  if (!isTimBantuanFiturAktif(desa)) return false;
+  const db = await getDb();
+  const rows = await db.select<{ tipe: string | null }[]>(
+    `SELECT tipe FROM tim_kasukretan WHERE id = ? LIMIT 1`,
+    [petugasId.trim()]
+  );
+  return isTimBantuanTipe(rows[0]?.tipe);
+}
+
+/**
+ * Akun tujuan pembayaran Dudukan/Punia/Kerjasama:
+ * Tim Bantuan (fitur aktif) → Dana Tim Bantuan; selain itu → akun normal jenis tersebut.
+ */
+export async function resolveAkunPembayaranOlehPetugas(params: {
+  petugasId?: string | null;
+  akunKeuanganId?: string | null;
+  mode: "dudukan" | "dana_lain";
+}): Promise<string> {
+  if (await isPetugasTimBantuanAktif(params.petugasId)) {
+    const akunId = params.akunKeuanganId?.trim() || (await getDefaultAkunTimBantuanId());
+    await assertAkunForTimBantuan(akunId);
+    return akunId;
+  }
+  if (params.mode === "dudukan") {
+    const akunId = params.akunKeuanganId?.trim() || (await getDefaultAkunDudukanId());
+    await assertAkunForPembayaranDudukan(akunId);
+    return akunId;
+  }
+  const akunId = params.akunKeuanganId?.trim() || (await getDefaultAkunDanaKasukretanLainnyaId());
+  await assertAkunForDanaKasukretanLainnya(akunId);
+  return akunId;
 }
 
 export async function getAkunKeuangan(id: string): Promise<AkunKeuanganRow | null> {

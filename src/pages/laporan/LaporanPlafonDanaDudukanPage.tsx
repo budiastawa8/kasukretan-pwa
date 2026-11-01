@@ -8,15 +8,19 @@ import { buildLaporanPlafonDanaDudukanPdfInput } from "../../lib/laporan-plafon-
 import {
   formatPencapaianPlafon,
   getLaporanPlafonDanaDudukan,
+  isPlafonTimBantuanAktif,
+  labelPlafonPool,
   listAllTransaksiPlafonDanaDudukanGrouped,
   listTransaksiPlafonDanaDudukanPerPos,
+  normalizePlafonPool,
   type LaporanPlafonDanaDudukan,
   type PengeluaranDanaDudukanPerPosRow,
+  type PlafonPool,
 } from "../../lib/services/laporan-plafon-dana-dudukan";
 import { cn, formatTanggalLahir } from "../../lib/utils";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
-import { Input, Label } from "../../components/ui/Input";
+import { Input, Label, Select } from "../../components/ui/Input";
 import { IconLink } from "../../components/ui/IconLink";
 import {
   LAPORAN_CARD,
@@ -58,6 +62,8 @@ export function LaporanPlafonDanaDudukanPage() {
   const openPdfPreview = useLaporanPdfPreview("Kembali ke Laporan Plafon Dana Dudukan");
 
   const [filterTahun, setFilterTahun] = usePersistedScalar(PAGE_ID, "filterTahun", String(tahunIni));
+  const [filterPool, setFilterPool] = usePersistedScalar(PAGE_ID, "filterPool", "utama");
+  const [timBantuanAktif, setTimBantuanAktif] = useState(false);
   const [laporan, setLaporan] = useState<LaporanPlafonDanaDudukan | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -71,13 +77,21 @@ export function LaporanPlafonDanaDudukanPage() {
     return Number.isFinite(n) && n >= 2000 && n <= 2100 ? n : tahunIni;
   }, [filterTahun, tahunIni]);
 
+  const pool = useMemo((): PlafonPool => {
+    const p = normalizePlafonPool(filterPool);
+    return timBantuanAktif ? p : "utama";
+  }, [filterPool, timBantuanAktif]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     setExpandedPos(new Set());
     setTxCache(new Map());
     try {
-      const data = await getLaporanPlafonDanaDudukan(tahun);
+      const aktif = await isPlafonTimBantuanAktif();
+      setTimBantuanAktif(aktif);
+      const resolvedPool: PlafonPool = aktif ? normalizePlafonPool(filterPool) : "utama";
+      const data = await getLaporanPlafonDanaDudukan(tahun, resolvedPool);
       setLaporan(data);
     } catch (e) {
       setError(String(e));
@@ -85,7 +99,7 @@ export function LaporanPlafonDanaDudukanPage() {
     } finally {
       setLoading(false);
     }
-  }, [tahun]);
+  }, [tahun, filterPool]);
 
   useEffect(() => {
     void load();
@@ -94,6 +108,7 @@ export function LaporanPlafonDanaDudukanPage() {
   function resetFilters() {
     clearPagePersistedState(PAGE_ID);
     setFilterTahun(String(tahunIni));
+    setFilterPool("utama");
   }
 
   async function togglePos(posBiayaId: string) {
@@ -110,7 +125,7 @@ export function LaporanPlafonDanaDudukanPage() {
 
     setTxLoading((prev) => new Set(prev).add(posBiayaId));
     try {
-      const txs = await listTransaksiPlafonDanaDudukanPerPos(tahun, posBiayaId);
+      const txs = await listTransaksiPlafonDanaDudukanPerPos(tahun, posBiayaId, pool);
       setTxCache((prev) => new Map(prev).set(posBiayaId, txs));
     } catch (e) {
       window.alert(String(e));
@@ -129,7 +144,7 @@ export function LaporanPlafonDanaDudukanPage() {
     if (!laporan?.rows.length) return;
     setExportBusy(true);
     try {
-      const grouped = await listAllTransaksiPlafonDanaDudukanGrouped(tahun);
+      const grouped = await listAllTransaksiPlafonDanaDudukanGrouped(tahun, pool);
       const sheets: ExcelSheetInput[] = [
         {
           name: "Plafon",
@@ -157,7 +172,10 @@ export function LaporanPlafonDanaDudukanPage() {
           ]),
         });
       }
-      await downloadExcel(`laporan-plafon-dana-dudukan-${tahun}`, sheets);
+      await downloadExcel(
+        `laporan-plafon-dana-dudukan-${tahun}${pool === "bantuan" ? "-tim-bantuan" : ""}`,
+        sheets
+      );
     } finally {
       setExportBusy(false);
     }
@@ -167,7 +185,7 @@ export function LaporanPlafonDanaDudukanPage() {
     if (!laporan?.rows.length) return;
     setExportBusy(true);
     try {
-      const grouped = await listAllTransaksiPlafonDanaDudukanGrouped(tahun);
+      const grouped = await listAllTransaksiPlafonDanaDudukanGrouped(tahun, pool);
       openPdfPreview(buildLaporanPlafonDanaDudukanPdfInput(laporan, grouped));
     } finally {
       setExportBusy(false);
@@ -182,11 +200,12 @@ export function LaporanPlafonDanaDudukanPage() {
         <div>
           <h2 className="text-xl font-bold flex items-center gap-1.5">
             <HandCoins className="text-copper-700 shrink-0" size={22} />
-            Laporan Plafon Dana Dudukan
+            Laporan Plafon {labelPlafonPool(pool)}
           </h2>
           <p className="text-xs text-muted mt-0.5">
-            Pencapaian alokasi pengeluaran per pos — plafon dihitung dari penerimaan dudukan tahun
-            kalender.
+            Pencapaian alokasi pengeluaran per pos — plafon dihitung dari setoran Dudukan, Punia
+            Kasukretan, dan Dana Kerjasama tahun kalender
+            {timBantuanAktif ? ` (${labelPlafonPool(pool)})` : ""}.
           </p>
         </div>
         <IconLink to="/laporan" icon={ArrowLeft}>
@@ -207,6 +226,19 @@ export function LaporanPlafonDanaDudukanPage() {
               className={cn("text-sm", isPhone ? "h-11" : "h-9")}
             />
           </div>
+          {timBantuanAktif && (
+            <div className="w-44">
+              <Label className="text-[11px]">Pool plafon</Label>
+              <Select
+                value={filterPool === "bantuan" ? "bantuan" : "utama"}
+                onChange={(e) => setFilterPool(e.target.value)}
+                className={cn("text-sm", isPhone ? "h-11" : "h-9")}
+              >
+                <option value="utama">{labelPlafonPool("utama")}</option>
+                <option value="bantuan">{labelPlafonPool("bantuan")}</option>
+              </Select>
+            </div>
+          )}
           <Button
             type="button"
             variant="secondary"
@@ -238,7 +270,12 @@ export function LaporanPlafonDanaDudukanPage() {
 
       {laporan && !loading && (
         <div className={cn("flex flex-wrap gap-2 mt-3", isPhone && "gap-1.5")}>
-          <StatChip label="Penerimaan dudukan" value={formatRupiah(laporan.total_penerimaan)} />
+          <StatChip label="Dasar plafon" value={formatRupiah(laporan.total_penerimaan)} />
+          <StatChip label="Dudukan" value={formatRupiah(laporan.total_penerimaan_dudukan)} />
+          <StatChip
+            label="Punia / Kerjasama"
+            value={formatRupiah(laporan.total_penerimaan_dana_lain)}
+          />
           <StatChip label="Total terpakai" value={formatRupiah(laporan.total_terpakai)} />
           <StatChip label="Total sisa plafon" value={formatRupiah(laporan.total_sisa)} />
         </div>

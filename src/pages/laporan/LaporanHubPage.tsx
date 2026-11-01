@@ -238,7 +238,7 @@ const keuanganItems: LaporanItem[] = [
 
     title: "Laporan Plafon Dana Dudukan",
 
-    desc: "Pencapaian alokasi plafon pengeluaran per pos — berdasarkan penerimaan dudukan tahun kalender.",
+    desc: "Pencapaian alokasi plafon per pos (Tim Banjar / Tim Bantuan) — dari setoran Dudukan, Punia, dan Dana Kerjasama.",
 
   },
 

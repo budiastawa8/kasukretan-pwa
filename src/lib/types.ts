@@ -250,6 +250,7 @@ export type AkunKeuanganJenis =
   | "kas_dudukan"
   | "kas_paturunan"
   | "dana_kasukretan_lainnya"
+  | "dana_tim_bantuan"
   | "bank"
   | "ewallet";
 
@@ -260,7 +261,7 @@ export interface AkunKeuanganRow {
   keterangan?: string | null;
   aktif: number;
   urutan: number;
-  /** Induk kelompok Dana Dudukan / Dana Paturunan / Dana Kasukretan Lainnya; null = akun mandiri atau induk kelompok. */
+  /** Induk kelompok Dana Dudukan / Dana Paturunan / Dana Kasukretan Lainnya / Dana Tim Bantuan; null = akun mandiri atau induk kelompok. */
   parent_akun_id?: string | null;
   /** 1 = akun induk kelompok (ringkasan, tanpa transaksi langsung). */
   is_kelompok?: number;
@@ -270,7 +271,8 @@ export interface AkunKeuanganRow {
 export type AkunKeuanganKelompok =
   | "kas_dudukan"
   | "kas_paturunan"
-  | "dana_kasukretan_lainnya";
+  | "dana_kasukretan_lainnya"
+  | "dana_tim_bantuan";
 
 export interface PosBiayaRow {
   id: string;
@@ -328,6 +330,8 @@ export interface TransaksiPengeluaranRow {
   keterangan?: string | null;
   /** Gabungan keterangan baris pos (untuk pencarian daftar). */
   pos_keterangan?: string | null;
+  /** utama = Tim Banjar; bantuan = Tim Bantuan */
+  plafon_pool?: string | null;
   created_by?: string | null;
   created_by_nama?: string | null;
   created_at?: string;

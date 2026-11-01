@@ -150,6 +150,15 @@ CREATE TABLE IF NOT EXISTS kas_dudukan_alokasi (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+/** Alokasi plafon terpisah untuk penerimaan Tim Bantuan (saat fitur aktif). */
+CREATE TABLE IF NOT EXISTS kas_tim_bantuan_alokasi (
+  id TEXT PRIMARY KEY,
+  pos_biaya_id TEXT NOT NULL UNIQUE REFERENCES pos_biaya(id),
+  persen REAL NOT NULL,
+  urutan INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Uang dari petugas yang diterima bendahara. Pembayaran baru masuk buku kas
 -- setelah tanggal_setor terisi (setor langsung atau lewat setoran).
 CREATE TABLE IF NOT EXISTS setoran (
@@ -200,6 +209,8 @@ CREATE TABLE IF NOT EXISTS transaksi_pengeluaran (
   akun_keuangan_id TEXT NOT NULL REFERENCES akun_keuangan(id),
   tanggal TEXT NOT NULL,
   keterangan TEXT,
+  /** utama = Tim Banjar; bantuan = Tim Bantuan (hanya relevan jika fitur Tim Bantuan aktif) */
+  plafon_pool TEXT NOT NULL DEFAULT 'utama',
   created_by TEXT REFERENCES user(id),
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

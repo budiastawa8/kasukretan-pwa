@@ -131,14 +131,20 @@ export type TimApi = { id: string; nama: string; jabatan: string; banjar_id: str
 export type AkunKeuanganApi = {
   id: string;
   nama: string;
-  jenis: "kas_dudukan" | "kas_paturunan" | "bank" | "ewallet";
+  jenis:
+    | "kas_dudukan"
+    | "kas_paturunan"
+    | "dana_kasukretan_lainnya"
+    | "dana_tim_bantuan"
+    | "bank"
+    | "ewallet";
   keterangan: string | null;
   aktif: number;
   urutan: number;
 };
 
 export async function fetchAkunKeuangan(
-  untuk: "paturunan" | "dudukan"
+  untuk: "paturunan" | "dudukan" | "tim_bantuan"
 ): Promise<AkunKeuanganApi[]> {
   const res = await authFetch<{ ok: boolean; data: AkunKeuanganApi[] }>(
     `/akun-keuangan?untuk=${encodeURIComponent(untuk)}`

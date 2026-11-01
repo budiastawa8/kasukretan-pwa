@@ -5,7 +5,11 @@
 import bcrypt from "bcryptjs";
 import type Database from "../desktop/sql";
 import { bulanSaatIni, tahunSaatIni } from "../dudukan-hitung";
-import { seedKasDudukanAlokasiIfEmpty } from "../services/kas-dudukan-alokasi";
+import { ensureDanaTimBantuanKelompokDanTunai } from "../services/akun-keuangan";
+import {
+  seedKasDudukanAlokasiIfEmpty,
+  seedKasTimBantuanAlokasiIfEmpty,
+} from "../services/kas-dudukan-alokasi";
 import { uuid } from "../utils";
 
 /** NIK contoh — format valid, bukan data orang nyata. */
@@ -35,6 +39,7 @@ async function ensureFinancialDefaults(db: Database): Promise<{
   akunDudukanId: string;
 }> {
   async function insertFreshAkun(): Promise<{ akunPaturunanId: string; akunDudukanId: string }> {
+    await db.execute(`DELETE FROM kas_tim_bantuan_alokasi`);
     await db.execute(`DELETE FROM kas_dudukan_alokasi`);
     await db.execute(`DELETE FROM pos_biaya`);
     await db.execute(`DELETE FROM akun_keuangan`);
@@ -66,6 +71,8 @@ async function ensureFinancialDefaults(db: Database): Promise<{
     );
 
     await seedKasDudukanAlokasiIfEmpty(db);
+    await seedKasTimBantuanAlokasiIfEmpty(db);
+    await ensureDanaTimBantuanKelompokDanTunai(db);
     return { akunPaturunanId, akunDudukanId };
   }
 
@@ -88,6 +95,8 @@ async function ensureFinancialDefaults(db: Database): Promise<{
   );
   if (paturunan[0]?.id && dudukan[0]?.id) {
     await seedKasDudukanAlokasiIfEmpty(db);
+    await seedKasTimBantuanAlokasiIfEmpty(db);
+    await ensureDanaTimBantuanKelompokDanTunai(db);
     return { akunPaturunanId: paturunan[0].id, akunDudukanId: dudukan[0].id };
   }
 
