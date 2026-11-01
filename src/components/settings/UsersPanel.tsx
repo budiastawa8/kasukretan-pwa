@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { KeyRound, Pencil, Plus, UserCog } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { KeyRound, Pencil, Plus, Search, UserCog } from "lucide-react";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { Input, Label, Select } from "../ui/Input";
@@ -30,6 +30,23 @@ import {
 import { useIsPhoneClient } from "../../hooks/useClientFormFactor";
 import { LIST_CARD, LIST_CARD_PHONE } from "../ui/list-compact";
 import { cn } from "../../lib/utils";
+
+function matchesUserCari(u: UserRecord, q: string): boolean {
+  const needle = q.trim().toLowerCase();
+  if (!needle) return true;
+  const hay = [
+    u.username,
+    u.nama ?? "",
+    STAFF_ROLE_LABELS[u.peran] ?? u.peran,
+    u.peran,
+    u.tim_kasukretan_nama ?? "",
+    u.aktif ? "aktif" : "nonaktif",
+    u.must_change_password ? "ganti password" : "",
+  ]
+    .join(" ")
+    .toLowerCase();
+  return hay.includes(needle);
+}
 
 function TimKasukretanSelect({
   tim,
@@ -76,6 +93,7 @@ export function UsersPanel() {
   const [newTimId, setNewTimId] = useState("");
   const [editTimId, setEditTimId] = useState("");
   const [loading, setLoading] = useState(true);
+  const [cari, setCari] = useState("");
   const [error, setError] = useState("");
   const [flash, setFlash] = useState("");
 
@@ -250,6 +268,11 @@ export function UsersPanel() {
     }
   }
 
+  const filteredUsers = useMemo(
+    () => users.filter((u) => matchesUserCari(u, cari)),
+    [users, cari]
+  );
+
   const formShell = cn(
     "rounded-lg border border-copper-200 bg-copper-50/50 p-3 space-y-3",
     LIST_CARD,
@@ -326,6 +349,28 @@ export function UsersPanel() {
         </Button>
       </div>
 
+      {!loading && users.length > 0 && (
+        <div className="relative">
+          <Search
+            size={14}
+            className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted pointer-events-none"
+            aria-hidden
+          />
+          <Input
+            className="pl-8 h-10"
+            value={cari}
+            onChange={(e) => setCari(e.target.value)}
+            placeholder="Cari username, nama, peran, tim…"
+            aria-label="Cari pengguna"
+          />
+          {cari.trim() && (
+            <p className="mt-1 text-[11px] text-muted">
+              Menampilkan {filteredUsers.length} dari {users.length} pengguna
+            </p>
+          )}
+        </div>
+      )}
+
       {showCreate && (
         <form onSubmit={handleCreate} className={formShell}>
           <p className="text-xs font-medium text-copper-900">Pengguna baru</p>
@@ -377,9 +422,13 @@ export function UsersPanel() {
 
       {loading ? (
         <p className="text-sm text-muted">Memuat…</p>
+      ) : filteredUsers.length === 0 ? (
+        <p className="text-sm text-muted">
+          {cari.trim() ? "Tidak ada pengguna yang cocok." : "Belum ada pengguna."}
+        </p>
       ) : isPhone ? (
         <ul className="space-y-2">
-          {users.map((u) => (
+          {filteredUsers.map((u) => (
             <li
               key={u.id}
               className="rounded-lg border border-copper-200/90 bg-card px-3 py-2.5 shadow-sm shadow-copper-950/5 space-y-2"
@@ -443,7 +492,7 @@ export function UsersPanel() {
               </tr>
             </thead>
             <tbody>
-              {users.map((u) => (
+              {filteredUsers.map((u) => (
                 <tr key={u.id} className="border-b border-copper-50">
                   <td className="py-2 pr-2 font-mono text-xs">{u.username}</td>
                   <td className="py-2 pr-2">
