@@ -198,18 +198,42 @@ export function buildBuktiSetoranDudukanPdfPayload(
   };
 }
 
-export async function resolveBendaharaTimNama(banjarId?: string): Promise<string> {
-  const { listTimKasukretan } = await import("./services/master");
-  const tim = await listTimKasukretan(banjarId);
-  const match = (t: { jabatan: string }) =>
-    /bendahara/i.test(t.jabatan.trim());
+export type BuktiSetoranPenandatangan = { nama: string; jabatan: string };
 
+/** Bendahara Tim dari data Tim; jika kosong, jatuh ke Patengen di profil desa. */
+export function bendaharaTimOrPatengen(
+  bendahara: { nama?: string | null; jabatan?: string | null } | null | undefined,
+  desa: DesaAdat | null | undefined
+): BuktiSetoranPenandatangan {
+  const nama = bendahara?.nama?.trim() ?? "";
+  if (nama) {
+    return {
+      nama,
+      jabatan: bendahara?.jabatan?.trim() || "Bendahara Tim",
+    };
+  }
+  return {
+    nama: desa?.patengen_nama?.trim() || "",
+    jabatan: desa?.patengen_jabatan?.trim() || "Patengen",
+  };
+}
+
+export async function resolveBendaharaTimPenandatangan(
+  desa: DesaAdat | null,
+  banjarId?: string
+): Promise<BuktiSetoranPenandatangan> {
+  const { listTimKasukretan } = await import("./services/master");
+  const match = (t: { jabatan: string }) => /bendahara/i.test(t.jabatan.trim());
+
+  const tim = await listTimKasukretan(banjarId);
   const inBanjar = tim.find(match);
-  if (inBanjar?.nama?.trim()) return inBanjar.nama.trim();
+  if (inBanjar?.nama?.trim()) {
+    return bendaharaTimOrPatengen(inBanjar, desa);
+  }
 
   const all = await listTimKasukretan();
   const any = all.find(match);
-  return any?.nama?.trim() ?? "";
+  return bendaharaTimOrPatengen(any ?? null, desa);
 }
 
 type PageCtx = {
@@ -391,7 +415,7 @@ function drawGrandTotal(ctx: PageCtx, amount: number): void {
 function drawDocumentFooter(
   ctx: PageCtx,
   desa: DesaAdat | null,
-  bendaharaNama: string
+  penandatangan: BuktiSetoranPenandatangan
 ): void {
   ensureSpace(ctx, FOOTER_BLOCK_H + SIGN_GAP_PT);
   ctx.y -= SIGN_GAP_PT;
@@ -415,7 +439,7 @@ function drawDocumentFooter(
   ly -= 5 * MM;
   drawCenteredText(
     ctx.page,
-    "Bendahara Tim",
+    pdfSafeText(penandatangan.jabatan),
     xRight,
     half,
     ly,
@@ -424,10 +448,10 @@ function drawDocumentFooter(
     COLOR_TEXT
   );
   ly -= signSpace;
-  if (bendaharaNama) {
+  if (penandatangan.nama) {
     drawCenteredText(
       ctx.page,
-      pdfSafeText(bendaharaNama),
+      pdfSafeText(penandatangan.nama),
       xRight,
       half,
       ly,
@@ -448,7 +472,7 @@ export async function generateBuktiSetoranDudukanPdfBytes(
   const bodyFonts = await createPdfFonts(pdf);
   const tableFonts = await createTableFonts(pdf);
   const firstSlip = payload.slips[0]!;
-  const bendaharaNama = await resolveBendaharaTimNama(firstSlip.banjarId);
+  const penandatangan = await resolveBendaharaTimPenandatangan(desa, firstSlip.banjarId);
 
   const ctx: PageCtx = {
     pdf,
@@ -465,7 +489,7 @@ export async function generateBuktiSetoranDudukanPdfBytes(
     grandTotal += drawGroupSection(ctx, slip);
   }
   drawGrandTotal(ctx, grandTotal);
-  drawDocumentFooter(ctx, desa, bendaharaNama);
+  drawDocumentFooter(ctx, desa, penandatangan);
 
   return pdf.save();
 }

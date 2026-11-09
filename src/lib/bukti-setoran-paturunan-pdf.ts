@@ -1,7 +1,11 @@
 ﻿import { PDFDocument, type PDFPage } from "pdf-lib";
 import type { DesaAdat } from "./types";
 import type { PaturunanRiwayatRow } from "./services/paturunan-pembayaran";
-import { paymentDayKey, resolveBendaharaTimNama } from "./bukti-setoran-dudukan-pdf";
+import {
+  paymentDayKey,
+  resolveBendaharaTimPenandatangan,
+  type BuktiSetoranPenandatangan,
+} from "./bukti-setoran-dudukan-pdf";
 import { formatRupiah } from "./paturunan-hitung";
 import {
   COLOR_TEXT,
@@ -440,7 +444,7 @@ function drawIuranSection(
 function drawPenerimaFooter(
   ctx: PageCtx,
   desa: DesaAdat | null,
-  bendaharaNama: string
+  penandatangan: BuktiSetoranPenandatangan
 ): void {
   ensureSpace(ctx, FOOTER_BLOCK_H);
   ctx.y -= FOOTER_TOP_GAP;
@@ -473,10 +477,10 @@ function drawPenerimaFooter(
     COLOR_TEXT
   );
   ly -= FOOTER_SIGN_SPACE;
-  if (bendaharaNama) {
+  if (penandatangan.nama) {
     drawCenteredText(
       ctx.page,
-      pdfCaps(bendaharaNama),
+      pdfCaps(penandatangan.nama),
       xRight,
       half,
       ly,
@@ -488,7 +492,7 @@ function drawPenerimaFooter(
   }
   drawCenteredText(
     ctx.page,
-    pdfCaps("Bendahara Tim"),
+    pdfCaps(penandatangan.jabatan),
     xRight,
     half,
     ly,
@@ -525,8 +529,11 @@ export async function generateBuktiSetoranPaturunanPdfBytes(
   }
   drawAmountSummaryRow(ctx, "JUMLAH KESELURUHAN", payload.slip.grandTotal);
 
-  const bendaharaNama = await resolveBendaharaTimNama(payload.slip.banjarId);
-  drawPenerimaFooter(ctx, desa, bendaharaNama);
+  const penandatangan = await resolveBendaharaTimPenandatangan(
+    desa,
+    payload.slip.banjarId
+  );
+  drawPenerimaFooter(ctx, desa, penandatangan);
 
   return pdf.save();
 }

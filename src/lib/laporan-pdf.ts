@@ -19,7 +19,7 @@ import {
   LAPORAN_CONT_HEADER_MM,
   LAPORAN_SUMMARY_LINE_H,
   loadDesaLogo,
-  resolveKetuaTimNama,
+  resolveKetuaTimPenandatangan,
   resolveLaporanPageLayout,
   type LaporanPageLayout,
   type LaporanPageSize,
@@ -445,7 +445,7 @@ export async function generateLaporanPdfBytes(
 ): Promise<Uint8Array | null> {
   if (input.headers.length === 0) return null;
 
-  const ketuaTimNama = await resolveKetuaTimNama();
+  const ketuaTim = await resolveKetuaTimPenandatangan(desa);
   const pdf = await PDFDocument.create();
   const bodyFonts = await createPdfFonts(pdf);
   const uppercase = input.uppercase ?? false;
@@ -743,7 +743,7 @@ export async function generateLaporanPdfBytes(
       pageLayout,
       bodyFonts,
       desa,
-      ketuaTimNama,
+      ketuaTim,
       signatureAnchorY,
       signatureFontSize,
       uppercase
@@ -760,14 +760,14 @@ export async function generateLaporanPdfBytes(
       continuationHeaderMm,
       uppercase
     );
-    drawLaporanSignatures(page, pageLayout, bodyFonts, desa, ketuaTimNama, y, signatureFontSize, uppercase);
+    drawLaporanSignatures(page, pageLayout, bodyFonts, desa, ketuaTim, y, signatureFontSize, uppercase);
   } else {
     drawLaporanSignatures(
       lastPage,
       pageLayout,
       bodyFonts,
       desa,
-      ketuaTimNama,
+      ketuaTim,
       y,
       signatureFontSize,
       uppercase

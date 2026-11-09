@@ -75,15 +75,37 @@ function formatPlaceDate(desa: DesaAdat | null, uppercase = false): string {
   return laporanText(`${tempat}, ${formatTanggalLahir(today())}`, uppercase);
 }
 
-function isJabatanKetuaTim(jabatan: string): boolean {
+export type LaporanPenandatangan = { nama: string; jabatan: string };
+
+export function isJabatanKetuaTim(jabatan: string): boolean {
   return jabatan.trim().toLowerCase().replace(/\s+/g, " ") === "ketua tim";
 }
 
-export async function resolveKetuaTimNama(): Promise<string> {
+/** Ketua Tim dari data Tim; jika nama kosong, jatuh ke Bandesa Adat di profil desa. */
+export function ketuaTimOrBandesa(
+  ketua: { nama?: string | null; jabatan?: string | null } | null | undefined,
+  desa: DesaAdat | null | undefined
+): LaporanPenandatangan {
+  const nama = ketua?.nama?.trim() ?? "";
+  if (nama) {
+    return {
+      nama,
+      jabatan: ketua?.jabatan?.trim() || "Ketua Tim",
+    };
+  }
+  return {
+    nama: desa?.bandesa_nama?.trim() || "",
+    jabatan: desa?.bandesa_jabatan?.trim() || "Bandesa Adat",
+  };
+}
+
+export async function resolveKetuaTimPenandatangan(
+  desa: DesaAdat | null
+): Promise<LaporanPenandatangan> {
   const { listTimKasukretan } = await import("./services/master");
   const tim = await listTimKasukretan();
   const ketua = tim.find((t) => isJabatanKetuaTim(t.jabatan));
-  return ketua?.nama?.trim() ?? "";
+  return ketuaTimOrBandesa(ketua ?? null, desa);
 }
 
 export async function loadDesaLogo(pdf: PDFDocument, desa: DesaAdat | null): Promise<PDFImage | null> {
@@ -287,7 +309,7 @@ export function drawLaporanSignatures(
   layout: LaporanPageLayout,
   fonts: PdfFonts,
   desa: DesaAdat | null,
-  ketuaTimNama: string,
+  ketuaTim: LaporanPenandatangan,
   y: number,
   fontSize = 8.5,
   uppercase = false
@@ -302,6 +324,8 @@ export function drawLaporanSignatures(
 
   const bandesaJabatan = desa?.bandesa_jabatan?.trim() || "Bandesa Adat";
   const bandesaNama = desa?.bandesa_nama?.trim() || "";
+  const kananJabatan = ketuaTim.jabatan.trim() || "Ketua Tim";
+  const kananNama = ketuaTim.nama.trim();
 
   drawCenteredText(
     page,
@@ -327,7 +351,7 @@ export function drawLaporanSignatures(
   );
   drawCenteredText(
     page,
-    laporanText("Ketua Tim", uppercase),
+    laporanText(kananJabatan, uppercase),
     xRight,
     half,
     ly,
@@ -348,10 +372,10 @@ export function drawLaporanSignatures(
       COLOR_TEXT
     );
   }
-  if (ketuaTimNama) {
+  if (kananNama) {
     drawCenteredText(
       page,
-      laporanText(ketuaTimNama, uppercase),
+      laporanText(kananNama, uppercase),
       xRight,
       half,
       ly,
