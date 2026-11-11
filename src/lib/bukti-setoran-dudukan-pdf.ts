@@ -203,7 +203,7 @@ export type BuktiSetoranPenandatangan = { nama: string; jabatan: string };
 /** Bendahara Tim dari data Tim; jika kosong, jatuh ke Patengen di profil desa. */
 export function bendaharaTimOrPatengen(
   bendahara: { nama?: string | null; jabatan?: string | null } | null | undefined,
-  desa: DesaAdat | null | undefined
+  desa: Pick<DesaAdat, "patengen_nama" | "patengen_jabatan"> | null | undefined
 ): BuktiSetoranPenandatangan {
   const nama = bendahara?.nama?.trim() ?? "";
   if (nama) {

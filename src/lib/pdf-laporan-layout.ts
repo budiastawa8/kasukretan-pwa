@@ -84,7 +84,7 @@ export function isJabatanKetuaTim(jabatan: string): boolean {
 /** Ketua Tim dari data Tim; jika nama kosong, jatuh ke Bandesa Adat di profil desa. */
 export function ketuaTimOrBandesa(
   ketua: { nama?: string | null; jabatan?: string | null } | null | undefined,
-  desa: DesaAdat | null | undefined
+  desa: Pick<DesaAdat, "bandesa_nama" | "bandesa_jabatan"> | null | undefined
 ): LaporanPenandatangan {
   const nama = ketua?.nama?.trim() ?? "";
   if (nama) {
