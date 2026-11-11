@@ -21,7 +21,7 @@ import {
   type UangBelumDisetorPetugas,
 } from "../../lib/services/setoran";
 import { formatRupiah } from "../../lib/dudukan-hitung";
-import { isSetoranTelat } from "../../lib/setoran-telat";
+import { isSetoranTelat, notifySetoranTelatUpdated } from "../../lib/setoran-telat";
 import { ingatPetugasSetor, labelTombolIngatSetor } from "../../lib/setoran-ingat-ui";
 import { cn, formatTanggalLahir, today } from "../../lib/utils";
 import { hasWhatsAppContact } from "../../lib/whatsapp";
@@ -32,7 +32,6 @@ import {
   listPenerimaanDanaLain,
 } from "../../lib/services/penerimaan-dana-lain";
 import { PenerimaanDanaLainDialog } from "../dana-lain/PenerimaanDanaLainDialog";
-import { SetoranTelatBendaharaBanner } from "../setoran/SetoranTelatBanner";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { HapusPembayaranDialog } from "../pembayaran/HapusPembayaranDialog";
@@ -245,6 +244,7 @@ export function SetoranPanel({
       setItems([]);
       setSelected(new Set());
       await load();
+      notifySetoranTelatUpdated();
       onChanged();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -277,6 +277,7 @@ export function SetoranPanel({
       setInfo("");
       await load();
       if (petugasDipilih != null) await pilihPetugas(petugasDipilih);
+      notifySetoranTelatUpdated();
       onChanged();
     } catch (e) {
       setError(String(e));
@@ -287,7 +288,6 @@ export function SetoranPanel({
 
   return (
     <>
-      <SetoranTelatBendaharaBanner ringkasan={ringkasan} onRefresh={() => void load()} />
       {canEdit && (
         <Card title="Punia & Dana Kerjasama">
           <p className="text-xs text-muted mb-2 leading-snug">

@@ -143,9 +143,12 @@ export function SetoranTelatPetugasBanner() {
 export function SetoranTelatBendaharaBanner({
   ringkasan,
   onRefresh,
+  showKeSetoranLink = false,
 }: {
   ringkasan: UangBelumDisetorPetugas[];
   onRefresh?: () => void;
+  /** Tampilkan tautan ke tab Setoran (untuk banner global di AppShell). */
+  showKeSetoranLink?: boolean;
 }) {
   const { user } = useAuth();
   const boleh = canEditKeuangan(user?.peran);
@@ -246,8 +249,65 @@ export function SetoranTelatBendaharaBanner({
               </li>
             ))}
           </ul>
+          {showKeSetoranLink ? (
+            <div className="mt-2">
+              <Link
+                to="/keuangan?tab=setoran"
+                className="inline-flex items-center rounded-md bg-amber-900 px-2.5 py-1 text-[11px] font-medium text-amber-50 hover:bg-amber-800"
+              >
+                Buka Setoran
+              </Link>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Banner global untuk admin/keuangan: muat ringkasan sendiri saat buka aplikasi.
+ * Dipasang di AppShell (sejajar banner petugas & backup).
+ */
+export function SetoranTelatBendaharaAppBanner() {
+  const { user } = useAuth();
+  const boleh = canEditKeuangan(user?.peran);
+  const [ringkasan, setRingkasan] = useState<UangBelumDisetorPetugas[]>([]);
+
+  const refresh = useCallback(async () => {
+    if (!boleh) {
+      setRingkasan([]);
+      return;
+    }
+    try {
+      const rows = await listUangBelumDisetorPerPetugas();
+      setRingkasan(rows);
+    } catch {
+      setRingkasan([]);
+    }
+  }, [boleh]);
+
+  useEffect(() => {
+    void refresh();
+    const onUpd = () => void refresh();
+    window.addEventListener(SETORAN_TELAT_UPDATED_EVENT, onUpd);
+    const onVis = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener(SETORAN_TELAT_UPDATED_EVENT, onUpd);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [refresh]);
+
+  if (!boleh) return null;
+
+  return (
+    <SetoranTelatBendaharaBanner
+      ringkasan={ringkasan}
+      onRefresh={() => void refresh()}
+      showKeSetoranLink
+    />
   );
 }

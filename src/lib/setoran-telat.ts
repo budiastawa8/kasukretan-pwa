@@ -68,11 +68,16 @@ function readSnoozeMap(): SnoozeMap {
   }
 }
 
-function writeSnoozeMap(map: SnoozeMap): void {
-  localStorage.setItem(SNOOZE_KEY, JSON.stringify(map));
+/** Panggil setelah setoran diterima/dibatalkan agar banner global refresh. */
+export function notifySetoranTelatUpdated(): void {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event(SETORAN_TELAT_UPDATED_EVENT));
   }
+}
+
+function writeSnoozeMap(map: SnoozeMap): void {
+  localStorage.setItem(SNOOZE_KEY, JSON.stringify(map));
+  notifySetoranTelatUpdated();
 }
 
 function snoozeKey(petugasId: string | null | undefined, scope: "petugas" | "bendahara"): string {

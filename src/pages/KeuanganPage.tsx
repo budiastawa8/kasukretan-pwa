@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { scrollAppMainToTop } from "../lib/scroll-main";
 import { ArrowLeftRight, Pencil, Plus, RotateCcw, Trash2, Wallet } from "lucide-react";
 import { normalizeTanggalIsoForInput } from "../lib/date-iso";
@@ -82,6 +82,13 @@ import { useIsPhoneClient } from "../hooks/useClientFormFactor";
 
 type Tab = "buku-kas" | "setoran" | "transfer" | "pemasukan" | "pengeluaran";
 
+const KEUANGAN_TABS: Tab[] = ["buku-kas", "setoran", "transfer", "pemasukan", "pengeluaran"];
+
+function parseKeuanganTab(raw: string | null): Tab {
+  if (raw && (KEUANGAN_TABS as string[]).includes(raw)) return raw as Tab;
+  return "buku-kas";
+}
+
 const POS_ROW_POS_CLASS = "w-full min-w-0 sm:min-w-[calc(10rem-50pt)] sm:flex-1";
 const POS_ROW_JUMLAH_CLASS = "w-full sm:w-[calc(7rem+50pt)] sm:shrink-0";
 
@@ -131,7 +138,8 @@ export function KeuanganPage() {
   const { user } = useAuth();
   const isPhone = useIsPhoneClient();
   const canEdit = canEditKeuangan(user?.peran);
-  const [tab, setTab] = useState<Tab>("buku-kas");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [tab, setTab] = useState<Tab>(() => parseKeuanganTab(searchParams.get("tab")));
   const [akun, setAkun] = useState<AkunKeuanganRow[]>([]);
   const [posBiaya, setPosBiaya] = useState<PosBiayaRow[]>([]);
   const [posPemasukan, setPosPemasukan] = useState<PosPemasukanRow[]>([]);
@@ -215,6 +223,22 @@ export function KeuanganPage() {
       else if (firstTransaksional && !trfTujuanId) setTrfTujuanId(firstTransaksional.id);
     })();
   }, []);
+
+  useEffect(() => {
+    setTab(parseKeuanganTab(searchParams.get("tab")));
+  }, [searchParams]);
+
+  const selectTab = useCallback(
+    (next: Tab) => {
+      setTab(next);
+      if (next === "buku-kas") {
+        setSearchParams({}, { replace: true });
+      } else {
+        setSearchParams({ tab: next }, { replace: true });
+      }
+    },
+    [setSearchParams]
+  );
 
   useEffect(() => {
     scrollAppMainToTop();
@@ -776,7 +800,7 @@ export function KeuanganPage() {
                 : "px-3 py-2 sm:px-3.5 sm:py-1.5 text-xs sm:text-sm min-h-9 sm:min-h-0",
               tab === id ? styles.active : styles.inactive
             )}
-            onClick={() => setTab(tabId)}
+            onClick={() => selectTab(tabId)}
           >
             {label}
           </button>
