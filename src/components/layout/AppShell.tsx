@@ -10,24 +10,13 @@ import { settingsPath } from "../../lib/settings-routes";
 import { useIsPhoneClient } from "../../hooks/useClientFormFactor";
 import { GuardedNavLink } from "./GuardedNavLink";
 import {
-  LayoutDashboard,
-  Users,
-  Coins,
-  UserCircle,
-  HandCoins,
-  Wallet,
-  BarChart3,
-  Building2,
-  Settings,
-  Database,
-  LogOut,
-  KeyRound,
-  Menu,
-  X,
-  MoreHorizontal,
-  ScanLine,
-  ClipboardList,
-} from "lucide-react";
+  findNavLabel,
+  NAV_GROUPS,
+  navGroupsForPeran,
+  PHONE_DOCK_PATHS,
+  type NavItem,
+} from "./nav-config";
+import { LogOut, KeyRound, Menu, X, MoreHorizontal } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { Button } from "../ui/Button";
 import { UkuranTulisanControl } from "../ui/UkuranTulisanControl";
@@ -42,64 +31,6 @@ import { InstallAppBanner } from "../pwa/InstallAppBanner";
 import { APP_CREDITS, appCopyrightLine } from "../../lib/app-credits";
 import { cn } from "../../lib/utils";
 
-type NavItem = {
-  to: string;
-  icon: React.ComponentType<{ size?: number; strokeWidth?: number }>;
-  label: string;
-  end?: boolean;
-};
-
-type NavGroup = {
-  id: string;
-  label?: string;
-  items: NavItem[];
-};
-
-const NAV_GROUPS: NavGroup[] = [
-  {
-    id: "home",
-    items: [{ to: "/", icon: LayoutDashboard, label: "Dashboard", end: true }],
-  },
-  {
-    id: "krama",
-    label: "Krama",
-    items: [
-      { to: "/krama-mipil", icon: Users, label: "Pipil" },
-      { to: "/krama-pemasih", icon: UserCircle, label: "Pemasih" },
-    ],
-  },
-  {
-    id: "iuran",
-    label: "Iuran",
-    items: [
-      { to: "/pengumpulan", icon: ScanLine, label: "Pengumpulan", end: true },
-      { to: "/pengumpulan/rekap", icon: ClipboardList, label: "Rekap & Riwayat" },
-      { to: "/paturunan", icon: Coins, label: "Paturunan" },
-      { to: "/dudukan", icon: HandCoins, label: "Dudukan" },
-    ],
-  },
-  {
-    id: "ops",
-    label: "Operasional",
-    items: [
-      { to: "/keuangan", icon: Wallet, label: "Keuangan" },
-      { to: "/lembaga-badan", icon: Building2, label: "Lembaga" },
-      { to: "/laporan", icon: BarChart3, label: "Laporan" },
-    ],
-  },
-  {
-    id: "sistem",
-    label: "Sistem",
-    items: [
-      { to: "/master", icon: Database, label: "Master" },
-      { to: "/pengaturan", icon: Settings, label: "Pengaturan" },
-    ],
-  },
-];
-
-/** Shortcut bawah HP — sisanya lewat tombol Menu. */
-const PHONE_DOCK_PATHS = ["/", "/pengumpulan", "/pungut", "/krama-mipil", "/krama-pemasih", "/paturunan"] as const;
-
 function SidebarNav({
   peran,
   onNavigate,
@@ -107,14 +38,7 @@ function SidebarNav({
   peran: string | undefined;
   onNavigate?: () => void;
 }) {
-  const groups = useMemo(
-    () =>
-      NAV_GROUPS.map((g) => ({
-        ...g,
-        items: g.items.filter((item) => canAccessPath(peran, item.to)),
-      })).filter((g) => g.items.length > 0),
-    [peran]
-  );
+  const groups = useMemo(() => navGroupsForPeran(peran), [peran]);
 
   return (
     <nav className="flex-1 space-y-3 overflow-y-auto p-2.5">
@@ -311,10 +235,7 @@ export function AppShell() {
 
   const userLabel = user?.nama ?? user?.username ?? "";
   const peranLabel = staffRoleLabel(user?.peran);
-  const pageTitle =
-    NAV_GROUPS.flatMap((g) => g.items).find((i) =>
-      i.end ? pathname === i.to : pathname === i.to || pathname.startsWith(`${i.to}/`)
-    )?.label ?? "Kasukretan";
+  const pageTitle = findNavLabel(pathname) ?? "Kasukretan";
 
   return (
     <div className="flex h-screen overflow-hidden" data-shell={isPhone ? "phone" : "desktop"}>

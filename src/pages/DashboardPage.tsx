@@ -14,6 +14,7 @@ import { initLanClientDatabase } from "../lib/db/init";
 import { useIsPhoneClient } from "../hooks/useClientFormFactor";
 import { DashboardMetricCard } from "../components/dashboard/DashboardMetricCard";
 import { DashboardKomposisiBanjarChart } from "../components/dashboard/DashboardKomposisiBanjarChart";
+import { DashboardMenuGrid } from "../components/dashboard/DashboardMenuGrid";
 import { JenisKramaBreakdownTable } from "../components/laporan/JenisKramaBreakdownTable";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -192,6 +193,8 @@ export function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {isPhone ? <DashboardMenuGrid peran={user?.peran} /> : null}
 
       {error && (
         <p className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
