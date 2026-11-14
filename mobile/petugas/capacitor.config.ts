@@ -1,7 +1,8 @@
 import type { CapacitorConfig } from "@capacitor/core";
 
+/** Login staf PWA — peran petugas diarahkan ke /pengumpulan (bukan /petugas legacy). */
 const SERVER_URL =
-  process.env.PETUGAS_SERVER_URL?.trim() || "https://kasukretan-pwa.vercel.app/petugas";
+  process.env.PETUGAS_SERVER_URL?.trim() || "https://kasukretan-pwa.vercel.app/login";
 
 const config: CapacitorConfig = {
   appId: "id.kasukretan.petugas",

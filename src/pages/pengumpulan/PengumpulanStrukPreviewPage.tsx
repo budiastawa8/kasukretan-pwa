@@ -8,7 +8,7 @@ import {
   StrukThermalSheetDudukan,
   StrukThermalSheetPaturunan,
   STRUK_THERMAL_WIDTH_DEFAULT,
-} from "../../components/petugas/StrukThermalSheet";
+} from "../../components/pengumpulan/StrukThermalSheet";
 import { downloadBytes } from "../../lib/download-bytes";
 import { formatRupiah } from "../../lib/dudukan-hitung";
 import { readPetugasStrukPreview } from "../../lib/petugas-struk-preview";
@@ -95,7 +95,7 @@ function printerHint(
   };
 }
 
-export function PetugasStrukPreviewPage() {
+export function PengumpulanStrukPreviewPage() {
   const [previewState] = useState(() => readPetugasStrukPreview());
   const [thermalWidthMm, setThermalWidthMm] = useState<StrukThermalWidthMm>(STRUK_THERMAL_WIDTH_DEFAULT);
   const [desaNama, setDesaNama] = useState("—");

@@ -2,6 +2,15 @@
 
 Shell Android (Capacitor) untuk petugas lapangan. Aplikasi memuat PWA live di WebView dan mencetak struk lewat Bluetooth native (**SPP klasik + BLE**).
 
+## Alur yang benar
+
+Petugas di project ini memakai **app staf PWA** dengan peran `petugas`:
+
+1. Login di `/login` (akun petugas lapangan)
+2. Langsung ke **`/pengumpulan`**
+
+Route `/petugas` (modul legacy) sudah dihapus; akses lama dialihkan ke `/login`.
+
 ## Prasyarat
 
 - Node.js 20+
@@ -28,12 +37,12 @@ npm run petugas:sync
 
 ## URL server
 
-Default: `https://kasukretan-pwa.vercel.app/petugas`
+Default: `https://kasukretan-pwa.vercel.app/login`
 
 Override saat sync/build:
 
 ```powershell
-$env:PETUGAS_SERVER_URL = "https://proyek-anda.vercel.app/petugas"
+$env:PETUGAS_SERVER_URL = "https://proyek-anda.vercel.app/login"
 npm run petugas:sync
 ```
 
@@ -59,11 +68,12 @@ lalu **Build → Build Bundle(s) / APK(s) → Build APK(s)**.
 
 1. Salin `app-debug.apk` ke HP.
 2. Buka file → Install.
-3. Buka **Kasukretan Petugas** → login petugas.
-4. Saat cetak struk: tap ikon **Bluetooth** sekali.
-5. Pilih printer (daftar perangkat yang sudah di-pair sistem, atau hasil scan).
-6. Izinkan akses Bluetooth jika diminta.
-7. Tap **Cetak**.
+3. Buka **Kasukretan Petugas** → login akun **petugas lapangan** (peran petugas).
+4. Anda masuk ke halaman **Pengumpulan** (sama seperti PWA di Chrome).
+5. Saat cetak struk: tap ikon **Bluetooth** sekali.
+6. Pilih printer (daftar perangkat yang sudah di-pair sistem, atau hasil scan).
+7. Izinkan akses Bluetooth jika diminta.
+8. Tap **Cetak**.
 
 Printer tersimpan di aplikasi; cetak berikutnya menyambung ulang otomatis (termasuk setelah printer sleep).
 
@@ -86,7 +96,7 @@ Printer tersimpan di aplikasi; cetak berikutnya menyambung ulang otomatis (terma
 
 ## Arsitektur singkat
 
-- UI & ESC/POS: PWA (`/petugas`, `buildEscPosReceipt`)
+- UI & ESC/POS: PWA (`/login` → `/pengumpulan` → `/pengumpulan/struk`, `buildEscPosReceipt`)
 - Transport: plugin `ThermalPrinter` (Kotlin) di APK
 - Browser Chrome tanpa APK: tetap memakai Web Bluetooth (BLE saja)
 

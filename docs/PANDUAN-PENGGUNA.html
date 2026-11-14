@@ -861,48 +861,22 @@ code {
 <li>Placeholder seperti nama krama dan jumlah tunggakan diisi otomatis.</li>
 </ul>
 <hr>
-<h2 id="12-modul-online--petugas-lapangan">12. Modul Online — Petugas Lapangan</h2>
-<blockquote>
-<p>Modul ini diakses lewat <strong>browser HP</strong>, bukan aplikasi desktop. URL diberikan vendor, misalnya:<br>
-<code>https://nama-desa.pages.dev/petugas/login</code></p>
-</blockquote>
+<h2 id="12-petugas-lapangan-pengumpulan">12. Petugas Lapangan (Pengumpulan)</h2>
+<p>Petugas memakai <strong>aplikasi PWA yang sama</strong> dengan staf (atau APK shell petugas), bukan URL <code>/petugas</code> lama.</p>
 <h3 id="login-petugas">Login petugas</h3>
 <ol>
-<li>Buka URL petugas di browser HP.</li>
-<li>Login dengan akun petugas yang dibuat di desktop (<strong>Pengaturan → tab Modul Online → Akun petugas lapangan</strong>).</li>
-<li>Akun harus sudah <strong>dikirim ke cloud</strong> dari desktop kantor.</li>
+<li>Buka URL aplikasi, misalnya <code>https://kasukretan-pwa.vercel.app/login</code> (atau buka APK <strong>Kasukretan Petugas</strong>).</li>
+<li>Login dengan akun ber-peran <strong>petugas</strong>.</li>
+<li>Setelah login, aplikasi membuka halaman <strong>Pengumpulan</strong>.</li>
 </ol>
-<h3 id="beranda-petugas">Beranda petugas</h3>
-<p>Periksa <strong>Kesiapan cloud</strong> — semua item harus hijau:</p>
-<ul>
-<li>Banjar</li>
-<li>Tim petugas</li>
-<li>Krama</li>
-<li>Akun keuangan</li>
-</ul>
-<p>Jika merah, kantor belum selesai kirim master/krama ke cloud.</p>
-<h3 id="paturunan-petugas">Paturunan (petugas)</h3>
+<h3 id="mencatat-pembayaran">Mencatat pembayaran</h3>
 <ol>
-<li>Pilih <strong>Paturunan</strong> dari beranda.</li>
-<li>Filter banjar &amp; iuran.</li>
-<li>Cari krama by nama/nomor kartu, atau tap <strong>Scan</strong> untuk baca QR kartu.</li>
-<li>Tap krama → isi jumlah bayar, tanggal, akun kas.</li>
-<li>Simpan — data masuk ke cloud.</li>
+<li>Di <strong>Pengumpulan</strong>, pilih jenis pembayaran.</li>
+<li>Cari krama atau scan QR kartu.</li>
+<li>Catat pembayaran — data tersimpan di database online.</li>
+<li>Opsional: cetak struk thermal (Bluetooth / APK).</li>
 </ol>
-<h3 id="dudukan-petugas">Dudukan (petugas)</h3>
-<ol>
-<li>Pilih <strong>Dudukan</strong> dari beranda.</li>
-<li>Pilih bulan, banjar, petugas (otomatis terisi jika akun terhubung ke tim).</li>
-<li>Cari pemasih atau scan QR kartu.</li>
-<li>Catat pembayaran.</li>
-</ol>
-<h3 id="setelah-petugas-selesai">Setelah petugas selesai</h3>
-<p>Di <strong>desktop kantor</strong> → <strong>Pengaturan → tab Modul Online → Sinkronisasi cloud</strong>:</p>
-<ol>
-<li>Klik <strong>Tarik dari cloud</strong> (atau sinkron dua arah).</li>
-<li>Pembayaran petugas masuk ke database desktop.</li>
-<li>Cek di tab <strong>Riwayat</strong> Paturunan/Dudukan.</li>
-</ol>
+<p>Lihat juga <code>docs/PETUGAS-APK.md</code> untuk instalasi APK lapangan.</p>
 <hr>
 <h2 id="13-modul-online--portal-krama">13. Modul Online — Portal Krama</h2>
 <blockquote>

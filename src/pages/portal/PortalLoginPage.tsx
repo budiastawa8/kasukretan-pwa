@@ -106,8 +106,8 @@ export function PortalLoginPage() {
             ← Kembali ke admin
           </Link>
         ) : (
-          <Link to="/petugas/login" className="block text-center text-xs text-copper-700 hover:underline">
-            Login petugas →
+          <Link to="/login" className="block text-center text-xs text-copper-700 hover:underline">
+            Login staf / petugas →
           </Link>
         )}
       </Card>

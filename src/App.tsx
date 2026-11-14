@@ -1,13 +1,11 @@
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation, useParams } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { PortalAuthProvider } from "./context/PortalAuthContext";
-import { PetugasAuthProvider } from "./context/PetugasAuthContext";
 import { canAccessPath, defaultHomePath } from "./lib/auth-roles";
 import { ForceChangePasswordPage } from "./pages/ForceChangePasswordPage";
 import { KramaFormGuardProvider } from "./context/KramaFormGuardContext";
 import { AppShell } from "./components/layout/AppShell";
 import { PortalLayout } from "./components/portal/PortalLayout";
-import { PetugasLayout } from "./components/petugas/PetugasLayout";
 import { LoginPage } from "./pages/LoginPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { PortalLoginPage } from "./pages/portal/PortalLoginPage";
@@ -17,11 +15,6 @@ import { PortalPaturunanPage } from "./pages/portal/PortalPaturunanPage";
 import { PortalDudukanPage } from "./pages/portal/PortalDudukanPage";
 import { CekTunggakanPaturunanPage } from "./pages/publik/CekTunggakanPaturunanPage";
 import { CekPetugasPage } from "./pages/publik/CekPetugasPage";
-import { PetugasLoginPage } from "./pages/petugas/PetugasLoginPage";
-import { PetugasHomePage } from "./pages/petugas/PetugasHomePage";
-import { PetugasPaturunanPage } from "./pages/petugas/PetugasPaturunanPage";
-import { PetugasDudukanPage } from "./pages/petugas/PetugasDudukanPage";
-import { PetugasRekapHariIniPage } from "./pages/petugas/PetugasRekapHariIniPage";
 import { KramaMipilListPage } from "./pages/KramaMipilListPage";
 import { KramaPemasihListPage } from "./pages/KramaPemasihListPage";
 import { PemasihPerhatianPage } from "./pages/PemasihPerhatianPage";
@@ -35,7 +28,7 @@ import { PaturunanPage } from "./pages/PaturunanPage";
 import { DudukanPage } from "./pages/DudukanPage";
 import { PengumpulanPage } from "./pages/PengumpulanPage";
 import { PengumpulanRekapPage } from "./pages/PengumpulanRekapPage";
-import { PetugasStrukPreviewPage } from "./pages/petugas/PetugasStrukPreviewPage";
+import { PengumpulanStrukPreviewPage } from "./pages/pengumpulan/PengumpulanStrukPreviewPage";
 import { PETUGAS_STRUK_PREVIEW_PATH } from "./lib/petugas-struk-preview";
 import { LaporanHubPage } from "./pages/laporan/LaporanHubPage";
 import { LaporanPaturunanPage } from "./pages/laporan/LaporanPaturunanPage";
@@ -130,27 +123,8 @@ export default function App() {
             <Route path="paturunan" element={<PortalPaturunanPage />} />
             <Route path="dudukan" element={<PortalDudukanPage />} />
           </Route>
-          <Route
-            path="/petugas/login"
-            element={
-              <PetugasAuthProvider>
-                <PetugasLoginPage />
-              </PetugasAuthProvider>
-            }
-          />
-          <Route
-            path="/petugas"
-            element={
-              <PetugasAuthProvider>
-                <PetugasLayout />
-              </PetugasAuthProvider>
-            }
-          >
-            <Route index element={<PetugasHomePage />} />
-            <Route path="rekap-hari-ini" element={<PetugasRekapHariIniPage />} />
-            <Route path="paturunan" element={<PetugasPaturunanPage />} />
-            <Route path="dudukan" element={<PetugasDudukanPage />} />
-          </Route>
+          {/* Legacy Mode Petugas (API Postgres) — alihkan ke login staf → /pengumpulan */}
+          <Route path="/petugas/*" element={<Navigate to="/login" replace />} />
           <Route
             path="/ganti-password-wajib"
             element={
@@ -227,7 +201,7 @@ export default function App() {
             path={PETUGAS_STRUK_PREVIEW_PATH}
             element={
               <Protected>
-                <PetugasStrukPreviewPage />
+                <PengumpulanStrukPreviewPage />
               </Protected>
             }
           />

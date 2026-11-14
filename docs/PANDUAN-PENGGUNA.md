@@ -355,50 +355,24 @@ Lakukan backup berkala, terutama sebelum update aplikasi atau operasi besar.
 
 ---
 
-## 12. Modul Online — Petugas Lapangan
+## 12. Petugas Lapangan (Pengumpulan)
 
-> Modul ini diakses lewat **browser HP**, bukan aplikasi desktop. URL diberikan vendor, misalnya:  
-> `https://nama-desa.pages.dev/petugas/login`
+Petugas memakai **aplikasi PWA yang sama** dengan staf (atau APK shell petugas), bukan URL `/petugas` lama.
 
 ### Login petugas
 
-1. Buka URL petugas di browser HP.
-2. Login dengan akun petugas yang dibuat di desktop (**Pengaturan → tab Modul Online → Akun petugas lapangan**).
-3. Akun harus sudah **dikirim ke cloud** dari desktop kantor.
+1. Buka URL aplikasi, misalnya `https://kasukretan-pwa.vercel.app/login` (atau buka APK **Kasukretan Petugas**).
+2. Login dengan akun ber-peran **petugas** (dibuat di **Pengaturan → Pengguna**, dihubungkan ke Tim Kasukretan).
+3. Setelah login, aplikasi membuka halaman **Pengumpulan**.
 
-### Beranda petugas
+### Mencatat pembayaran
 
-Periksa **Kesiapan cloud** — semua item harus hijau:
+1. Di **Pengumpulan**, pilih jenis (Paturunan / Dudukan / dana lain sesuai menu).
+2. Cari krama by nama/nomor kartu, atau scan QR kartu.
+3. Catat pembayaran → data tersimpan di database online (Turso).
+4. Opsional: **Cetak struk** thermal (Bluetooth di Chrome Android atau APK native).
 
-- Banjar
-- Tim petugas
-- Krama
-- Akun keuangan
-
-Jika merah, kantor belum selesai kirim master/krama ke cloud.
-
-### Paturunan (petugas)
-
-1. Pilih **Paturunan** dari beranda.
-2. Filter banjar & iuran.
-3. Cari krama by nama/nomor kartu, atau tap **Scan** untuk baca QR kartu.
-4. Tap krama → isi jumlah bayar, tanggal, akun kas.
-5. Simpan — data masuk ke cloud.
-
-### Dudukan (petugas)
-
-1. Pilih **Dudukan** dari beranda.
-2. Pilih bulan, banjar, petugas (otomatis terisi jika akun terhubung ke tim).
-3. Cari pemasih atau scan QR kartu.
-4. Catat pembayaran.
-
-### Setelah petugas selesai
-
-Di **desktop kantor** → **Pengaturan → tab Modul Online → Sinkronisasi cloud**:
-
-1. Klik **Tarik dari cloud** (atau sinkron dua arah).
-2. Pembayaran petugas masuk ke database desktop.
-3. Cek di tab **Riwayat** Paturunan/Dudukan.
+Lihat juga [`PETUGAS-APK.md`](./PETUGAS-APK.md) untuk instalasi APK lapangan.
 
 ---
 

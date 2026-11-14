@@ -229,30 +229,11 @@
     display: none !important;
   }
 
-  .petugas-module > div > header,
-  .petugas-module > div > nav {
-    display: none !important;
-  }
-
-  .petugas-module,
-  .petugas-module > div {
-    min-height: 0 !important;
-    background: #fff !important;
-    border: none !important;
-    box-shadow: none !important;
-    max-width: none !important;
-  }
-
-  .petugas-module main {
-    padding: 0 !important;
-  }
-
   body {
     background: #fff !important;
   }
 
-  .app-main,
-  .petugas-module {
+  .app-main {
     max-width: none !important;
     margin: 0 !important;
     padding: 0 !important;
