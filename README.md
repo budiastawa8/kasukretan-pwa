@@ -162,7 +162,8 @@ Lakukan backup rutin (mis. mingguan) dan simpan di tempat aman — file berisi d
 - Modul Petugas & Portal krama (berbasis Postgres) tidak disertakan.
 - Tanpa lisensi/aktivasi, tanpa mode LAN — server cloud menggantikannya.
 - Harus online; tidak ada antrean data saat offline.
-- Cetak Bluetooth langsung hanya didukung Chrome Android; selain itu gunakan cetak/unduh PDF.
+- Cetak Bluetooth langsung: Chrome Android (Web Bluetooth / BLE) atau **APK petugas** (SPP + BLE). Selain itu gunakan cetak/unduh PDF.
+- APK petugas: lihat [`docs/PETUGAS-APK.md`](docs/PETUGAS-APK.md) (`npm run petugas:sync` / `petugas:apk`).
 
 ## Struktur
 
@@ -171,5 +172,6 @@ api/index.ts        Fungsi Vercel → server/handler.ts
 server/             Auth (JWT), RBAC SQL, koneksi Turso
 scripts/            db:init / db:import / db:export, server API lokal, uji smoke
 src/                Aplikasi React (service sama dengan desktop, SQL dikirim ke /api/sql)
+mobile/petugas/     Shell Capacitor Android + plugin cetak thermal native
 vercel.json         Rewrite /api, header cache, region
 ```

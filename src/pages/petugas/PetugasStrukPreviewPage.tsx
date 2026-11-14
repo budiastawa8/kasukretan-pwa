@@ -24,6 +24,7 @@ import { buildEscPosReceipt } from "../../lib/thermal-escpos";
 import {
   getCachedPrinterName,
   isThermalBluetoothSupported,
+  isThermalNativeShell,
   onPrinterConnectionChange,
   pairThermalPrinter,
   PrinterNotConfiguredError,
@@ -58,16 +59,23 @@ function initialPrinterReadiness(): PrinterReadiness {
   return name ? { status: "permission_lost", name } : { status: "never_paired" };
 }
 
-function printerHint(r: PrinterReadiness | null): { text: string; className: string } {
+function printerHint(
+  r: PrinterReadiness | null,
+  nativeShell: boolean
+): { text: string; className: string } {
   if (!r || r.status === "unsupported") {
     return {
-      text: "Bluetooth tidak tersedia — gunakan Cetak (dialog browser) atau PDF",
+      text: nativeShell
+        ? "Bluetooth native tidak siap — gunakan PDF sebagai cadangan"
+        : "Bluetooth tidak tersedia — gunakan Cetak (dialog browser) atau PDF",
       className: "text-amber-800",
     };
   }
   if (r.status === "ready") {
     return {
-      text: `Siap: ${r.name} — langsung tap Cetak`,
+      text: nativeShell
+        ? `Printer native siap: ${r.name} — langsung tap Cetak`
+        : `Siap: ${r.name} — langsung tap Cetak`,
       className: "text-emerald-800",
     };
   }
@@ -80,7 +88,9 @@ function printerHint(r: PrinterReadiness | null): { text: string; className: str
     };
   }
   return {
-    text: "Belum ada printer — tap ikon Bluetooth sekali, lalu Cetak",
+    text: nativeShell
+      ? "Belum ada printer — tap ikon Bluetooth, pilih perangkat (SPP/BLE), lalu Cetak"
+      : "Belum ada printer — tap ikon Bluetooth sekali, lalu Cetak",
     className: "text-copper-800",
   };
 }
@@ -101,6 +111,7 @@ export function PetugasStrukPreviewPage() {
     initialPrinterReadiness()
   );
   const bluetoothReady = isThermalBluetoothSupported();
+  const nativeShell = isThermalNativeShell();
 
   function setStatus(msg: string, tone: "ok" | "error" | "warn" = "ok") {
     setStatusTone(tone);
@@ -211,7 +222,11 @@ export function PetugasStrukPreviewPage() {
 
   const handlePairPrinter = useCallback(async () => {
     if (!bluetoothReady) {
-      window.alert("Gunakan Chrome di Android (HTTPS) untuk menghubungkan printer Bluetooth.");
+      window.alert(
+        nativeShell
+          ? "Bluetooth native belum siap. Izinkan akses Bluetooth untuk aplikasi ini."
+          : "Gunakan Chrome di Android (HTTPS) atau APK Kasukretan Petugas untuk menghubungkan printer Bluetooth."
+      );
       return;
     }
     setPairing(true);
@@ -230,7 +245,7 @@ export function PetugasStrukPreviewPage() {
     } finally {
       setPairing(false);
     }
-  }, [bluetoothReady]);
+  }, [bluetoothReady, nativeShell]);
 
   const handleSavePdf = useCallback(async () => {
     if (!previewState) return;
@@ -277,7 +292,10 @@ export function PetugasStrukPreviewPage() {
         ? `Struk ${labelJenisPenerimaanDanaLain(previewState.payload.jenis)}`
         : "Struk Pembayaran Paturunan";
 
-  const hint = printerHint(bluetoothReady ? printerReady : { status: "unsupported" });
+  const hint = printerHint(
+    bluetoothReady ? printerReady : { status: "unsupported" },
+    nativeShell
+  );
   /** Satu baris saja: pesan aksi (cetak/pair) menimpa hint dasar. */
   const statusLine = statusMsg
     ? {

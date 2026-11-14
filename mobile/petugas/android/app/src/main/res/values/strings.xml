@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Kasukretan Petugas</string>
+    <string name="title_activity_main">Kasukretan Petugas</string>
+    <string name="package_name">id.kasukretan.petugas</string>
+    <string name="custom_url_scheme">id.kasukretan.petugas</string>
+</resources>

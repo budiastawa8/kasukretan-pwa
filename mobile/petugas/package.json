@@ -1,0 +1,24 @@
+{
+  "name": "kasukretan-petugas",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Shell Android Capacitor untuk modul petugas lapangan Kasukretan",
+  "type": "module",
+  "scripts": {
+    "postinstall": "npm --prefix plugins/thermal-printer run build",
+    "sync": "npx cap sync android",
+    "open": "npx cap open android",
+    "apk": "node ./scripts/build-debug-apk.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/app": "^7.1.0",
+    "@capacitor/core": "^7.4.3",
+    "@capacitor/status-bar": "^7.0.3",
+    "kasukretan-thermal-printer": "file:./plugins/thermal-printer"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.4.3",
+    "typescript": "~5.8.3"
+  }
+}

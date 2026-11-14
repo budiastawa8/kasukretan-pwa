@@ -1,0 +1,30 @@
+{
+  "name": "kasukretan-thermal-printer",
+  "version": "1.0.0",
+  "description": "Native thermal printer bridge (Bluetooth SPP + BLE) for Kasukretan Petugas",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "files": [
+    "android/",
+    "dist/",
+    "KasukretanThermalPrinter.podspec"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "@capacitor/core": ">=7.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/core": "^7.4.3",
+    "typescript": "~5.8.3"
+  },
+  "capacitor": {
+    "android": {
+      "src": "android"
+    }
+  }
+}

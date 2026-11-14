@@ -20,9 +20,14 @@
     "db:export": "tsx scripts/db-export.ts",
     "jwt:secret": "node -e \"console.log(require('node:crypto').randomBytes(48).toString('base64url'))\"",
     "deploy:vercel": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/vercel-deploy.ps1",
-    "deploy:vercel:panel": "powershell -NoProfile -ExecutionPolicy Bypass -STA -File ./scripts/vercel-deploy-panel.ps1"
+    "deploy:vercel:panel": "powershell -NoProfile -ExecutionPolicy Bypass -STA -File ./scripts/vercel-deploy-panel.ps1",
+    "petugas:sync": "npm --prefix mobile/petugas run sync",
+    "petugas:open": "npm --prefix mobile/petugas run open",
+    "petugas:apk": "npm --prefix mobile/petugas run apk"
   },
   "dependencies": {
+    "@capacitor/app": "^7.1.2",
+    "@capacitor/core": "^7.6.10",
     "@fontsource/barlow-condensed": "^5.2.8",
     "@fontsource/roboto-condensed": "^5.2.8",
     "@libsql/client": "^0.15.15",
