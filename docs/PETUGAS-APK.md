@@ -37,12 +37,12 @@ npm run petugas:sync
 
 ## URL server
 
-Default: `https://kasukretan-pwa.vercel.app/login`
+Default: `https://kasukretan-pwa.vercel.app` (root — sesi login petugas tetap dipakai saat buka ulang)
 
 Override saat sync/build:
 
 ```powershell
-$env:PETUGAS_SERVER_URL = "https://proyek-anda.vercel.app/login"
+$env:PETUGAS_SERVER_URL = "https://proyek-anda.vercel.app"
 npm run petugas:sync
 ```
 

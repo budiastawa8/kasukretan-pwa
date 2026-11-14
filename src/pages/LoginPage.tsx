@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { CloudOff, LogIn, RefreshCw } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { login } from "../lib/services/auth";
 import { useAuth } from "../context/AuthContext";
 import { getLastLanProbe, probeLanBridge } from "../lib/lan-client";
@@ -154,6 +154,7 @@ function StaffLoginForm() {
 }
 
 export function LoginPage() {
+  const { user } = useAuth();
   const [mode, setMode] = useState<"loading" | "online" | "offline">("loading");
   const [retrying, setRetrying] = useState(false);
 
@@ -178,6 +179,14 @@ export function LoginPage() {
       cancelled = true;
     };
   }, [connect]);
+
+  /** Sesi masih di localStorage — jangan tampilkan form login lagi (penting untuk APK petugas). */
+  if (user?.mustChangePassword) {
+    return <Navigate to="/ganti-password-wajib" replace />;
+  }
+  if (user) {
+    return <Navigate to={defaultHomePath(user.peran)} replace />;
+  }
 
   if (mode === "loading") {
     return (

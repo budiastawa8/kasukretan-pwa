@@ -4,12 +4,13 @@ import { Capacitor } from "@capacitor/core";
 let started = false;
 
 function isPetugasHomePath(path: string): boolean {
-  return path === "/login" || path === "/pengumpulan" || path === "/pengumpulan/";
+  return path === "/login" || path === "/pengumpulan" || path === "/pengumpulan/" || path === "/";
 }
 
 /**
  * Inisialisasi shell Capacitor untuk HP petugas:
  * tombol kembali Android = history.back; keluar app di login / beranda pengumpulan.
+ * Sesi login tetap di localStorage — buka ulang app tidak perlu login lagi.
  */
 export function startPetugasCapacitorShell(): () => void {
   if (started || !Capacitor.isNativePlatform()) {

@@ -1,8 +1,11 @@
 import type { CapacitorConfig } from "@capacitor/core";
 
-/** Login staf PWA — peran petugas diarahkan ke /pengumpulan (bukan /petugas legacy). */
+/**
+ * Root PWA (bukan /login). Jika sesi masih ada, router mengarahkan petugas ke /pengumpulan.
+ * Override: $env:PETUGAS_SERVER_URL = "https://...."
+ */
 const SERVER_URL =
-  process.env.PETUGAS_SERVER_URL?.trim() || "https://kasukretan-pwa.vercel.app/login";
+  process.env.PETUGAS_SERVER_URL?.trim() || "https://kasukretan-pwa.vercel.app";
 
 const config: CapacitorConfig = {
   appId: "id.kasukretan.petugas",
