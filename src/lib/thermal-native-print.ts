@@ -8,7 +8,7 @@ import {
 
 type ThermalTransport = "auto" | "spp" | "ble";
 
-type ThermalPrinterDevice = {
+export type ThermalPrinterDevice = {
   address: string;
   name: string;
   bonded?: boolean;
@@ -49,6 +49,9 @@ interface ThermalPrinterPlugin {
 
 const ThermalPrinter = registerPlugin<ThermalPrinterPlugin>("ThermalPrinter");
 
+const PRINTER_NAME_RE =
+  /printer|print|thermal|rpp|mtp|pos[-_ ]?|goojprt|xprinter|oase|cat\b|inner\s*printer|bluetooth\s*printer|kd\d+/i;
+
 let cachedName: string | null = null;
 let nativeAvailableCache: boolean | null = null;
 
@@ -59,6 +62,27 @@ function bytesToBase64(data: Uint8Array): string {
     binary += String.fromCharCode(...data.subarray(i, i + chunk));
   }
   return btoa(binary);
+}
+
+function looksLikePrinter(d: ThermalPrinterDevice): boolean {
+  return PRINTER_NAME_RE.test(d.name || "");
+}
+
+function sortDevices(devices: ThermalPrinterDevice[]): ThermalPrinterDevice[] {
+  return [...devices].sort((a, b) => {
+    const ap = looksLikePrinter(a) ? 0 : 1;
+    const bp = looksLikePrinter(b) ? 0 : 1;
+    if (ap !== bp) return ap - bp;
+    const ab = a.bonded ? 0 : 1;
+    const bb = b.bonded ? 0 : 1;
+    if (ab !== bb) return ab - bb;
+    return (a.name || "").localeCompare(b.name || "", "id");
+  });
+}
+
+function preferPrinters(devices: ThermalPrinterDevice[]): ThermalPrinterDevice[] {
+  const printers = devices.filter(looksLikePrinter);
+  return sortDevices(printers.length ? printers : devices);
 }
 
 /** True hanya di shell Capacitor Android (bukan browser biasa). */
@@ -117,33 +141,30 @@ export function onNativePrinterConnectionChange(cb: (connected: boolean) => void
   };
 }
 
-async function pickDeviceInteractive(): Promise<ThermalPrinterDevice> {
-  let devices = (await ThermalPrinter.listBonded()).devices;
-  if (!devices.length) {
-    devices = (await ThermalPrinter.scan({ timeoutMs: 8_000 })).devices;
-  }
-  if (!devices.length) {
-    throw new Error(
-      "Tidak ada printer Bluetooth. Pair printer di Pengaturan Bluetooth HP, nyalakan printer, lalu tap ikon Bluetooth lagi."
-    );
-  }
-  if (devices.length === 1) return devices[0];
-
-  const lines = devices.map((d, i) => `${i + 1}. ${d.name} (${d.address})`).join("\n");
-  const ans = window.prompt(`Pilih printer (ketik nomor):\n\n${lines}`, "1");
-  if (ans == null) throw new Error("Pemilihan printer dibatalkan.");
-  const idx = Number.parseInt(ans.trim(), 10) - 1;
-  if (!Number.isFinite(idx) || idx < 0 || idx >= devices.length) {
-    throw new Error("Nomor printer tidak valid.");
-  }
-  return devices[idx];
-}
-
-export async function pairNativeThermalPrinter(): Promise<string | null> {
+/** Daftar perangkat untuk dipilih di UI (tap), bukan window.prompt. */
+export async function listNativeThermalDevices(options?: {
+  scan?: boolean;
+}): Promise<ThermalPrinterDevice[]> {
   if (!(await isThermalNativeAvailable())) {
     throw new Error("Cetak native hanya tersedia di APK Kasukretan Petugas.");
   }
-  const device = await pickDeviceInteractive();
+  const scan = options?.scan === true;
+  if (scan) {
+    const scanned = (await ThermalPrinter.scan({ timeoutMs: 8_000 })).devices;
+    return preferPrinters(scanned);
+  }
+  const bonded = (await ThermalPrinter.listBonded()).devices;
+  if (bonded.length) return preferPrinters(bonded);
+  const scanned = (await ThermalPrinter.scan({ timeoutMs: 8_000 })).devices;
+  return preferPrinters(scanned);
+}
+
+export async function connectNativeThermalPrinter(
+  device: Pick<ThermalPrinterDevice, "address" | "name">
+): Promise<string | null> {
+  if (!(await isThermalNativeAvailable())) {
+    throw new Error("Cetak native hanya tersedia di APK Kasukretan Petugas.");
+  }
   const result = await ThermalPrinter.pairAndConnect({
     address: device.address,
     name: device.name,
@@ -151,6 +172,20 @@ export async function pairNativeThermalPrinter(): Promise<string | null> {
   });
   cachedName = result.name || device.name || "Printer thermal";
   return cachedName;
+}
+
+/** @deprecated Gunakan listNativeThermalDevices + connectNativeThermalPrinter + UI tap. */
+export async function pairNativeThermalPrinter(): Promise<string | null> {
+  const devices = await listNativeThermalDevices();
+  if (!devices.length) {
+    throw new Error(
+      "Tidak ada printer Bluetooth. Pair printer di Pengaturan Bluetooth HP, nyalakan printer, lalu tap ikon Bluetooth lagi."
+    );
+  }
+  if (devices.length === 1) {
+    return connectNativeThermalPrinter(devices[0]);
+  }
+  throw new Error("PilihPrinterUI");
 }
 
 export async function printEscPosViaNative(data: Uint8Array): Promise<ThermalPrintResult> {

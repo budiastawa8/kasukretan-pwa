@@ -11,17 +11,37 @@ export { PrinterNotConfiguredError } from "./thermal-bluetooth-print-types";
 
 import type { PrinterReadiness, ThermalPrintResult } from "./thermal-bluetooth-print-types";
 import {
+  connectNativeThermalPrinter,
   getNativeCachedPrinterName,
   isThermalNativeRuntime,
+  listNativeThermalDevices,
   onNativePrinterConnectionChange,
-  pairNativeThermalPrinter,
   printEscPosViaNative,
   probeNativePrinterReadiness,
+  type ThermalPrinterDevice,
 } from "./thermal-native-print";
 import * as web from "./thermal-web-bluetooth-print";
 
+export type { ThermalPrinterDevice };
+
 export function isThermalNativeShell(): boolean {
   return isThermalNativeRuntime();
+}
+
+export async function listThermalPrinterDevices(options?: {
+  scan?: boolean;
+}): Promise<ThermalPrinterDevice[]> {
+  if (!isThermalNativeRuntime()) return [];
+  return listNativeThermalDevices(options);
+}
+
+export async function connectThermalPrinterDevice(
+  device: Pick<ThermalPrinterDevice, "address" | "name">
+): Promise<string | null> {
+  if (!isThermalNativeRuntime()) {
+    throw new Error("Pemilihan printer daftar hanya tersedia di APK petugas.");
+  }
+  return connectNativeThermalPrinter(device);
 }
 
 export function isThermalBluetoothSupported(): boolean {
@@ -71,9 +91,10 @@ export async function printEscPosViaBluetooth(data: Uint8Array): Promise<Thermal
   return web.printEscPosViaBluetooth(data);
 }
 
+/** Web Bluetooth: dialog browser. Native: gunakan listThermalPrinterDevices + connectThermalPrinterDevice. */
 export async function pairThermalPrinter(): Promise<string | null> {
   if (isThermalNativeRuntime()) {
-    return pairNativeThermalPrinter();
+    throw new Error("Gunakan pemilih printer di layar (tap nama printer).");
   }
   return web.pairThermalPrinter();
 }

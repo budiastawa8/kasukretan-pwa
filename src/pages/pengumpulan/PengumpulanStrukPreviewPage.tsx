@@ -9,6 +9,7 @@ import {
   StrukThermalSheetPaturunan,
   STRUK_THERMAL_WIDTH_DEFAULT,
 } from "../../components/pengumpulan/StrukThermalSheet";
+import { ThermalPrinterPickerModal } from "../../components/pengumpulan/ThermalPrinterPickerModal";
 import { downloadBytes } from "../../lib/download-bytes";
 import { formatRupiah } from "../../lib/dudukan-hitung";
 import { readPetugasStrukPreview } from "../../lib/petugas-struk-preview";
@@ -22,15 +23,18 @@ import {
 import { buildStrukPaturunanPdfBytes } from "../../lib/struk-pembayaran-paturunan-pdf";
 import { buildEscPosReceipt } from "../../lib/thermal-escpos";
 import {
+  connectThermalPrinterDevice,
   getCachedPrinterName,
   isThermalBluetoothSupported,
   isThermalNativeShell,
+  listThermalPrinterDevices,
   onPrinterConnectionChange,
   pairThermalPrinter,
   PrinterNotConfiguredError,
   printEscPosViaBluetooth,
   probePrinterReadiness,
   type PrinterReadiness,
+  type ThermalPrinterDevice,
 } from "../../lib/thermal-bluetooth-print";
 import { getDesaAdatWithMedia } from "../../lib/services/desa";
 import type { DesaAdat } from "../../lib/types";
@@ -89,7 +93,7 @@ function printerHint(
   }
   return {
     text: nativeShell
-      ? "Belum ada printer — tap ikon Bluetooth, pilih perangkat (SPP/BLE), lalu Cetak"
+      ? "Belum ada printer — tap ikon Bluetooth, lalu ketuk nama printer"
       : "Belum ada printer — tap ikon Bluetooth sekali, lalu Cetak",
     className: "text-copper-800",
   };
@@ -110,6 +114,11 @@ export function PengumpulanStrukPreviewPage() {
   const [printerReady, setPrinterReady] = useState<PrinterReadiness | null>(() =>
     initialPrinterReadiness()
   );
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerDevices, setPickerDevices] = useState<ThermalPrinterDevice[]>([]);
+  const [pickerLoading, setPickerLoading] = useState(false);
+  const [pickerError, setPickerError] = useState("");
+  const [connectingAddress, setConnectingAddress] = useState<string | null>(null);
   const bluetoothReady = isThermalBluetoothSupported();
   const nativeShell = isThermalNativeShell();
 
@@ -220,6 +229,25 @@ export function PengumpulanStrukPreviewPage() {
     handleBrowserPrint();
   }, [previewState, desaNama, thermalWidthMm, bluetoothReady, loadingDesa, handleBrowserPrint]);
 
+  const loadPickerDevices = useCallback(async (scan: boolean) => {
+    setPickerLoading(true);
+    setPickerError("");
+    try {
+      const devices = await listThermalPrinterDevices({ scan });
+      setPickerDevices(devices);
+      if (!devices.length) {
+        setPickerError(
+          "Printer tidak ditemukan. Pair dulu di Pengaturan Bluetooth HP, nyalakan printer, lalu Cari lagi."
+        );
+      }
+    } catch (e) {
+      setPickerDevices([]);
+      setPickerError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setPickerLoading(false);
+    }
+  }, []);
+
   const handlePairPrinter = useCallback(async () => {
     if (!bluetoothReady) {
       window.alert(
@@ -229,8 +257,15 @@ export function PengumpulanStrukPreviewPage() {
       );
       return;
     }
-    setPairing(true);
     setStatusMsg("");
+    if (nativeShell) {
+      setPickerOpen(true);
+      setPairing(true);
+      await loadPickerDevices(false);
+      setPairing(false);
+      return;
+    }
+    setPairing(true);
     try {
       const name = await pairThermalPrinter();
       const label = name || getCachedPrinterName() || "Printer thermal";
@@ -245,7 +280,26 @@ export function PengumpulanStrukPreviewPage() {
     } finally {
       setPairing(false);
     }
-  }, [bluetoothReady, nativeShell]);
+  }, [bluetoothReady, nativeShell, loadPickerDevices]);
+
+  const handleSelectPrinter = useCallback(async (device: ThermalPrinterDevice) => {
+    setConnectingAddress(device.address);
+    setPickerError("");
+    try {
+      const name = await connectThermalPrinterDevice(device);
+      const label = name || device.name || "Printer thermal";
+      setPrinterLabel(label);
+      applyReadiness({ status: "ready", name: label });
+      setStatus(`Siap: ${label} — langsung tap Cetak`, "ok");
+      setPickerOpen(false);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setPickerError(msg);
+      setStatus(msg, "error");
+    } finally {
+      setConnectingAddress(null);
+    }
+  }, []);
 
   const handleSavePdf = useCallback(async () => {
     if (!previewState) return;
@@ -418,6 +472,22 @@ export function PengumpulanStrukPreviewPage() {
           />
         )}
       </main>
+
+      {nativeShell ? (
+        <ThermalPrinterPickerModal
+          open={pickerOpen}
+          devices={pickerDevices}
+          loading={pickerLoading}
+          connectingAddress={connectingAddress}
+          error={pickerError}
+          onClose={() => {
+            if (connectingAddress) return;
+            setPickerOpen(false);
+          }}
+          onSelect={(d) => void handleSelectPrinter(d)}
+          onScan={() => void loadPickerDevices(true)}
+        />
+      ) : null}
     </div>
   );
 }
