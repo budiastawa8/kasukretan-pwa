@@ -5,15 +5,20 @@ import type { StrukThermalWidthMm } from "./struk-pembayaran-dudukan-pdf";
 
 const ESC = 0x1b;
 const GS = 0x1d;
+const FS = 0x1c;
 const LF = 0x0a;
+
+/** Lebar kolom label agar selaras dengan preview (Nama / No Pemasih / Alamat / …). */
+const LABEL_COL = 10;
 
 /**
  * Printer thermal murah sering dalam mode huruf Cina: byte di atas 0x7F dibaca berpasangan
  * sebagai satu huruf Cina. Karena itu semua teks dikirim sebagai ASCII murni, satu byte per huruf.
  */
 export function escPosAscii(text: string): string {
-  return pdfSafeText(text.replace(/[\u00B7\u2022]/g, "-"))
+  return pdfSafeText(String(text ?? "").replace(/[\u00B7\u2022]/g, "-"))
     .replace(/\u00A0/g, " ")
+    .replace(/\u202F/g, " ")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^\x09\x0A\x0D\x20-\x7E]/g, "?");
@@ -46,7 +51,7 @@ function line(text = ""): Uint8Array {
 }
 
 function wrapWords(text: string, maxLen: number): string[] {
-  const safe = pdfSafeText(text.trim()) || "-";
+  const safe = escPosAscii(text.trim()) || "-";
   const words = safe.split(/\s+/);
   const lines: string[] = [];
   let cur = "";
@@ -56,30 +61,42 @@ function wrapWords(text: string, maxLen: number): string[] {
       cur = test;
     } else {
       if (cur) lines.push(cur);
-      cur = w.length > maxLen ? `${w.slice(0, maxLen - 1)}.` : w;
+      if (w.length > maxLen) {
+        let rest = w;
+        while (rest.length > maxLen) {
+          lines.push(rest.slice(0, maxLen));
+          rest = rest.slice(maxLen);
+        }
+        cur = rest;
+      } else {
+        cur = w;
+      }
     }
   }
   if (cur) lines.push(cur);
   return lines.length ? lines : ["-"];
 }
 
+/** Format field seperti preview: "Label     : nilai" dengan kolom label tetap. */
 function fieldLines(label: string, value: string, width: number): string[] {
-  const prefix = `${label}: `;
-  const maxVal = Math.max(8, width - prefix.length);
-  const valLines = wrapWords(value, maxVal);
-  return valLines.map((v, i) => (i === 0 ? `${prefix}${v}` : v.padStart(width).trimStart() || v));
+  const lab = escPosAscii(label || "").slice(0, LABEL_COL).padEnd(LABEL_COL);
+  const prefix = `${lab}: `;
+  const maxVal = Math.max(6, width - prefix.length);
+  const valLines = wrapWords(value || "-", maxVal);
+  const indent = " ".repeat(prefix.length);
+  return valLines.map((v, i) => (i === 0 ? `${prefix}${v}` : `${indent}${v}`));
 }
 
 function twoCol(left: string, right: string, width: number): string {
-  const r = pdfSafeText(right);
+  const r = escPosAscii(right);
   const maxLeft = Math.max(4, width - r.length - 1);
-  let l = pdfSafeText(left);
-  if (l.length > maxLeft) l = `${l.slice(0, maxLeft - 1)}.`;
+  let l = escPosAscii(left);
+  if (l.length > maxLeft) l = `${l.slice(0, Math.max(1, maxLeft - 1))}.`;
   return `${l.padEnd(maxLeft)} ${r}`;
 }
 
 function dashedRule(width: number): string {
-  return "-".repeat(width);
+  return "-".repeat(Math.max(8, width));
 }
 
 export function buildEscPosReceipt(
@@ -90,6 +107,9 @@ export function buildEscPosReceipt(
   const chunks: Uint8Array[] = [];
 
   chunks.push(cmd(ESC, 0x40)); // init
+  // Keluar mode karakter Cina (RPP02 / printer murah) agar ASCII tidak jadi huruf aneh
+  chunks.push(cmd(FS, 0x2e));
+  chunks.push(cmd(ESC, 0x74, 0)); // code page 0 (PC437)
   chunks.push(cmd(ESC, 0x61, 1)); // center
   chunks.push(line("Tim Kasukretan Krama"));
   chunks.push(line(`Desa Adat ${content.desaNama}`));
@@ -124,6 +144,7 @@ export function buildEscPosReceipt(
     chunks.push(line(ln));
   }
 
+  chunks.push(line());
   chunks.push(cmd(ESC, 0x61, 1)); // center
   for (const ln of wrapWords(content.footer, w)) {
     chunks.push(line(ln));
@@ -132,7 +153,8 @@ export function buildEscPosReceipt(
 
   chunks.push(line());
   chunks.push(line());
-  chunks.push(cmd(ESC, 0x64, 1)); // feed 1 baris sebelum potong
+  chunks.push(line());
+  chunks.push(cmd(ESC, 0x64, 2)); // feed sebelum potong
   chunks.push(cmd(GS, 0x56, 0)); // partial cut
 
   return concat(...chunks);

@@ -1,15 +1,12 @@
-import { formatBulanIndonesia, formatRupiah } from "../../lib/dudukan-hitung";
 import type { StrukDanaLainPdfPayload } from "../../lib/struk-pembayaran-dana-lain-pdf";
 import type { StrukDudukanPdfPayload } from "../../lib/struk-pembayaran-dudukan-pdf";
 import type { StrukPaturunanPdfPayload } from "../../lib/struk-pembayaran-paturunan-pdf";
 import type { StrukThermalWidthMm } from "../../lib/struk-pembayaran-dudukan-pdf";
-import { labelJenisPenerimaanDanaLain } from "../../lib/services/penerimaan-dana-lain";
 import {
-  STRUK_FOOTER_DANA_LAIN,
-  STRUK_FOOTER_DUDUKAN,
-  STRUK_FOOTER_PATURUNAN,
+  buildStrukThermalContent,
+  type StrukThermalContent,
 } from "../../lib/struk-thermal-content";
-import { formatTanggalLahir } from "../../lib/utils";
+import type { PetugasStrukPreviewState } from "../../lib/petugas-struk-preview";
 import "../../styles/struk-thermal-print.css";
 
 export const STRUK_THERMAL_WIDTH_DEFAULT: StrukThermalWidthMm = 58;
@@ -19,7 +16,7 @@ function StrukField({ label, value }: { label: string; value: string }) {
     <div className="struk-field">
       <span className="struk-field__label">{label}</span>
       <span className="struk-field__sep">:</span>
-      <span className="struk-field__value">{value || "—"}</span>
+      <span className="struk-field__value">{value.trim() ? value : "-"}</span>
     </div>
   );
 }
@@ -61,6 +58,58 @@ function StrukTable({
   );
 }
 
+function StrukThermalSheetFromContent({
+  content,
+  widthMm,
+  ariaLabel,
+}: {
+  content: StrukThermalContent;
+  widthMm: StrukThermalWidthMm;
+  ariaLabel: string;
+}) {
+  return (
+    <article
+      className={`struk-sheet struk-sheet--${widthMm}`}
+      data-width-mm={widthMm}
+      aria-label={ariaLabel}
+    >
+      <header className="struk-header">
+        <p className="struk-header__org">Tim Kasukretan Krama</p>
+        <p className="struk-header__desa">Desa Adat {content.desaNama}</p>
+        <p className="struk-header__title">{content.docTitle}</p>
+      </header>
+      <hr className="struk-rule" />
+      <section className="struk-body">
+        {content.fields.map((f) => (
+          <StrukField key={f.label} label={f.label} value={f.value} />
+        ))}
+      </section>
+      <StrukTable
+        leftHeader={content.tableLeftHeader}
+        rows={content.tableRows}
+        totalLabel="TOTAL"
+        totalValue={content.total}
+      />
+      <footer className="struk-footer">
+        <StrukField label="Tanggal" value={content.tanggal} />
+        <StrukField label="Petugas" value={content.petugas} />
+        <p className="struk-footer__closing">{content.footer}</p>
+        <div className="struk-print-tail" aria-hidden="true" />
+      </footer>
+    </article>
+  );
+}
+
+function sheetFromState(
+  state: PetugasStrukPreviewState,
+  desaNama: string,
+  widthMm: StrukThermalWidthMm,
+  ariaLabel: string
+) {
+  const content = buildStrukThermalContent(state, desaNama);
+  return <StrukThermalSheetFromContent content={content} widthMm={widthMm} ariaLabel={ariaLabel} />;
+}
+
 export function StrukThermalSheetDudukan({
   desaNama,
   payload,
@@ -70,43 +119,16 @@ export function StrukThermalSheetDudukan({
   payload: StrukDudukanPdfPayload;
   widthMm: StrukThermalWidthMm;
 }) {
-  const k = payload.krama;
-  const rows = payload.items.map((item) => ({
-    left: formatBulanIndonesia(item.bulan, item.tahun),
-    right: formatRupiah(item.jumlah),
-  }));
-
-  return (
-    <article
-      className={`struk-sheet struk-sheet--${widthMm}`}
-      data-width-mm={widthMm}
-      aria-label="Struk pembayaran dudukan"
-    >
-      <header className="struk-header">
-        <p className="struk-header__org">Tim Kasukretan Krama</p>
-        <p className="struk-header__desa">Desa Adat {desaNama}</p>
-        <p className="struk-header__title">BUKTI PEMBAYARAN DUDUKAN</p>
-      </header>
-      <hr className="struk-rule" />
-      <section className="struk-body">
-        <StrukField label="Nama" value={k.pengajeg_nama} />
-        <StrukField label="No Pemasih" value={k.nomor_pemasih} />
-        <StrukField label="Jenis" value={k.jenis_krama} />
-        <StrukField label="Alamat" value={k.alamat_pemasih} />
-      </section>
-      <StrukTable
-        leftHeader="Periode"
-        rows={rows}
-        totalLabel="TOTAL"
-        totalValue={formatRupiah(payload.total)}
-      />
-      <footer className="struk-footer">
-        <StrukField label="Tanggal" value={formatTanggalLahir(payload.tanggal)} />
-        <StrukField label="Petugas" value={payload.petugasNama} />
-        <p className="struk-footer__closing">{STRUK_FOOTER_DUDUKAN}</p>
-        <div className="struk-print-tail" aria-hidden="true" />
-      </footer>
-    </article>
+  return sheetFromState(
+    {
+      kind: "dudukan",
+      payload,
+      backTo: "/pengumpulan",
+      backLabel: "Pengumpulan",
+    },
+    desaNama,
+    widthMm,
+    "Struk pembayaran dudukan"
   );
 }
 
@@ -119,48 +141,16 @@ export function StrukThermalSheetPaturunan({
   payload: StrukPaturunanPdfPayload;
   widthMm: StrukThermalWidthMm;
 }) {
-  const k = payload.krama;
-  const lokasi = [k.banjar_nama, k.tempek_nama?.trim(), k.arahan_nama?.trim()]
-    .filter(Boolean)
-    .join(" · ");
-
-  const rows: { left: string; right: string }[] = [];
-  if (payload.wajib > 0) rows.push({ left: "Paturunan wajib", right: formatRupiah(payload.wajib) });
-  if (payload.punia > 0) rows.push({ left: "Punia (sukarela)", right: formatRupiah(payload.punia) });
-  if (!rows.length) rows.push({ left: "Pembayaran", right: formatRupiah(payload.total) });
-
-  return (
-    <article
-      className={`struk-sheet struk-sheet--${widthMm}`}
-      data-width-mm={widthMm}
-      aria-label="Struk pembayaran paturunan"
-    >
-      <header className="struk-header">
-        <p className="struk-header__org">Tim Kasukretan Krama</p>
-        <p className="struk-header__desa">Desa Adat {desaNama}</p>
-        <p className="struk-header__title">BUKTI PEMBAYARAN PATURUNAN</p>
-      </header>
-      <hr className="struk-rule" />
-      <section className="struk-body">
-        <StrukField label="Nama" value={k.kepala_nama} />
-        <StrukField label="No Pemasih" value={k.nomor_kartu} />
-        <StrukField label="Jenis" value={k.jenis_nama?.trim() || "—"} />
-        <StrukField label="Alamat" value={lokasi || "—"} />
-        <StrukField label="Iuran" value={payload.iuranNama} />
-      </section>
-      <StrukTable
-        leftHeader="Rincian"
-        rows={rows}
-        totalLabel="TOTAL"
-        totalValue={formatRupiah(payload.total)}
-      />
-      <footer className="struk-footer">
-        <StrukField label="Tanggal" value={formatTanggalLahir(payload.tanggal)} />
-        <StrukField label="Petugas" value={payload.petugasNama} />
-        <p className="struk-footer__closing">{STRUK_FOOTER_PATURUNAN}</p>
-        <div className="struk-print-tail" aria-hidden="true" />
-      </footer>
-    </article>
+  return sheetFromState(
+    {
+      kind: "paturunan",
+      payload,
+      backTo: "/pengumpulan",
+      backLabel: "Pengumpulan",
+    },
+    desaNama,
+    widthMm,
+    "Struk pembayaran paturunan"
   );
 }
 
@@ -173,47 +163,15 @@ export function StrukThermalSheetDanaLain({
   payload: StrukDanaLainPdfPayload;
   widthMm: StrukThermalWidthMm;
 }) {
-  const title = `BUKTI ${labelJenisPenerimaanDanaLain(payload.jenis).toUpperCase()}`;
-  return (
-    <article
-      className={`struk-sheet struk-sheet--${widthMm}`}
-      data-width-mm={widthMm}
-      aria-label={title}
-    >
-      <header className="struk-header">
-        <p className="struk-header__org">Tim Kasukretan Krama</p>
-        <p className="struk-header__desa">Desa Adat {desaNama}</p>
-        <p className="struk-header__title">{title}</p>
-      </header>
-      <hr className="struk-rule" />
-      <section className="struk-body">
-        <StrukField label="Nama" value={payload.sumberNama} />
-        <StrukField label="Sumber" value={payload.sumberTipeLabel} />
-        {payload.nomorKartu ? <StrukField label="No. Kartu" value={payload.nomorKartu} /> : null}
-        {payload.kegiatan?.trim() ? (
-          <StrukField label="Kegiatan" value={payload.kegiatan.trim()} />
-        ) : null}
-        {payload.mitraJenis?.trim() ? (
-          <StrukField label="Mitra" value={payload.mitraJenis.trim()} />
-        ) : null}
-      </section>
-      <StrukTable
-        leftHeader="Rincian"
-        rows={[
-          {
-            left: labelJenisPenerimaanDanaLain(payload.jenis),
-            right: formatRupiah(payload.jumlah),
-          },
-        ]}
-        totalLabel="TOTAL"
-        totalValue={formatRupiah(payload.total)}
-      />
-      <footer className="struk-footer">
-        <StrukField label="Tanggal" value={formatTanggalLahir(payload.tanggal)} />
-        <StrukField label="Petugas" value={payload.petugasNama} />
-        <p className="struk-footer__closing">{STRUK_FOOTER_DANA_LAIN}</p>
-        <div className="struk-print-tail" aria-hidden="true" />
-      </footer>
-    </article>
+  return sheetFromState(
+    {
+      kind: "dana_lain",
+      payload,
+      backTo: "/pengumpulan",
+      backLabel: "Pengumpulan",
+    },
+    desaNama,
+    widthMm,
+    "Struk pembayaran dana lain"
   );
 }

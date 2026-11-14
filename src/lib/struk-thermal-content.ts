@@ -89,8 +89,8 @@ export function buildStrukThermalContent(
     fields: [
       { label: "Nama", value: k.kepala_nama },
       { label: "No Pemasih", value: k.nomor_kartu },
-      { label: "Jenis", value: k.jenis_nama?.trim() || "—" },
-      { label: "Alamat", value: lokasi || "—" },
+      { label: "Jenis", value: k.jenis_nama?.trim() || "-" },
+      { label: "Alamat", value: lokasi || "-" },
       { label: "Iuran", value: p.iuranNama },
     ],
     tableLeftHeader: "Rincian",
