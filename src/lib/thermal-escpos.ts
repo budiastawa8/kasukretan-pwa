@@ -144,17 +144,14 @@ export function buildEscPosReceipt(
     chunks.push(line(ln));
   }
 
-  chunks.push(line());
   chunks.push(cmd(ESC, 0x61, 1)); // center
   for (const ln of wrapWords(content.footer, w)) {
     chunks.push(line(ln));
   }
   chunks.push(cmd(ESC, 0x61, 0)); // left
 
-  chunks.push(line());
-  chunks.push(line());
-  chunks.push(line());
-  chunks.push(cmd(ESC, 0x64, 2)); // feed sebelum potong
+  // Sedikit feed sebelum potong — tanpa 3 baris kosong ekstra
+  chunks.push(cmd(ESC, 0x64, 1));
   chunks.push(cmd(GS, 0x56, 0)); // partial cut
 
   return concat(...chunks);
