@@ -8,6 +8,8 @@ android/captures/
 android/local.properties
 android/*.iml
 android/app/*.iml
+plugins/**/android/build/
+plugins/**/android/.gradle/
 *.apk
 *.aab
 *.keystore
