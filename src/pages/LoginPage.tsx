@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
-import { CloudOff, LogIn, RefreshCw } from "lucide-react";
+import { CloudOff, LogIn, RefreshCw, Server } from "lucide-react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { login } from "../lib/services/auth";
 import { useAuth } from "../context/AuthContext";
 import { getLastLanProbe, probeLanBridge } from "../lib/lan-client";
 import { initLanClientDatabase } from "../lib/db/init";
 import { defaultHomePath } from "../lib/auth-roles";
+import {
+  isPetugasNativeShell,
+  openPetugasServerPicker,
+} from "../lib/petugas-server-picker";
 import { Button } from "../components/ui/Button";
 import { Input, Label, PasswordInput } from "../components/ui/Input";
 import { Card } from "../components/ui/Card";
@@ -31,8 +35,25 @@ function offlineMessage(): { subtitle: string; body: string } {
   }
   return {
     subtitle: "Server belum dapat dijangkau",
-    body: "Aplikasi membutuhkan koneksi internet. Periksa data seluler atau WiFi, lalu coba lagi. Gunakan https://kasukretan-pwa.vercel.app (bukan kretan-pwa).",
+    body: isPetugasNativeShell()
+      ? "Aplikasi membutuhkan koneksi internet ke server desa yang dipilih. Periksa data seluler/WiFi, atau ganti desa/server."
+      : "Aplikasi membutuhkan koneksi internet. Periksa data seluler atau WiFi, lalu coba lagi. Gunakan URL Vercel desa Anda (https).",
   };
+}
+
+function NativeServerSwitch() {
+  if (!isPetugasNativeShell()) return null;
+  return (
+    <Button
+      type="button"
+      variant="secondary"
+      className="mt-3 h-11 w-full text-sm"
+      icon={Server}
+      onClick={() => openPetugasServerPicker()}
+    >
+      Ganti desa / server
+    </Button>
+  );
 }
 
 function LoginShell({ children }: { children: React.ReactNode }) {
@@ -78,6 +99,7 @@ function OfflinePage({ onRetry, retrying }: { onRetry: () => void; retrying: boo
         >
           {retrying ? "Menghubungkan…" : "Coba lagi"}
         </Button>
+        <NativeServerSwitch />
       </Card>
     </LoginShell>
   );
@@ -147,6 +169,7 @@ function StaffLoginForm() {
         <div className="mt-4">
           <UkuranTulisanControl />
         </div>
+        <NativeServerSwitch />
         <InstallAppButton className="mt-4" />
       </Card>
     </LoginShell>

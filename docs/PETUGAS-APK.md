@@ -6,10 +6,28 @@ Shell Android (Capacitor) untuk petugas lapangan. Aplikasi memuat PWA live di We
 
 Petugas di project ini memakai **app staf PWA** dengan peran `petugas`:
 
-1. Login di `/login` (akun petugas lapangan)
-2. Langsung ke **`/pengumpulan`**
+1. Buka APK → **pilih server desa** (jika belum dipilih)
+2. Login di `/login` (akun petugas lapangan di desa itu)
+3. Langsung ke **`/pengumpulan`**
 
 Route `/petugas` (modul legacy) sudah dihapus; akses lama dialihkan ke `/login`.
+
+## Multi-desa (satu APK, banyak Vercel/Turso)
+
+APK **tidak** mengunci satu database. Setiap desa punya proyek Vercel (+ Turso) sendiri; petugas memilih URL server di layar awal.
+
+1. Tambah / pilih URL `https://nama-proyek.vercel.app`
+2. WebView membuka PWA desa itu (login & sesi terpisah per origin)
+3. Di layar login APK: **Ganti desa / server** kembali ke pemilih lokal
+
+Daftar server disimpan di penyimpanan lokal shell (`localStorage` origin Capacitor). Jangan arahkan dua desa ke satu URL/Vercel yang sama.
+
+Build tunggal-desa (tanpa pemilih), opsional:
+
+```powershell
+$env:PETUGAS_SERVER_URL = "https://proyek-desa.vercel.app"
+npm run petugas:apk
+```
 
 ## Prasyarat
 
@@ -19,6 +37,7 @@ Route `/petugas` (modul legacy) sudah dihapus; akses lama dialihkan ke `/login`.
 - [Android Studio](https://developer.android.com/studio) (SDK + platform tools)
 - Variabel `ANDROID_HOME` / `ANDROID_SDK_ROOT` sudah di-set
 - HP Android untuk sideload (izinkan *Install unknown apps*)
+- Izin **Kamera** (scan QR) dan **Bluetooth** (cetak struk)
 
 ## Instal dependency shell
 
@@ -37,16 +56,11 @@ npm run petugas:sync
 
 ## URL server
 
-Default: `https://kasukretan-pwa.vercel.app` (root — sesi login petugas tetap dipakai saat buka ulang)
+Default: **pemilih lokal** di `mobile/petugas/www` (tanpa `server.url` fixed).
 
-Override saat sync/build:
+Override build tunggal-desa: set `PETUGAS_SERVER_URL` sebelum sync/apk (lihat di atas).
 
-```powershell
-$env:PETUGAS_SERVER_URL = "https://proyek-anda.vercel.app"
-npm run petugas:sync
-```
-
-Pastikan PWA yang di-deploy sudah berisi bridge Capacitor (deploy setelah merge perubahan cetak native).
+Pastikan PWA yang di-deploy sudah berisi bridge Capacitor dan tombol **Ganti desa / server** di login.
 
 ## Build debug APK
 
@@ -68,11 +82,11 @@ lalu **Build → Build Bundle(s) / APK(s) → Build APK(s)**.
 
 1. Salin `app-debug.apk` ke HP.
 2. Buka file → Install.
-3. Buka **Kasukretan Petugas** → login akun **petugas lapangan** (peran petugas).
+3. Buka **Kasukretan Petugas** → pilih / tambah server desa → login akun **petugas lapangan**.
 4. Anda masuk ke halaman **Pengumpulan** (sama seperti PWA di Chrome).
 5. Saat cetak struk: tap ikon **Bluetooth** sekali.
 6. Pilih printer (daftar perangkat yang sudah di-pair sistem, atau hasil scan).
-7. Izinkan akses Bluetooth jika diminta.
+7. Izinkan akses Bluetooth / Kamera jika diminta.
 8. Tap **Cetak**.
 
 Printer tersimpan di aplikasi; cetak berikutnya menyambung ulang otomatis (termasuk setelah printer sleep).
@@ -87,8 +101,10 @@ Printer tersimpan di aplikasi; cetak berikutnya menyambung ulang otomatis (terma
 
 | Gejala | Cek |
 |--------|-----|
-| Halaman fallback “Shell ini memuat…” | Internet / `server.url` salah |
-| “Izin Bluetooth” | Settings → Apps → Kasukretan Petugas → Permissions |
+| Halaman pilih desa terus muncul | Belum ada server aktif, atau dibuka lewat **Ganti desa / server** |
+| Halaman fallback lama / kosong | Sync ulang APK; pastikan `www/index.html` pemilih ikut ter-bundle |
+| Tidak bisa ganti desa dari login | Deploy PWA terbaru ke Vercel desa itu, lalu buka ulang login |
+| “Izin Bluetooth” / kamera | Settings → Apps → Kasukretan Petugas → Permissions |
 | SPP gagal, BLE OK | Normal untuk printer BLE-only |
 | BLE gagal, “kanal tulis tidak dikenali” | Kemungkinan printer klasik SPP — pastikan sudah di-pair di sistem |
 | Cetak terputus di tengah | App akan retry dengan chunk lebih kecil; nyalakan ulang printer bila perlu |
@@ -96,12 +112,14 @@ Printer tersimpan di aplikasi; cetak berikutnya menyambung ulang otomatis (terma
 
 ## Arsitektur singkat
 
-- UI & ESC/POS: PWA (`/login` → `/pengumpulan` → `/pengumpulan/struk`, `buildEscPosReceipt`)
+- Pemilih server: aset lokal `mobile/petugas/www`
+- UI & ESC/POS: PWA remote (`/login` → `/pengumpulan` → `/pengumpulan/struk`)
 - Transport: plugin `ThermalPrinter` (Kotlin) di APK
-- Browser Chrome tanpa APK: tetap memakai Web Bluetooth (BLE saja)
+- Browser Chrome tanpa APK: tetap memakai Web Bluetooth (BLE saja); tanpa pemilih server APK
 
 ## Di luar v1
 
 - Signing release / Play Store
 - iOS
 - Bundle aset offline penuh
+- Direktori pusat daftar desa (saat ini daftar diisi manual di HP)

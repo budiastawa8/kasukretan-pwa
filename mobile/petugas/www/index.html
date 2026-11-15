@@ -2,23 +2,533 @@
 <html lang="id">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Kasukretan Petugas</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta name="color-scheme" content="light" />
+    <title>Pilih Desa — Kasukretan Petugas</title>
     <style>
+      :root {
+        --bg0: #faf3eb;
+        --bg1: #f3e6d6;
+        --card: #fffdf9;
+        --ink: #3d2310;
+        --muted: #7a5a42;
+        --line: #e2c9b0;
+        --accent: #8b4518;
+        --accent-press: #6e3612;
+        --danger: #9b1c1c;
+        --ok: #1f6b3a;
+        --shadow: 0 10px 28px rgba(61, 35, 16, 0.1);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
       body {
-        font-family: system-ui, sans-serif;
-        margin: 2rem;
-        color: #3d2310;
-        background: #faf3eb;
+        margin: 0;
+        min-height: 100%;
+        background:
+          radial-gradient(1200px 500px at 50% -120px, #fff8ef 0%, transparent 55%),
+          linear-gradient(180deg, var(--bg0), var(--bg1));
+        color: var(--ink);
+        font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      }
+
+      body {
+        padding:
+          max(1rem, env(safe-area-inset-top))
+          max(1rem, env(safe-area-inset-right))
+          max(1.25rem, env(safe-area-inset-bottom))
+          max(1rem, env(safe-area-inset-left));
+      }
+
+      .wrap {
+        max-width: 28rem;
+        margin: 0 auto;
+        padding-top: 1.25rem;
+      }
+
+      .brand {
+        text-align: center;
+        margin-bottom: 1.25rem;
+      }
+
+      .brand h1 {
+        margin: 0;
+        font-size: 1.35rem;
+        letter-spacing: -0.02em;
+      }
+
+      .brand p {
+        margin: 0.4rem 0 0;
+        color: var(--muted);
+        font-size: 0.9rem;
+        line-height: 1.4;
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 1rem;
+        box-shadow: var(--shadow);
+        padding: 1rem;
+      }
+
+      .label {
+        display: block;
+        font-size: 0.8rem;
+        font-weight: 600;
+        margin-bottom: 0.35rem;
+      }
+
+      input[type="url"],
+      input[type="text"] {
+        width: 100%;
+        min-height: 2.75rem;
+        border: 1px solid var(--line);
+        border-radius: 0.65rem;
+        padding: 0.65rem 0.8rem;
+        font-size: 1rem;
+        color: var(--ink);
+        background: #fff;
+        outline: none;
+      }
+
+      input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(139, 69, 24, 0.15);
+      }
+
+      .row {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 0.55rem;
+      }
+
+      button {
+        appearance: none;
+        border: 0;
+        border-radius: 0.65rem;
+        min-height: 2.75rem;
+        padding: 0.65rem 0.9rem;
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .btn-primary {
+        flex: 1;
+        background: var(--accent);
+        color: #fff;
+      }
+
+      .btn-primary:active {
+        background: var(--accent-press);
+      }
+
+      .btn-secondary {
+        background: #f3e7da;
+        color: var(--ink);
+        border: 1px solid var(--line);
+      }
+
+      .hint {
+        margin: 0.65rem 0 0;
+        font-size: 0.75rem;
+        color: var(--muted);
+        line-height: 1.4;
+      }
+
+      .error {
+        display: none;
+        margin-top: 0.65rem;
+        padding: 0.55rem 0.7rem;
+        border-radius: 0.55rem;
+        border: 1px solid #f0b4b4;
+        background: #fff1f1;
+        color: var(--danger);
+        font-size: 0.82rem;
+        line-height: 1.35;
+      }
+
+      .error.show {
+        display: block;
+      }
+
+      .section-title {
+        margin: 1.15rem 0 0.55rem;
+        font-size: 0.8rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+      }
+
+      .list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 0.5rem;
+      }
+
+      .item {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 0.45rem;
+        align-items: stretch;
+        border: 1px solid var(--line);
+        border-radius: 0.75rem;
+        background: #fff;
+        padding: 0.55rem;
+      }
+
+      .item.active {
+        border-color: #c48a5a;
+        box-shadow: inset 0 0 0 1px rgba(139, 69, 24, 0.2);
+      }
+
+      .item-main {
+        text-align: left;
+        background: transparent;
+        color: var(--ink);
+        padding: 0.35rem 0.45rem;
+        min-height: auto;
+        font-weight: 600;
+      }
+
+      .item-main small {
+        display: block;
+        margin-top: 0.2rem;
+        color: var(--muted);
+        font-weight: 500;
+        font-size: 0.75rem;
+        word-break: break-all;
+      }
+
+      .item-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+      }
+
+      .btn-tiny {
+        min-height: 2rem;
+        padding: 0.35rem 0.55rem;
+        font-size: 0.75rem;
+        background: #f3e7da;
+        color: var(--ink);
+        border: 1px solid var(--line);
+      }
+
+      .btn-tiny.danger {
+        color: var(--danger);
+        background: #fff5f5;
+        border-color: #f0c2c2;
+      }
+
+      .empty {
+        margin: 0;
+        padding: 0.85rem;
+        border: 1px dashed var(--line);
+        border-radius: 0.75rem;
+        color: var(--muted);
+        font-size: 0.85rem;
+        text-align: center;
+        background: rgba(255, 255, 255, 0.55);
+      }
+
+      .status {
+        margin-top: 0.85rem;
+        text-align: center;
+        color: var(--ok);
+        font-size: 0.85rem;
+        display: none;
+      }
+
+      .status.show {
+        display: block;
       }
     </style>
   </head>
   <body>
-    <h1>Kasukretan Petugas</h1>
-    <p>
-      Shell ini memuat aplikasi petugas dari server. Jika halaman ini muncul,
-      periksa koneksi internet atau nilai <code>server.url</code> di
-      <code>capacitor.config.ts</code>.
-    </p>
+    <div class="wrap">
+      <div class="brand">
+        <h1>Kasukretan Petugas</h1>
+        <p>Pilih server desa adat sebelum masuk. Satu APK bisa dipakai banyak desa.</p>
+      </div>
+
+      <div class="card">
+        <label class="label" for="server-name">Nama desa (opsional)</label>
+        <input
+          id="server-name"
+          type="text"
+          maxlength="80"
+          placeholder="Contoh: Desa Adat Blahbatuh"
+          autocomplete="off"
+        />
+
+        <label class="label" for="server-url" style="margin-top: 0.75rem"
+          >URL server</label
+        >
+        <input
+          id="server-url"
+          type="url"
+          inputmode="url"
+          autocapitalize="off"
+          autocomplete="url"
+          placeholder="https://nama-proyek.vercel.app"
+        />
+
+        <div class="row">
+          <button type="button" class="btn-primary" id="btn-save-open">
+            Simpan &amp; buka
+          </button>
+        </div>
+        <p class="hint">
+          Pakai alamat Vercel desa (https). Database Turso mengikuti proyek Vercel yang
+          dipilih — jangan campur dua desa di satu URL.
+        </p>
+        <div class="error" id="error" role="alert"></div>
+        <div class="status" id="status">Membuka server…</div>
+      </div>
+
+      <p class="section-title">Server tersimpan</p>
+      <ul class="list" id="server-list"></ul>
+      <p class="empty" id="empty">Belum ada server. Tambahkan URL di atas.</p>
+    </div>
+
+    <script>
+      (function () {
+        var STORAGE_KEY = "kasukretan.petugas.servers.v1";
+        var ACTIVE_KEY = "kasukretan.petugas.activeServer.v1";
+
+        var DEFAULTS = [
+          {
+            id: "default-kasukretan",
+            name: "Kasukretan (default)",
+            url: "https://kasukretan-pwa.vercel.app",
+          },
+        ];
+
+        var nameInput = document.getElementById("server-name");
+        var urlInput = document.getElementById("server-url");
+        var errorEl = document.getElementById("error");
+        var statusEl = document.getElementById("status");
+        var listEl = document.getElementById("server-list");
+        var emptyEl = document.getElementById("empty");
+        var saveBtn = document.getElementById("btn-save-open");
+
+        function showError(msg) {
+          errorEl.textContent = msg || "";
+          errorEl.classList.toggle("show", !!msg);
+        }
+
+        function normalizeUrl(raw) {
+          var s = String(raw || "").trim();
+          if (!s) return null;
+          if (!/^https?:\/\//i.test(s)) s = "https://" + s;
+          var u;
+          try {
+            u = new URL(s);
+          } catch (e) {
+            return null;
+          }
+          if (u.protocol !== "https:") return null;
+          u.hash = "";
+          u.search = "";
+          // Hapus trailing slash agar konsisten
+          var href = u.origin + (u.pathname === "/" ? "" : u.pathname.replace(/\/+$/, ""));
+          return href;
+        }
+
+        function loadState() {
+          var servers = [];
+          var active = null;
+          try {
+            var raw = localStorage.getItem(STORAGE_KEY);
+            if (raw) servers = JSON.parse(raw) || [];
+          } catch (e) {
+            servers = [];
+          }
+          try {
+            active = localStorage.getItem(ACTIVE_KEY);
+          } catch (e) {
+            active = null;
+          }
+          if (!Array.isArray(servers)) servers = [];
+          // Seed default sekali jika kosong
+          if (servers.length === 0) {
+            servers = DEFAULTS.slice();
+            saveServers(servers);
+          }
+          return { servers: servers, active: active };
+        }
+
+        function saveServers(servers) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(servers));
+        }
+
+        function setActive(url) {
+          localStorage.setItem(ACTIVE_KEY, url);
+        }
+
+        function upsertServer(name, url) {
+          var state = loadState();
+          var found = null;
+          for (var i = 0; i < state.servers.length; i++) {
+            if (state.servers[i].url === url) {
+              found = state.servers[i];
+              break;
+            }
+          }
+          if (found) {
+            if (name) found.name = name;
+          } else {
+            state.servers.unshift({
+              id: "s-" + Date.now().toString(36),
+              name: name || hostLabel(url),
+              url: url,
+            });
+          }
+          saveServers(state.servers);
+          return state.servers;
+        }
+
+        function removeServer(url) {
+          var state = loadState();
+          state.servers = state.servers.filter(function (s) {
+            return s.url !== url;
+          });
+          saveServers(state.servers);
+          if (state.active === url) {
+            try {
+              localStorage.removeItem(ACTIVE_KEY);
+            } catch (e) {}
+          }
+          render();
+        }
+
+        function hostLabel(url) {
+          try {
+            return new URL(url).host;
+          } catch (e) {
+            return url;
+          }
+        }
+
+        function openServer(url) {
+          showError("");
+          statusEl.classList.add("show");
+          setActive(url);
+          // Navigasi di WebView Capacitor (allowNavigation *.vercel.app)
+          window.location.assign(url);
+        }
+
+        function render() {
+          var state = loadState();
+          listEl.innerHTML = "";
+          emptyEl.style.display = state.servers.length ? "none" : "block";
+
+          state.servers.forEach(function (s) {
+            var li = document.createElement("li");
+            li.className = "item" + (state.active === s.url ? " active" : "");
+
+            var main = document.createElement("button");
+            main.type = "button";
+            main.className = "item-main";
+            main.innerHTML =
+              escapeHtml(s.name || hostLabel(s.url)) +
+              "<small>" +
+              escapeHtml(s.url) +
+              "</small>";
+            main.addEventListener("click", function () {
+              openServer(s.url);
+            });
+
+            var actions = document.createElement("div");
+            actions.className = "item-actions";
+
+            var openBtn = document.createElement("button");
+            openBtn.type = "button";
+            openBtn.className = "btn-tiny";
+            openBtn.textContent = "Buka";
+            openBtn.addEventListener("click", function () {
+              openServer(s.url);
+            });
+
+            var delBtn = document.createElement("button");
+            delBtn.type = "button";
+            delBtn.className = "btn-tiny danger";
+            delBtn.textContent = "Hapus";
+            delBtn.addEventListener("click", function () {
+              if (confirm("Hapus server ini dari daftar?")) removeServer(s.url);
+            });
+
+            actions.appendChild(openBtn);
+            actions.appendChild(delBtn);
+            li.appendChild(main);
+            li.appendChild(actions);
+            listEl.appendChild(li);
+          });
+        }
+
+        function escapeHtml(s) {
+          return String(s)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+        }
+
+        saveBtn.addEventListener("click", function () {
+          var url = normalizeUrl(urlInput.value);
+          if (!url) {
+            showError("URL tidak valid. Gunakan https://nama-proyek.vercel.app");
+            return;
+          }
+          var name = String(nameInput.value || "").trim();
+          upsertServer(name, url);
+          render();
+          openServer(url);
+        });
+
+        urlInput.addEventListener("keydown", function (e) {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            saveBtn.click();
+          }
+        });
+
+        // Auto-buka server aktif jika datang tanpa ?pick=1
+        var params = new URLSearchParams(window.location.search || "");
+        var forcePick = params.get("pick") === "1" || params.get("ganti") === "1";
+        var state = loadState();
+        render();
+
+        if (!forcePick && state.active) {
+          var stillThere = state.servers.some(function (s) {
+            return s.url === state.active;
+          });
+          if (stillThere) {
+            statusEl.classList.add("show");
+            // Sedikit jeda agar user melihat splash singkat jika perlu
+            setTimeout(function () {
+              openServer(state.active);
+            }, 120);
+          }
+        } else if (forcePick && state.active) {
+          urlInput.value = state.active;
+          var match = state.servers.find(function (s) {
+            return s.url === state.active;
+          });
+          if (match && match.name) nameInput.value = match.name;
+        }
+      })();
+    </script>
   </body>
 </html>

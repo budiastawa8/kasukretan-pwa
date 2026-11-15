@@ -1,22 +1,27 @@
 import type { CapacitorConfig } from "@capacitor/core";
 
 /**
- * Root PWA (bukan /login). Jika sesi masih ada, router mengarahkan petugas ke /pengumpulan.
- * Override: $env:PETUGAS_SERVER_URL = "https://...."
+ * Shell lokal (`www`) menampilkan pemilih server desa.
+ * Setelah dipilih, WebView navigasi ke URL Vercel desa (lihat allowNavigation).
+ *
+ * Override bootstrap (opsional, build tunggal-desa lama):
+ *   $env:PETUGAS_SERVER_URL = "https://...."
+ * Jika di-set, app langsung memuat URL itu tanpa pemilih lokal.
  */
-const SERVER_URL =
-  process.env.PETUGAS_SERVER_URL?.trim() || "https://kasukretan-pwa.vercel.app";
+const SERVER_URL = process.env.PETUGAS_SERVER_URL?.trim() || "";
 
 const config: CapacitorConfig = {
   appId: "id.kasukretan.petugas",
   appName: "Kasukretan Petugas",
   webDir: "www",
   server: {
-    url: SERVER_URL,
+    ...(SERVER_URL ? { url: SERVER_URL } : {}),
     cleartext: false,
     allowNavigation: [
-      "https://kasukretan-pwa.vercel.app",
       "https://*.vercel.app",
+      "https://kasukretan-pwa.vercel.app",
+      "http://localhost",
+      "https://localhost",
     ],
   },
   android: {
