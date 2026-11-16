@@ -1,4 +1,8 @@
 import { getDb } from "../db/client";
+import {
+  isBatasUmurDapukanTidakValid,
+  PESAN_BATAS_UMUR_DAPUKAN_INVALID,
+} from "../dapukan-ketentuan";
 import { parseIsoDateString } from "../date-iso";
 import type { DesaAdat, PrajuruDesaAdatInput } from "../types";
 import { uuid } from "../utils";
@@ -301,8 +305,8 @@ export async function updateProfilDesaAdat(data: ProfilDesaAdatInput): Promise<D
     if (!nyadaBerlakuMulai || nyadaUmur == null || !nyadaJenisId) {
       throw new Error("Krama Dapukan memerlukan Nyada otomatis (batas umur, tanggal mulai, dan jenis Nyada)");
     }
-    if (dapukanUmur != null && dapukanUmur <= nyadaUmur) {
-      throw new Error("Batas umur Krama Dapukan harus lebih besar dari batas umur Nyada");
+    if (isBatasUmurDapukanTidakValid(nyadaUmur, dapukanUmur)) {
+      throw new Error(PESAN_BATAS_UMUR_DAPUKAN_INVALID);
     }
   }
   const jenisDapukanDipakai = [dapukanJenisId, nglintikJenisId].filter(Boolean);

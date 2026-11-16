@@ -1,5 +1,5 @@
 ﻿import { useEffect, useState, type ReactNode } from "react";
-import { Check, Copy, Link2 } from "lucide-react";
+import { AlertTriangle, Check, Copy, Link2 } from "lucide-react";
 import {
   DESA_ADAT_UPDATED_EVENT,
   getDesaAdatWithMedia,
@@ -12,6 +12,10 @@ import {
   syncNyadaOtomatis,
   type KramaDapukanRingkas,
 } from "../../lib/services/nyada-otomatis";
+import {
+  isBatasUmurDapukanTidakValid,
+  PESAN_BATAS_UMUR_DAPUKAN_INVALID,
+} from "../../lib/dapukan-ketentuan";
 import {
   CEK_TUNGGAKAN_PATURUNAN_PATH,
   publicCekTunggakanPaturunanUrl,
@@ -374,6 +378,12 @@ export function ProfilDesaAdatTab({
     setSaving(true);
     onError("");
     try {
+      if (
+        form.krama_dapukan_aktif &&
+        isBatasUmurDapukanTidakValid(form.jenis_umur_nyada, form.batas_umur_dapukan)
+      ) {
+        throw new Error(PESAN_BATAS_UMUR_DAPUKAN_INVALID);
+      }
       const umur = form.jenis_umur_nyada.trim();
       const yowanaMin = form.yowana_umur_min.trim();
       const yowanaMax = form.yowana_umur_max.trim();
@@ -433,6 +443,15 @@ export function ProfilDesaAdatTab({
   const selectedJenis = jenisMipil.find((j) => j.id === form.jenis_krama_mipil_id);
   const jenisDisabled = !canEdit || saving || jenisMipil.length === 0;
   const fieldDisabled = !canEdit || saving;
+  const formDapukanUmurInvalid =
+    form.krama_dapukan_aktif &&
+    isBatasUmurDapukanTidakValid(form.jenis_umur_nyada, form.batas_umur_dapukan);
+  const tersimpanDapukanUmurInvalid =
+    !!Number(desaTersimpan?.krama_dapukan_aktif) &&
+    isBatasUmurDapukanTidakValid(
+      desaTersimpan?.jenis_umur_nyada,
+      desaTersimpan?.batas_umur_dapukan
+    );
 
   if (loading) {
     return <p className="text-sm text-muted leading-snug">Memuat profil desa…</p>;
@@ -513,8 +532,16 @@ export function ProfilDesaAdatTab({
                     setField("jenis_umur_nyada", e.target.value.replace(/\D/g, ""))
                   }
                   disabled={fieldDisabled}
+                  aria-invalid={formDapukanUmurInvalid || undefined}
                 />
                 <p className="text-[11px] text-copper-600 mt-0.5">Batas umur dalam tahun.</p>
+                {formDapukanUmurInvalid && (
+                  <p className="mt-1 flex items-start gap-1 text-[11px] text-red-700">
+                    <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
+                    Harus lebih kecil dari Batas Umur Krama Dapukan (
+                    {form.batas_umur_dapukan || "—"}).
+                  </p>
+                )}
               </div>
               <div>
                 <Label>Nyada otomatis mulai</Label>
@@ -649,6 +676,22 @@ export function ProfilDesaAdatTab({
           title="Krama Dapukan"
           description="Pengarep yang mencapai usia Nyada tetapi masih memiliki anggota berstatus Anak yang Belum Kawin menjadi Krama Dapukan. Memerlukan Nyada otomatis."
         >
+          {tersimpanDapukanUmurInvalid && (
+            <div
+              role="alert"
+              className="mb-3 flex items-start gap-2 rounded border border-amber-300 bg-amber-50 px-2.5 py-2 text-sm text-amber-950"
+            >
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" aria-hidden />
+              <div className="min-w-0 leading-snug">
+                <p className="font-medium">Konfigurasi tersimpan tidak valid — ubah segera</p>
+                <p className="mt-0.5 text-[12px] text-amber-900/90">
+                  Batas umur Dapukan ({desaTersimpan?.batas_umur_dapukan ?? "—"}) tidak lebih besar
+                  dari batas umur Nyada ({desaTersimpan?.jenis_umur_nyada ?? "—"}). Perbaiki agar
+                  ketentuan Nyada/Dapukan berjalan benar.
+                </p>
+              </div>
+            </div>
+          )}
           <label className="flex items-start gap-2 text-sm text-copper-900">
             <input
               type="checkbox"
@@ -693,11 +736,19 @@ export function ProfilDesaAdatTab({
                     setField("batas_umur_dapukan", e.target.value.replace(/\D/g, ""))
                   }
                   disabled={fieldDisabled}
+                  aria-invalid={formDapukanUmurInvalid || undefined}
                 />
                 <p className="text-[11px] text-copper-600 mt-0.5">
                   Pada umur ini Pengarep Dapukan otomatis Nyada walaupun Anak belum kawin. Kosongkan
                   jika tanpa batas.
                 </p>
+                {formDapukanUmurInvalid && (
+                  <p className="mt-1 flex items-start gap-1 text-[11px] text-red-700">
+                    <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
+                    {PESAN_BATAS_UMUR_DAPUKAN_INVALID} (saat ini Nyada{" "}
+                    {form.jenis_umur_nyada || "—"}).
+                  </p>
+                )}
               </div>
               <JenisMipilSelect
                 label="Jenis Krama Dapukan"

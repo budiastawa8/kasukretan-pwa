@@ -74,6 +74,23 @@ export function tanggalBatasDapukan(
   return tanggalMencapaiBatasNyada(tanggalLahir, batas);
 }
 
+/**
+ * True jika batas umur Dapukan diisi dan tidak lebih besar dari batas umur Nyada.
+ * Kosong (tanpa batas Dapukan) dianggap valid.
+ */
+export function isBatasUmurDapukanTidakValid(
+  batasUmurNyada: number | string | null | undefined,
+  batasUmurDapukan: number | string | null | undefined
+): boolean {
+  const nyada = parseBatasUmurNyada(batasUmurNyada);
+  const dapukan = parseBatasUmurNyada(batasUmurDapukan);
+  if (nyada == null || dapukan == null) return false;
+  return dapukan <= nyada;
+}
+
+export const PESAN_BATAS_UMUR_DAPUKAN_INVALID =
+  "Batas umur Krama Dapukan harus lebih besar dari batas umur Nyada";
+
 export type AnggotaKeluargaDapukan = {
   penduduk_id: string;
   status_keluarga: string | null;

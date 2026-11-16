@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isBatasUmurDapukanTidakValid,
   keadaanKeluargaDapukan,
   tentukanNyadaOtomatis,
   type KeadaanKeluargaDapukan,
@@ -194,5 +195,22 @@ describe("tentukanNyadaOtomatis", () => {
         keluarga: keluarga({ adaAnakBelumKawin: true, sendirian: true }),
       })
     ).toEqual({ aksi: "tetap" });
+  });
+});
+
+describe("isBatasUmurDapukanTidakValid", () => {
+  it("valid jika Dapukan lebih besar dari Nyada", () => {
+    expect(isBatasUmurDapukanTidakValid(65, 70)).toBe(false);
+    expect(isBatasUmurDapukanTidakValid("65", "70")).toBe(false);
+  });
+
+  it("invalid jika Dapukan lebih kecil atau sama dengan Nyada", () => {
+    expect(isBatasUmurDapukanTidakValid(65, 60)).toBe(true);
+    expect(isBatasUmurDapukanTidakValid(65, 65)).toBe(true);
+  });
+
+  it("valid jika Dapukan kosong (tanpa batas)", () => {
+    expect(isBatasUmurDapukanTidakValid(65, null)).toBe(false);
+    expect(isBatasUmurDapukanTidakValid(65, "")).toBe(false);
   });
 });
