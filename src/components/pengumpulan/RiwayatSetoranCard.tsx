@@ -13,8 +13,11 @@ import {
   type PeriodePreset as Preset,
 } from "../../lib/periode-preset";
 import {
+  FILTER_JENIS_SETORAN_OPTIONS,
+  labelJenisDalamSetoran,
   listPembayaranDalamSetoran,
   listSetoran,
+  type FilterJenisSetoran,
   type PembayaranSetoranItem,
   type SetoranRow,
 } from "../../lib/services/setoran";
@@ -29,6 +32,7 @@ export function RiwayatSetoranCard({
 }) {
   const [periode, setPeriode] = useState(() => periodePreset("bulan-ini"));
   const [preset, setPreset] = useState<Preset | null>("bulan-ini");
+  const [filterJenis, setFilterJenis] = useState<FilterJenisSetoran>("semua");
   const [rows, setRows] = useState<SetoranRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -41,14 +45,20 @@ export function RiwayatSetoranCard({
     setError("");
     try {
       setRows(
-        await listSetoran({ petugasId, dari: periode.dari, sampai: periode.sampai, limit: 500 })
+        await listSetoran({
+          petugasId,
+          dari: periode.dari,
+          sampai: periode.sampai,
+          sumber: filterJenis === "semua" ? undefined : filterJenis,
+          limit: 500,
+        })
       );
     } catch (e) {
       setError(String(e));
     } finally {
       setLoading(false);
     }
-  }, [petugasId, periode]);
+  }, [petugasId, periode, filterJenis]);
 
   useEffect(() => {
     void load();
@@ -58,6 +68,12 @@ export function RiwayatSetoranCard({
     setPreset(p);
     setPeriode(periodePreset(p));
     setExpandedId(null);
+  }
+
+  function pilihFilterJenis(value: FilterJenisSetoran) {
+    if (value === filterJenis) return;
+    setExpandedId(null);
+    setFilterJenis(value);
   }
 
   function ubahTanggal(field: "dari" | "sampai", iso: string) {
@@ -133,6 +149,21 @@ export function RiwayatSetoranCard({
         </div>
       </div>
 
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {FILTER_JENIS_SETORAN_OPTIONS.map((opt) => (
+          <Button
+            key={opt.value}
+            type="button"
+            size="sm"
+            variant={filterJenis === opt.value ? "primary" : "secondary"}
+            className="h-8 px-2.5 text-xs"
+            onClick={() => pilihFilterJenis(opt.value)}
+          >
+            {opt.label}
+          </Button>
+        ))}
+      </div>
+
       <p className="mt-3 text-sm">
         Total disetor: <strong className="tabular-nums">{formatRupiah(total)}</strong>{" "}
         <span className="text-xs text-muted">
@@ -143,12 +174,17 @@ export function RiwayatSetoranCard({
 
       {rows.length === 0 ? (
         <p className="mt-2 py-3 text-center text-xs text-muted">
-          {loading ? "Memuat…" : "Belum ada setoran pada periode ini."}
+          {loading
+            ? "Memuat…"
+            : filterJenis === "semua"
+              ? "Belum ada setoran pada periode ini."
+              : `Belum ada setoran ${FILTER_JENIS_SETORAN_OPTIONS.find((o) => o.value === filterJenis)?.label ?? ""} pada periode ini.`}
         </p>
       ) : (
         <ul className="mt-2 divide-y divide-copper-100 border border-copper-100 rounded-md">
           {rows.map((s) => {
             const open = expandedId === s.id;
+            const jenisLabel = labelJenisDalamSetoran(s);
             return (
               <li key={s.id}>
                 <div className="flex items-start gap-2 px-2 py-2">
@@ -169,8 +205,8 @@ export function RiwayatSetoranCard({
                         <span className="tabular-nums">{formatRupiah(s.total)}</span>
                       </span>
                       <span className="block text-[11px] text-muted">
-                        {nomorBuktiSetoran(s.id)} · {s.jumlah_transaksi} transaksi · diterima{" "}
-                        {s.diterima_oleh_nama ?? "—"}
+                        {jenisLabel} · {nomorBuktiSetoran(s.id)} · {s.jumlah_transaksi} transaksi ·
+                        diterima {s.diterima_oleh_nama ?? "—"}
                       </span>
                       {s.keterangan && (
                         <span className="block text-[11px] text-muted truncate">{s.keterangan}</span>

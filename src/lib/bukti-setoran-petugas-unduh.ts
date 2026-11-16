@@ -1,7 +1,16 @@
 ﻿import { buildBuktiSetoranPdfBytes, namaFileBuktiSetoran } from "./bukti-setoran-petugas-pdf";
 import { downloadBytes } from "./download-bytes";
 import { getDesaAdatWithMedia } from "./services/desa";
-import { listPembayaranDalamSetoran, type SetoranRow } from "./services/setoran";
+import {
+  listPembayaranDalamSetoran,
+  type SetoranRow,
+  type SumberPembayaran,
+} from "./services/setoran";
+
+function sumberTunggalJikaAda(items: { sumber: SumberPembayaran }[]): SumberPembayaran | undefined {
+  const set = new Set(items.map((i) => i.sumber));
+  return set.size === 1 ? [...set][0] : undefined;
+}
 
 export async function unduhBuktiSetoran(
   setoran: SetoranRow,
@@ -14,5 +23,9 @@ export async function unduhBuktiSetoran(
     desa,
     petugasJabatan: opts?.petugasJabatan,
   });
-  await downloadBytes(bytes, namaFileBuktiSetoran(setoran), "application/pdf");
+  await downloadBytes(
+    bytes,
+    namaFileBuktiSetoran(setoran, sumberTunggalJikaAda(items)),
+    "application/pdf"
+  );
 }

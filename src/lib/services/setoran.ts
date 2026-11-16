@@ -50,8 +50,37 @@ export type SetoranRow = {
   keterangan: string | null;
   diterima_oleh_nama: string | null;
   jumlah_transaksi: number;
+  /** Jumlah transaksi per sumber dalam batch (bisa campuran). */
+  jumlah_paturunan: number;
+  jumlah_dudukan: number;
+  jumlah_dana_lain: number;
   created_at: string;
 };
+
+/** Filter riwayat: semua atau hanya batch yang memuat sumber tersebut. */
+export type FilterJenisSetoran = "semua" | SumberPembayaran;
+
+export const FILTER_JENIS_SETORAN_OPTIONS: {
+  value: FilterJenisSetoran;
+  label: string;
+}[] = [
+  { value: "semua", label: "Semua" },
+  { value: "paturunan", label: "Paturunan" },
+  { value: "dudukan", label: "Dudukan" },
+  { value: "dana_lain", label: "Dana lain" },
+];
+
+/** Ringkasan jenis dalam satu batch setoran (mis. "Paturunan · Dudukan"). */
+export function labelJenisDalamSetoran(s: Pick<
+  SetoranRow,
+  "jumlah_paturunan" | "jumlah_dudukan" | "jumlah_dana_lain"
+>): string {
+  const parts: string[] = [];
+  if (s.jumlah_paturunan > 0) parts.push("Paturunan");
+  if (s.jumlah_dudukan > 0) parts.push("Dudukan");
+  if (s.jumlah_dana_lain > 0) parts.push("Dana lain");
+  return parts.join(" · ") || "—";
+}
 
 /** Uang yang masih dipegang petugas, dikelompokkan per petugas. */
 export async function listUangBelumDisetorPerPetugas(): Promise<UangBelumDisetorPetugas[]> {
@@ -197,15 +226,17 @@ export async function listSetoran(params?: {
   petugasId?: string;
   dari?: string;
   sampai?: string;
+  /** Hanya setoran yang memuat minimal satu pembayaran sumber ini. */
+  sumber?: SumberPembayaran;
   limit?: number;
 }): Promise<SetoranRow[]> {
   const db = await getDb();
   let sql = `
     SELECT s.id, s.petugas_id, t.nama as petugas_nama, s.tanggal, s.total, s.keterangan,
            COALESCE(NULLIF(TRIM(u.nama), ''), u.username) as diterima_oleh_nama,
-           (SELECT COUNT(*) FROM paturunan_pembayaran WHERE setoran_id = s.id) +
-           (SELECT COUNT(*) FROM dudukan_pembayaran WHERE setoran_id = s.id) +
-           (SELECT COUNT(*) FROM penerimaan_dana_lain WHERE setoran_id = s.id) as jumlah_transaksi,
+           (SELECT COUNT(*) FROM paturunan_pembayaran WHERE setoran_id = s.id) as jumlah_paturunan,
+           (SELECT COUNT(*) FROM dudukan_pembayaran WHERE setoran_id = s.id) as jumlah_dudukan,
+           (SELECT COUNT(*) FROM penerimaan_dana_lain WHERE setoran_id = s.id) as jumlah_dana_lain,
            s.created_at
     FROM setoran s
     LEFT JOIN tim_kasukretan t ON t.id = s.petugas_id
@@ -226,15 +257,28 @@ export async function listSetoran(params?: {
     sql += ` AND s.tanggal <= ?`;
     args.push(sampai);
   }
+  if (params?.sumber) {
+    sql += ` AND EXISTS (SELECT 1 FROM ${TABEL_PEMBAYARAN[params.sumber]} WHERE setoran_id = s.id)`;
+  }
   sql += ` ORDER BY s.tanggal DESC, s.created_at DESC LIMIT ?`;
   args.push(params?.limit ?? 100);
 
-  const rows = await db.select<SetoranRow[]>(sql, args);
-  return rows.map((r) => ({
-    ...r,
-    total: Math.round(Number(r.total) || 0),
-    jumlah_transaksi: Number(r.jumlah_transaksi) || 0,
-  }));
+  const rows = await db.select<
+    Omit<SetoranRow, "jumlah_transaksi">[]
+  >(sql, args);
+  return rows.map((r) => {
+    const jumlah_paturunan = Number(r.jumlah_paturunan) || 0;
+    const jumlah_dudukan = Number(r.jumlah_dudukan) || 0;
+    const jumlah_dana_lain = Number(r.jumlah_dana_lain) || 0;
+    return {
+      ...r,
+      total: Math.round(Number(r.total) || 0),
+      jumlah_paturunan,
+      jumlah_dudukan,
+      jumlah_dana_lain,
+      jumlah_transaksi: jumlah_paturunan + jumlah_dudukan + jumlah_dana_lain,
+    };
+  });
 }
 
 function inPlaceholders(n: number): string {

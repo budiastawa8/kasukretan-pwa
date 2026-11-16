@@ -11,11 +11,14 @@ import {
 import { unduhBuktiSetoran } from "../../lib/bukti-setoran-petugas-unduh";
 import {
   batalkanSetoran,
+  FILTER_JENIS_SETORAN_OPTIONS,
+  labelJenisDalamSetoran,
   listPembayaranBelumDisetor,
   listPembayaranDalamSetoran,
   listSetoran,
   listUangBelumDisetorPerPetugas,
   terimaSetoran,
+  type FilterJenisSetoran,
   type PembayaranSetoranItem,
   type SetoranRow,
   type UangBelumDisetorPetugas,
@@ -114,6 +117,7 @@ export function SetoranPanel({
 }) {
   const [ringkasan, setRingkasan] = useState<UangBelumDisetorPetugas[]>([]);
   const [riwayat, setRiwayat] = useState<SetoranRow[]>([]);
+  const [filterJenis, setFilterJenis] = useState<FilterJenisSetoran>("semua");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
@@ -175,7 +179,10 @@ export function SetoranPanel({
     try {
       const [r, s, dana] = await Promise.all([
         listUangBelumDisetorPerPetugas(),
-        listSetoran({ limit: 50 }),
+        listSetoran({
+          limit: 50,
+          sumber: filterJenis === "semua" ? undefined : filterJenis,
+        }),
         listPenerimaanDanaLain({ limit: 15 }),
       ]);
       setRingkasan(r);
@@ -186,11 +193,17 @@ export function SetoranPanel({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filterJenis]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  function pilihFilterJenis(value: FilterJenisSetoran) {
+    if (value === filterJenis) return;
+    setExpandedId(null);
+    setFilterJenis(value);
+  }
 
   const pilihPetugas = useCallback(async (key: string | null) => {
     setPetugasDipilih(key);
@@ -533,9 +546,27 @@ export function SetoranPanel({
       )}
 
       <Card title="Riwayat setoran" className={cn(LIST_CARD, isPhone && LIST_CARD_PHONE, LIST_TABLE)}>
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {FILTER_JENIS_SETORAN_OPTIONS.map((opt) => (
+            <Button
+              key={opt.value}
+              type="button"
+              size="sm"
+              variant={filterJenis === opt.value ? "primary" : "secondary"}
+              className="h-8 px-2.5 text-xs"
+              onClick={() => pilihFilterJenis(opt.value)}
+            >
+              {opt.label}
+            </Button>
+          ))}
+        </div>
         {riwayat.length === 0 ? (
           <p className="py-4 text-center text-xs text-muted">
-            {loading ? "Memuat…" : "Belum ada setoran."}
+            {loading
+              ? "Memuat…"
+              : filterJenis === "semua"
+                ? "Belum ada setoran."
+                : `Belum ada setoran ${FILTER_JENIS_SETORAN_OPTIONS.find((o) => o.value === filterJenis)?.label ?? ""}.`}
           </p>
         ) : (
           <div className="overflow-x-auto app-scroll-x">
@@ -555,6 +586,7 @@ export function SetoranPanel({
                 {riwayat.map((s) => {
                   const open = expandedId === s.id;
                   const colSpan = 5 + (isPhone ? 0 : 2);
+                  const jenisLabel = labelJenisDalamSetoran(s);
                   return [
                     <tr
                       key={s.id}
@@ -567,7 +599,9 @@ export function SetoranPanel({
                       <td className="pr-3 py-1 whitespace-nowrap">{formatTanggalLahir(s.tanggal)}</td>
                       <td className="pr-3">
                         {s.petugas_nama ?? "Tanpa petugas"}
-                        <span className="text-muted text-[11px]"> · {s.jumlah_transaksi} trx</span>
+                        <span className="block text-muted text-[11px]">
+                          {jenisLabel} · {s.jumlah_transaksi} trx
+                        </span>
                       </td>
                       <td className="pr-3 text-right tabular-nums font-medium">{formatRupiah(s.total)}</td>
                       {!isPhone && <td className="pr-3 text-xs">{s.diterima_oleh_nama ?? "—"}</td>}

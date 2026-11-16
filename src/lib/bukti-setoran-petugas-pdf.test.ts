@@ -19,6 +19,9 @@ const setoran: SetoranRow = {
   keterangan: "Setoran banjar Kaja",
   diterima_oleh_nama: "Ni Luh Bendahara",
   jumlah_transaksi: 0,
+  jumlah_paturunan: 0,
+  jumlah_dudukan: 0,
+  jumlah_dana_lain: 0,
   created_at: "2026-10-14 08:00:00",
 };
 
@@ -47,25 +50,38 @@ async function jumlahHalaman(bytes: Uint8Array): Promise<number> {
 }
 
 describe("bukti setoran PDF", () => {
-  it("membuat satu halaman untuk setoran pendek", async () => {
+  it("membuat satu halaman per jenis untuk setoran pendek campuran", async () => {
     const bytes = await buildBuktiSetoranPdfBytes({
       setoran,
       items: [item(1, "paturunan"), item(2, "dudukan")],
       desa: null,
       petugasJabatan: "Kelian",
     });
+    expect(await jumlahHalaman(bytes)).toBe(2);
+  });
+
+  it("satu jenis tetap satu halaman jika pendek", async () => {
+    const bytes = await buildBuktiSetoranPdfBytes({
+      setoran,
+      items: [item(1, "dudukan"), item(2, "dudukan")],
+      desa: null,
+    });
     expect(await jumlahHalaman(bytes)).toBe(1);
   });
 
   it("menyambung tabel ke halaman berikutnya untuk setoran panjang", async () => {
-    const items = Array.from({ length: 80 }, (_, i) => item(i + 1, i % 2 ? "dudukan" : "paturunan"));
+    const items = Array.from({ length: 80 }, (_, i) => item(i + 1, "dudukan"));
     const bytes = await buildBuktiSetoranPdfBytes({ setoran, items, desa: null });
     expect(await jumlahHalaman(bytes)).toBeGreaterThan(1);
   });
 
   it("memberi nomor dan nama file yang stabil", () => {
     expect(nomorBuktiSetoran(setoran.id)).toBe("STR-3F2A9C1E");
+    expect(nomorBuktiSetoran(setoran.id, "dudukan")).toBe("STR-3F2A9C1E-DUD");
     expect(namaFileBuktiSetoran(setoran)).toBe("bukti-setoran-2026-10-14-i-made-petugas.pdf");
+    expect(namaFileBuktiSetoran(setoran, "paturunan")).toBe(
+      "bukti-setoran-paturunan-2026-10-14-i-made-petugas.pdf"
+    );
   });
 
   it("menggabungkan jumlah dan uraian krama yang sama di hari yang sama", () => {
@@ -109,7 +125,7 @@ describe("bukti setoran PDF", () => {
         item(4, "paturunan", { nomor_kartu: "A" }),
         item(5, "paturunan", { nomor_kartu: "C" }),
       ])
-    ).toEqual({ dudukan: 2, paturunan: 2 });
+    ).toEqual({ dudukan: 2, paturunan: 2, dana_lain: 0 });
   });
 
   it("mengelompokkan section jenis lalu tanggal", () => {
