@@ -21,6 +21,7 @@ import {
   type AnggotaNamaStatus,
 } from "../../lib/status-keluarga";
 import { Check, IdCard, X } from "lucide-react";
+import { useIsCompactClient } from "../../hooks/useClientFormFactor";
 import { Button } from "../ui/Button";
 import { FotoUploadField } from "../ui/FotoUploadField";
 import { DateInput } from "../ui/DateInput";
@@ -108,6 +109,7 @@ export function AnggotaFormDialog({
   const isPemasih = isKramaTamiu || isTamiu;
   const showFotoKartu = isPipil || isKramaTamiu || isTamiu;
   const gelar = gelarKepalaStatus(klasifikasi);
+  const scanKtpAllowCamera = useIsCompactClient();
   const [v, setV] = useState<AnggotaFormValues>(() =>
     valuesFromInitial(initial, klasifikasi, pengarepBaru)
   );
@@ -447,6 +449,7 @@ export function AnggotaFormDialog({
         open={scanKtpOpen}
         klasifikasi={klasifikasi}
         current={v}
+        allowCamera={scanKtpAllowCamera}
         onClose={() => setScanKtpOpen(false)}
         onConfirm={(values) => {
           setV((prev) => ({

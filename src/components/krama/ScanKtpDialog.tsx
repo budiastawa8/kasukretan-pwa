@@ -24,6 +24,7 @@ export function ScanKtpDialog({
   open,
   klasifikasi,
   current,
+  allowCamera = true,
   onClose,
   onConfirm,
 }: {
@@ -31,6 +32,8 @@ export function ScanKtpDialog({
   klasifikasi: KlasifikasiKode;
   /** Nilai form saat ini — status keluarga & field lain dipertahankan. */
   current?: Partial<AnggotaFormValues>;
+  /** false di desktop: hanya ambil gambar dari penyimpanan lokal. */
+  allowCamera?: boolean;
   onClose: () => void;
   onConfirm: (values: AnggotaFormValues) => void;
 }) {
@@ -198,37 +201,52 @@ export function ScanKtpDialog({
         {phase === "pick" ? (
           <>
             <p className="text-xs leading-snug text-copper-800">
-              Foto KTP satu orang (Pengarep, Pengajeg, atau anggota). Hindari kilap; usahakan NIK dan
-              Nama terbaca. Status keluarga tetap Anda pilih di form.
+              {allowCamera
+                ? "Foto KTP satu orang (Pengarep, Pengajeg, atau anggota). Hindari kilap; usahakan NIK dan Nama terbaca."
+                : "Pilih berkas gambar KTP dari penyimpanan lokal. Usahakan NIK dan Nama terbaca."}{" "}
+              Status keluarga tetap Anda pilih di form.
             </p>
-            <div className="grid grid-cols-2 gap-2">
+            {allowCamera ? (
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  icon={Camera}
+                  className="h-11 justify-center"
+                  onClick={() => cameraInputRef.current?.click()}
+                >
+                  Kamera
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  icon={IdCard}
+                  className="h-11 justify-center"
+                  onClick={() => galleryInputRef.current?.click()}
+                >
+                  Galeri
+                </Button>
+              </div>
+            ) : (
               <Button
                 type="button"
-                icon={Camera}
-                className="h-11 justify-center"
-                onClick={() => cameraInputRef.current?.click()}
-              >
-                Kamera
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
                 icon={IdCard}
-                className="h-11 justify-center"
+                className="h-11 w-full justify-center"
                 onClick={() => galleryInputRef.current?.click()}
               >
-                Galeri
+                Ambil dari penyimpanan
               </Button>
-            </div>
-            <input
-              id={`${fileId}-cam`}
-              ref={cameraInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={onFilePicked}
-            />
+            )}
+            {allowCamera ? (
+              <input
+                id={`${fileId}-cam`}
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={onFilePicked}
+              />
+            ) : null}
             <input
               id={`${fileId}-gal`}
               ref={galleryInputRef}

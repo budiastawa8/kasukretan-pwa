@@ -6,8 +6,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useGuardedNavigate, useKramaFormGuard } from "../../context/KramaFormGuardContext";
 import { Check, ScanLine, UserPlus, X } from "lucide-react";
-import { useIsPhoneClient } from "../../hooks/useClientFormFactor";
-import { isDesktopApp } from "../../lib/runtime";
+import { useIsCompactClient, useIsPhoneClient } from "../../hooks/useClientFormFactor";
 import {
   listBanjar,
   listTempek,
@@ -230,7 +229,8 @@ export function KramaWizardForm({
   const navigateAfterSave = useNavigate();
   const { register, setSuppressUnsavedDialog } = useKramaFormGuard();
   const isPhone = useIsPhoneClient();
-  const canScanKk = isPhone && !isDesktopApp();
+  /** Kamera scan KK hanya di HP/tablet; desktop pakai file lokal. */
+  const scanKkAllowCamera = useIsCompactClient();
   const isPemasihEntry =
     klasifikasiProp === "KRAMA_TAMIU" || klasifikasiProp === "TAMIU";
   const [pemasihKode, setPemasihKode] = useState<KlasifikasiPemasih>(
@@ -1673,27 +1673,20 @@ export function KramaWizardForm({
     <Card compact className={KRAMA_FORM_SHELL}>
       <div className="flex flex-col gap-2 mb-1.5 sm:flex-row sm:items-center sm:justify-between">
         <h3 className="text-sm font-semibold text-copper-950">Anggota Keluarga</h3>
-        <div
-          className={cn(
-            "gap-1.5 sm:flex sm:flex-wrap sm:shrink-0",
-            canScanKk ? "grid grid-cols-2" : "grid grid-cols-1 sm:grid-cols-none"
-          )}
-        >
-          {canScanKk && (
-            <Button
-              type="button"
-              variant="secondary"
-              icon={ScanLine}
-              className="h-9 sm:h-8 px-2.5 text-xs justify-center"
-              onClick={() => {
-                setAnggotaNotice("");
-                setAnggotaNoticeWarning(false);
-                setScanKkOpen(true);
-              }}
-            >
-              Scan KK
-            </Button>
-          )}
+        <div className="grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap sm:shrink-0">
+          <Button
+            type="button"
+            variant="secondary"
+            icon={ScanLine}
+            className="h-9 sm:h-8 px-2.5 text-xs justify-center"
+            onClick={() => {
+              setAnggotaNotice("");
+              setAnggotaNoticeWarning(false);
+              setScanKkOpen(true);
+            }}
+          >
+            Scan KK
+          </Button>
           <Button
             type="button"
             variant={perluPengarepDulu ? "primary" : "secondary"}
@@ -2087,6 +2080,7 @@ export function KramaWizardForm({
       <ScanKkDialog
         open={scanKkOpen}
         klasifikasi={klasifikasi}
+        allowCamera={scanKkAllowCamera}
         onClose={() => setScanKkOpen(false)}
         onConfirm={importAnggotaFromKk}
       />

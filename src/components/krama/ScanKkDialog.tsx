@@ -33,11 +33,14 @@ function toDraftRows(members: KkOcrMember[], klasifikasi: KlasifikasiKode): Draf
 export function ScanKkDialog({
   open,
   klasifikasi,
+  allowCamera = true,
   onClose,
   onConfirm,
 }: {
   open: boolean;
   klasifikasi: KlasifikasiKode;
+  /** false di desktop: hanya ambil gambar dari penyimpanan lokal. */
+  allowCamera?: boolean;
   onClose: () => void;
   onConfirm: (anggota: AnggotaFromKk[]) => void | Promise<void>;
 }) {
@@ -233,6 +236,9 @@ export function ScanKkDialog({
         <p className="text-[11px] text-muted">
           Hanya tabel anggota yang dibaca. Baris teratas = calon Pengarep/Pengajeg. Periksa
           NIK dan tanggal lahir sebelum memakai.
+          {!allowCamera
+            ? " Di desktop, pilih berkas gambar KK dari penyimpanan lokal."
+            : ""}
         </p>
         {scanStatus && (
           <p
@@ -244,19 +250,21 @@ export function ScanKkDialog({
           >
             {scanStatus.configured
               ? `Scan cepat (Vision): aktif${scanStatus.model ? ` · ${scanStatus.model}` : ""}`
-              : `Scan cepat: tidak aktif — ${scanStatus.detail ?? "OCR di HP akan dipakai."}`}
+              : `Scan cepat: tidak aktif — ${scanStatus.detail ?? "OCR perangkat akan dipakai."}`}
           </p>
         )}
 
-        <input
-          ref={cameraInputRef}
-          id={`${fileId}-cam`}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="sr-only"
-          onChange={onFileChange}
-        />
+        {allowCamera ? (
+          <input
+            ref={cameraInputRef}
+            id={`${fileId}-cam`}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="sr-only"
+            onChange={onFileChange}
+          />
+        ) : null}
         <input
           ref={galleryInputRef}
           id={`${fileId}-gal`}
@@ -268,23 +276,36 @@ export function ScanKkDialog({
 
         {phase === "pick" && (
           <div className="grid grid-cols-1 gap-2">
-            <Button
-              type="button"
-              icon={Camera}
-              className="h-12 justify-center text-sm"
-              onClick={() => cameraInputRef.current?.click()}
-            >
-              Foto KK
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              icon={ScanLine}
-              className="h-11 justify-center text-sm"
-              onClick={() => galleryInputRef.current?.click()}
-            >
-              Pilih dari galeri
-            </Button>
+            {allowCamera ? (
+              <>
+                <Button
+                  type="button"
+                  icon={Camera}
+                  className="h-12 justify-center text-sm"
+                  onClick={() => cameraInputRef.current?.click()}
+                >
+                  Foto KK
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  icon={ScanLine}
+                  className="h-11 justify-center text-sm"
+                  onClick={() => galleryInputRef.current?.click()}
+                >
+                  Pilih dari galeri
+                </Button>
+              </>
+            ) : (
+              <Button
+                type="button"
+                icon={ScanLine}
+                className="h-12 justify-center text-sm"
+                onClick={() => galleryInputRef.current?.click()}
+              >
+                Ambil dari penyimpanan
+              </Button>
+            )}
           </div>
         )}
 
@@ -318,16 +339,17 @@ export function ScanKkDialog({
             <div className="grid grid-cols-1 gap-2">
               <Button
                 type="button"
-                icon={Camera}
+                icon={allowCamera ? Camera : ScanLine}
                 className="h-11 justify-center"
                 onClick={() => {
                   setError("");
                   setAllowOcrFallback(false);
                   setPhase("pick");
-                  cameraInputRef.current?.click();
+                  if (allowCamera) cameraInputRef.current?.click();
+                  else galleryInputRef.current?.click();
                 }}
               >
-                Foto ulang
+                {allowCamera ? "Foto ulang" : "Pilih berkas lain"}
               </Button>
               {allowOcrFallback && lastFile && (
                 <Button
@@ -337,7 +359,7 @@ export function ScanKkDialog({
                   className="h-11 justify-center"
                   onClick={() => void runOcr(lastFile, true)}
                 >
-                  Coba OCR di HP
+                  Coba OCR di perangkat
                 </Button>
               )}
               <Button

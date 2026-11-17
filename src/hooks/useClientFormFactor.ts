@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   applyClientFormFactorAttr,
+  isCompactFormFactor,
   readClientFormFactor,
   subscribeClientFormFactor,
   type ClientFormFactor,
@@ -23,4 +24,9 @@ export function useClientFormFactor(): ClientFormFactor {
 
 export function useIsPhoneClient(): boolean {
   return useClientFormFactor() === "phone";
+}
+
+/** HP atau tablet — sentuh / kamera biasanya tersedia. */
+export function useIsCompactClient(): boolean {
+  return isCompactFormFactor(useClientFormFactor());
 }
