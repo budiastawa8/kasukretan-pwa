@@ -102,6 +102,10 @@ export function mapKkMemberToAnggota(
     nama_ibu: isPipil ? member.nama_ibu?.trim() || undefined : undefined,
     nama_ayah: isPipil ? member.nama_ayah?.trim() || undefined : undefined,
     nik_atau_nika: member.nik?.trim() || undefined,
-    agama: isPipil || isKramaTamiu ? AGAMA_HINDU : isTamiu ? member.agama?.trim() || "" : undefined,
+    agama: isPipil
+      ? AGAMA_HINDU
+      : isKramaTamiu || isTamiu
+        ? member.agama?.trim() || ""
+        : undefined,
   };
 }

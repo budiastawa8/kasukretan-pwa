@@ -23,6 +23,7 @@ import {
 } from "./restore.js";
 import { toJsonValue } from "./sql-convert.js";
 import { isKkScanConfigured, kkScanModel, scanKkWithGemini } from "./kk-scan.js";
+import { isKtpScanConfigured, ktpScanModel, scanKtpWithGemini } from "./ktp-scan.js";
 import {
   handlePortalAuthedRoute,
   handlePortalLoginRoute,
@@ -254,6 +255,30 @@ async function handleRoute(path: string, req: ApiRequest, res: ServerResponse): 
     if (!imageBase64.trim()) throw new HttpError(400, "imageBase64 wajib.");
     const members = await scanKkWithGemini(imageBase64);
     send(res, 200, { ok: true, engine: "gemini", members });
+    return;
+  }
+
+  /** Status mesin scan KTP cepat (Gemini — kunci sama dengan KK). */
+  if (path === "ktp-scan/status" && method === "GET") {
+    send(res, 200, {
+      ok: true,
+      configured: isKtpScanConfigured(),
+      engine: isKtpScanConfigured() ? "gemini" : null,
+      model: isKtpScanConfigured() ? ktpScanModel() : null,
+    });
+    return;
+  }
+
+  /** Baca satu KTP lewat Vision (Gemini). */
+  if (path === "ktp-scan" && method === "POST") {
+    if (user.peran === "prajuru") {
+      throw new HttpError(403, "Peran prajuru tidak berhak scan KTP.");
+    }
+    const body = await readBody(req);
+    const imageBase64 = String(body.imageBase64 ?? body.image ?? "");
+    if (!imageBase64.trim()) throw new HttpError(400, "imageBase64 wajib.");
+    const person = await scanKtpWithGemini(imageBase64);
+    send(res, 200, { ok: true, engine: "gemini", person });
     return;
   }
 

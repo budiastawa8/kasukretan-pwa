@@ -7,9 +7,8 @@ import {
   Pencil,
   RotateCcw,
   Trash2,
+  Plus,
   UserCheck,
-  UserCircle,
-  UserSquare,
   UserX,
 } from "lucide-react";
 import { useTableSort } from "../hooks/useTableSort";
@@ -278,18 +277,10 @@ export function KramaPemasihListPage() {
           <h2 className="text-xl font-bold">Krama Tamiu & Tamiu</h2>
           <p className="text-[11px] text-muted mt-0.5">Daftar pemasih aktif dan nonaktif.</p>
         </div>
-        {pageTab === "daftar" && !isNonaktifTab && (
+        {pageTab === "daftar" && !isNonaktifTab && canEdit && (
           <div className="flex flex-wrap gap-1.5 shrink-0">
-            <IconLink to="/krama-pemasih/krama-tamiu/baru" icon={UserCircle} className="h-8 text-xs">
-              Krama Tamiu
-            </IconLink>
-            <IconLink
-              to="/krama-pemasih/tamiu/baru"
-              variant="secondary"
-              icon={UserSquare}
-              className="h-8 text-xs"
-            >
-              Tamiu
+            <IconLink to="/krama-pemasih/baru" icon={Plus} className="h-8 text-xs">
+              Pemasih
             </IconLink>
           </div>
         )}

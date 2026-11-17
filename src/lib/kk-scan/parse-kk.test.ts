@@ -223,4 +223,18 @@ describe("mapKkMemberToAnggota", () => {
     expect(mapped.agama).toBe("Islam");
     expect(mapped.nama_ayah).toBeUndefined();
   });
+
+  it("menyimpan agama OCR untuk Krama Tamiu (tidak dipaksa Hindu)", () => {
+    const mapped = mapKkMemberToAnggota(
+      {
+        nik: "5171031506850003",
+        nama_lengkap: "WAYAN",
+        jenis_kelamin: "L",
+        agama: "Hindu",
+        selected: true,
+      },
+      "KRAMA_TAMIU"
+    );
+    expect(mapped.agama).toBe("Hindu");
+  });
 });

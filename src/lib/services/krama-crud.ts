@@ -5,7 +5,12 @@ import {
   generateNomorKartu,
 } from "../penomoran";
 import type { AnggotaDraft } from "../types";
-import { agamaForPenduduk, assertAgamaTamiu } from "../agama-tamiu";
+import {
+  agamaForPenduduk,
+  assertAgamaTamiu,
+  assertKlasifikasiSesuaiAgama,
+  type KlasifikasiPemasih,
+} from "../agama-tamiu";
 import {
   assertNonaktifFields,
   normalizeAlasanTidakAktif,
@@ -92,7 +97,10 @@ export async function createKrama(input: CreateKramaInput): Promise<string> {
     }
     kepalaDraft = kepalaRows[0]!;
   }
-  if (kode === "TAMIU") assertTamiuAnggotaAgama(members);
+  if (kode === "KRAMA_TAMIU" || kode === "TAMIU") {
+    assertTamiuAnggotaAgama(members);
+    assertKlasifikasiSesuaiAgama(kode, kepalaDraft.agama);
+  }
 
   const nomorKartu = await generateNomorKartu(desa!.id, input.banjarId, input.banjarKode);
   const kramaId = uuid();
@@ -268,10 +276,14 @@ function assertKramaFields(input: CreateKramaInput): void {
       !input.asalDesaAdat ||
       !input.asalKecamatan ||
       !input.asalKabupaten ||
-      !input.jenisKramaTamiuId
+      !input.jenisKramaTamiuId ||
+      !input.kepala.agama?.trim()
     ) {
-      throw new Error("Lengkapi banjar, tempek, RT/BTN, jenis, alamat sekarang, dan asal wilayah");
+      throw new Error(
+        "Lengkapi banjar, tempek, RT/BTN, jenis, alamat sekarang, asal wilayah, dan agama"
+      );
     }
+    assertKlasifikasiSesuaiAgama("KRAMA_TAMIU", input.kepala.agama);
   }
   if (input.klasifikasiKode === "TAMIU") {
     if (
@@ -287,7 +299,7 @@ function assertKramaFields(input: CreateKramaInput): void {
     ) {
       throw new Error("Lengkapi banjar, tempek, RT/BTN, jenis, alamat, asal wilayah, dan agama");
     }
-    assertAgamaTamiu(input.kepala.agama);
+    assertKlasifikasiSesuaiAgama("TAMIU", input.kepala.agama);
   }
 }
 
@@ -297,20 +309,30 @@ function assertTamiuAnggotaAgama(members: AnggotaDraft[]): void {
   }
 }
 
+function isPemasihKode(kode: string): kode is KlasifikasiPemasih {
+  return kode === "KRAMA_TAMIU" || kode === "TAMIU";
+}
+
 export async function updateKrama(input: UpdateKramaInput): Promise<void> {
   const existing = await getKramaDetail(input.kramaId);
   if (!existing) throw new Error("Krama tidak ditemukan");
-  if (existing.klasifikasi_kode !== input.klasifikasiKode) {
+
+  const oldKode = existing.klasifikasi_kode;
+  const newKode = input.klasifikasiKode;
+  const reclassifyPemasih =
+    isPemasihKode(oldKode) && isPemasihKode(newKode) && oldKode !== newKode;
+
+  if (oldKode !== newKode && !reclassifyPemasih) {
     throw new Error("Klasifikasi tidak dapat diubah");
   }
+
   assertKramaFields(input);
   assertNonaktifFields(input.statusKrama, input.alasanTidakAktif, input.tanggalTidakAktif);
 
   const db = await getDb();
-  const isMipil = input.klasifikasiKode === "MIPIL";
-  const isTamiu = input.klasifikasiKode === "TAMIU";
-  const isPemasihKode =
-    input.klasifikasiKode === "KRAMA_TAMIU" || input.klasifikasiKode === "TAMIU";
+  const isMipil = newKode === "MIPIL";
+  const isTamiu = newKode === "TAMIU";
+  const isPemasih = isPemasihKode(newKode);
   const status = normalizeKramaStatus(input.statusKrama ?? existing.status_krama);
   const alasanNonaktif =
     status === "nonaktif" ? normalizeAlasanTidakAktif(input.alasanTidakAktif) : null;
@@ -321,25 +343,34 @@ export async function updateKrama(input: UpdateKramaInput): Promise<void> {
 
   const pipilStatus = status === "nonaktif" ? "tidak_aktif" : undefined;
   const pemasihStatus = status === "nonaktif" ? "tidak_aktif" : undefined;
-  const canEditTanggalTerdaftar = isMipil || isPemasihKode;
+  const canEditTanggalTerdaftar = isMipil || isPemasih;
   const tanggalTerdaftar = canEditTanggalTerdaftar
     ? parseTanggalTerdaftarIso(input.tanggalTerdaftar ?? existing.tanggal_terdaftar)
     : null;
+
+  const klas = await db.select<{ id: string; prefix_kartu: string }[]>(
+    `SELECT id, prefix_kartu FROM klasifikasi_krama WHERE kode = $1`,
+    [newKode]
+  );
+  if (!klas[0]) throw new Error("Klasifikasi tidak valid");
+  const klasifikasiId = klas[0].id;
+  const jenisKartu = klas[0].prefix_kartu;
 
   await db.execute(
     `UPDATE krama SET
       banjar_id = $1, tempek_id = $2, arahan_id = $3, alamat = $4, keterangan = $5,
       rt_btn = $6, asal_desa_adat = $7, asal_kecamatan = $8, asal_kabupaten = $9, asal_provinsi = $10,
-      jenis_krama_mipil_id = $11, jenis_krama_tamiu_id = $12, jenis_tamiu_id = $13,
-      nomor_kontak = $14, status_krama = $15,
-      status_pipil = COALESCE($16, status_pipil),
-      status_pemasih = COALESCE($17, status_pemasih),
-      alasan_tidak_aktif = $18, tanggal_tidak_aktif = $19,
-      keterangan_tidak_aktif = $20,
-      tanggal_terdaftar = COALESCE($21, tanggal_terdaftar),
-      tanggal_berlaku_mulai_pemasih = CASE WHEN $22 IS NOT NULL AND $23 = 1 THEN $22 ELSE tanggal_berlaku_mulai_pemasih END,
+      klasifikasi_krama_id = $11, jenis_kartu = $12,
+      jenis_krama_mipil_id = $13, jenis_krama_tamiu_id = $14, jenis_tamiu_id = $15,
+      nomor_kontak = $16, status_krama = $17,
+      status_pipil = COALESCE($18, status_pipil),
+      status_pemasih = COALESCE($19, status_pemasih),
+      alasan_tidak_aktif = $20, tanggal_tidak_aktif = $21,
+      keterangan_tidak_aktif = $22,
+      tanggal_terdaftar = COALESCE($23, tanggal_terdaftar),
+      tanggal_berlaku_mulai_pemasih = CASE WHEN $24 IS NOT NULL AND $25 = 1 THEN $24 ELSE tanggal_berlaku_mulai_pemasih END,
       updated_at = datetime('now')
-    WHERE id = $24`,
+    WHERE id = $26`,
     [
       input.banjarId,
       input.tempekId ?? null,
@@ -351,9 +382,11 @@ export async function updateKrama(input: UpdateKramaInput): Promise<void> {
       isMipil ? null : input.asalKecamatan ?? null,
       isMipil ? null : input.asalKabupaten ?? null,
       isTamiu ? input.asalProvinsi ?? null : null,
+      klasifikasiId,
+      jenisKartu,
       input.jenisMipilId ?? null,
-      input.jenisKramaTamiuId ?? null,
-      input.jenisTamiuId ?? null,
+      newKode === "KRAMA_TAMIU" ? input.jenisKramaTamiuId ?? null : null,
+      newKode === "TAMIU" ? input.jenisTamiuId ?? null : null,
       input.nomorKontak?.trim() || null,
       status,
       pipilStatus ?? null,
@@ -362,11 +395,30 @@ export async function updateKrama(input: UpdateKramaInput): Promise<void> {
       tanggalNonaktif,
       keteranganNonaktif,
       tanggalTerdaftar,
-      isPemasihKode ? tanggalTerdaftar : null,
-      isPemasihKode ? 1 : 0,
+      isPemasih ? tanggalTerdaftar : null,
+      isPemasih ? 1 : 0,
       input.kramaId,
     ]
   );
+
+  if (reclassifyPemasih) {
+    await db.execute(
+      `INSERT INTO krama_riwayat_klasifikasi (
+         id, krama_id, klasifikasi_lama, klasifikasi_baru,
+         nomor_kartu_lama, nomor_kartu_baru, berlaku_mulai, alasan
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        uuid(),
+        input.kramaId,
+        oldKode,
+        newKode,
+        existing.nomor_kartu,
+        existing.nomor_kartu,
+        today(),
+        "Perubahan otomatis mengikuti agama pengajeg",
+      ]
+    );
+  }
 
   if (isMipil) {
     await simpanJenisSebelumCerai(
@@ -388,7 +440,7 @@ export async function updateKrama(input: UpdateKramaInput): Promise<void> {
     });
   }
 
-  if (tanggalTerdaftar && isPemasihKode) {
+  if (tanggalTerdaftar && isPemasih) {
     await db.execute(
       `UPDATE anggota_keluarga SET tanggal_pencatatan = $1
        WHERE krama_id = $2 AND status = 'aktif'`,

@@ -20,13 +20,14 @@ import {
   statusKeluargaOptionsAnggota,
   type AnggotaNamaStatus,
 } from "../../lib/status-keluarga";
-import { Check, X } from "lucide-react";
+import { Check, IdCard, X } from "lucide-react";
 import { Button } from "../ui/Button";
 import { FotoUploadField } from "../ui/FotoUploadField";
 import { DateInput } from "../ui/DateInput";
 import { Input, Label, Select } from "../ui/Input";
 import { PekerjaanField } from "../ui/PekerjaanField";
 import { Modal } from "../ui/Modal";
+import { ScanKtpDialog } from "./ScanKtpDialog";
 const ANGGOTA_FORM_COMPACT =
   "space-y-2 leading-snug [&_label]:mb-0.5 [&_p]:leading-snug [&_.space-y-2]:space-y-1.5 [&_input]:min-h-11 [&_input]:text-base [&_input]:py-2 sm:[&_input]:min-h-8 sm:[&_input]:text-sm sm:[&_input]:py-1.5 [&_select]:min-h-11 [&_select]:text-base [&_select]:py-2 sm:[&_select]:min-h-8 sm:[&_select]:text-sm sm:[&_select]:py-1.5 [&_.flatpickr-input]:min-h-11 [&_.flatpickr-input]:py-2 sm:[&_.flatpickr-input]:min-h-8 sm:[&_.flatpickr-input]:py-1.5";
 
@@ -58,7 +59,7 @@ const emptyValues = (kode: KlasifikasiKode): AnggotaFormValues => ({
   nama_ibu: "",
   nama_ayah: "",
   nik_atau_nika: "",
-  agama: kode === "MIPIL" || kode === "KRAMA_TAMIU" ? AGAMA_HINDU : "",
+  agama: kode === "MIPIL" ? AGAMA_HINDU : "",
   foto_url: "",
 });
 
@@ -112,6 +113,7 @@ export function AnggotaFormDialog({
   );
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
+  const [scanKtpOpen, setScanKtpOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -179,7 +181,7 @@ export function AnggotaFormDialog({
       setFormError("NIK / NIKA wajib diisi.");
       return;
     }
-    if (isTamiu && !v.agama?.trim()) {
+    if (isPemasih && !v.agama?.trim()) {
       setFormError("Agama wajib dipilih.");
       return;
     }
@@ -188,7 +190,7 @@ export function AnggotaFormDialog({
     try {
       await onSave({
         ...v,
-        agama: isPipil || isKramaTamiu ? AGAMA_HINDU : v.agama,
+        agama: isPipil ? AGAMA_HINDU : v.agama,
         status_keluarga: isKepalaMember
           ? v.status_keluarga
           : isGelarKepalaStatus(v.status_keluarga, klasifikasi)
@@ -248,6 +250,21 @@ export function AnggotaFormDialog({
               Anggota keluarga lainnya dan data kartu diisi setelah ini.
             </p>
           )}
+          <div className="sm:col-span-2">
+            <Button
+              type="button"
+              variant="secondary"
+              icon={IdCard}
+              className="h-9 w-full justify-center text-xs sm:w-auto"
+              onClick={() => setScanKtpOpen(true)}
+              disabled={busy}
+            >
+              Scan KTP
+            </Button>
+            <p className="mt-0.5 text-[11px] leading-snug text-copper-600">
+              Isi otomatis dari foto KTP (NIK, nama, lahir, agama, dll.). Status keluarga tetap dipilih di bawah.
+            </p>
+          </div>
           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-2">
             <div className="sm:col-span-2">
               <Label>Nama lengkap</Label>
@@ -318,7 +335,7 @@ export function AnggotaFormDialog({
                 required={isPemasih}
               />
             </div>
-            {isTamiu && (
+            {isPemasih && (
               <div>
                 <Label>Agama</Label>
                 <Select
@@ -333,6 +350,11 @@ export function AnggotaFormDialog({
                     </option>
                   ))}
                 </Select>
+                {isKepalaMember || pengarepBaru ? (
+                  <p className="mt-0.5 text-[11px] leading-snug text-copper-600">
+                    Hindu → Krama Tamiu · selain Hindu → Tamiu
+                  </p>
+                ) : null}
               </div>
             )}
             <div>
@@ -421,6 +443,23 @@ export function AnggotaFormDialog({
           )}
         </form>
       </Modal>
+      <ScanKtpDialog
+        open={scanKtpOpen}
+        klasifikasi={klasifikasi}
+        current={v}
+        onClose={() => setScanKtpOpen(false)}
+        onConfirm={(values) => {
+          setV((prev) => ({
+            ...values,
+            status_keluarga: prev.status_keluarga,
+            foto_url: prev.foto_url || values.foto_url,
+            nama_ibu: prev.nama_ibu || values.nama_ibu,
+            nama_ayah: prev.nama_ayah || values.nama_ayah,
+          }));
+          setFormError("");
+          setScanKtpOpen(false);
+        }}
+      />
     </>
   );
 }

@@ -6,8 +6,7 @@ export function kramaListPath(kode: KlasifikasiKode): string {
 
 export function kramaNewPath(kode: KlasifikasiKode): string {
   if (kode === "MIPIL") return "/krama-mipil/baru";
-  if (kode === "KRAMA_TAMIU") return "/krama-pemasih/krama-tamiu/baru";
-  return "/krama-pemasih/tamiu/baru";
+  return "/krama-pemasih/baru";
 }
 
 export function kramaEditPath(kode: KlasifikasiKode, id: string): string {

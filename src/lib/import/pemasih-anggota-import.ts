@@ -1,4 +1,4 @@
-import { agamaForPenduduk } from "../agama-tamiu";
+import { agamaForPenduduk, tryKlasifikasiPemasihFromAgama } from "../agama-tamiu";
 import { getDb } from "../db/client";
 import { getSheet, isEmptyRow, parseWorkbook } from "../excel-import";
 import { nomorKartuLookupKey } from "../penomoran";
@@ -264,12 +264,16 @@ export async function validatePemasihAnggotaImport(
       bump(summary, "errors");
       continue;
     }
-    if (kode === "TAMIU" && isGelarKepalaStatus(statusFmt, kode) && !parsed.agama?.trim()) {
+    if (
+      (kode === "TAMIU" || kode === "KRAMA_TAMIU") &&
+      isGelarKepalaStatus(statusFmt, kode) &&
+      !parsed.agama?.trim()
+    ) {
       errors.push({
         sheet: sheetName,
         excelRow,
         column: "agama",
-        message: "Agama wajib untuk Pengajeg Tamiu",
+        message: "Agama wajib untuk Pengajeg (Hindu → Krama Tamiu; selain Hindu → Tamiu)",
       });
       bump(summary, "errors");
       continue;
@@ -291,6 +295,18 @@ export async function validatePemasihAnggotaImport(
           sheet: sheetName,
           excelRow,
           message: `Tidak bisa menambah ${gelarKepalaStatus(kode)} lewat impor — tetapkan di aplikasi`,
+        });
+        bump(summary, "errors");
+        continue;
+      }
+      const derived = tryKlasifikasiPemasihFromAgama(parsed.agama);
+      if (derived && derived !== kode) {
+        errors.push({
+          sheet: sheetName,
+          excelRow,
+          column: "agama",
+          message:
+            "Agama Pengajeg mengubah status kartu (Krama Tamiu ↔ Tamiu). Ubah lewat form edit Pemasih atau impor KramaPemasih lengkap (beserta jenis yang sesuai).",
         });
         bump(summary, "errors");
         continue;

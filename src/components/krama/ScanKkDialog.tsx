@@ -56,7 +56,7 @@ export function ScanKkDialog({
   const [lastFile, setLastFile] = useState<File | null>(null);
   const [allowOcrFallback, setAllowOcrFallback] = useState(false);
 
-  const isTamiu = klasifikasi === "TAMIU";
+  const isPemasih = klasifikasi === "KRAMA_TAMIU" || klasifikasi === "TAMIU";
   const isPipil = klasifikasi === "MIPIL";
 
   useEffect(() => {
@@ -156,8 +156,8 @@ export function ScanKkDialog({
         setError(`NIK wajib untuk pemasih — lengkapi NIK «${r.nama_lengkap}».`);
         return;
       }
-      if (isTamiu && !r.agama?.trim()) {
-        setError(`Agama wajib untuk Tamiu — lengkapi agama «${r.nama_lengkap}».`);
+      if (isPemasih && !r.agama?.trim()) {
+        setError(`Agama wajib untuk pemasih — lengkapi agama «${r.nama_lengkap}».`);
         return;
       }
     }
@@ -484,7 +484,7 @@ export function ScanKkDialog({
                           onChange={(e) => updateRow(r.key, { pekerjaan: e.target.value })}
                         />
                       </div>
-                      {isTamiu && (
+                      {isPemasih && (
                         <div>
                           <Label>Agama</Label>
                           <Select
@@ -498,6 +498,9 @@ export function ScanKkDialog({
                               </option>
                             ))}
                           </Select>
+                          <p className="mt-0.5 text-[10px] text-copper-600">
+                            Hindu → Krama Tamiu · selain Hindu → Tamiu
+                          </p>
                         </div>
                       )}
                       {isPipil && (

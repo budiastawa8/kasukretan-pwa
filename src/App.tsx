@@ -19,7 +19,11 @@ import { KramaMipilListPage } from "./pages/KramaMipilListPage";
 import { KramaPemasihListPage } from "./pages/KramaPemasihListPage";
 import { PemasihPerhatianPage } from "./pages/PemasihPerhatianPage";
 import { KramaDetailPage } from "./pages/KramaDetailPage";
-import { KramaNewPage, KramaPemasihNewRoute } from "./pages/KramaNewPage";
+import {
+  KramaNewPage,
+  KramaPemasihNewPage,
+  KramaPemasihNewRoute,
+} from "./pages/KramaNewPage";
 import { KramaEditPage, KramaPemasihEditRoute } from "./pages/KramaEditPage";
 import { MasterPage } from "./pages/MasterPage";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -293,6 +297,7 @@ export default function App() {
             />
             <Route path="/laporan/keringanan-dudukan" element={<LaporanKeringananDudukanPage />} />
             <Route path="/krama-pemasih/perhatian" element={<PemasihPerhatianPage />} />
+            <Route path="/krama-pemasih/baru" element={<KramaPemasihNewPage />} />
             <Route path="/krama-pemasih/:jenis/baru" element={<KramaPemasihNewRoute />} />
             <Route path="/krama-pemasih/:id/edit" element={<KramaPemasihEditRoute />} />
             <Route path="/krama-pemasih/:id" element={<KramaDetailPage />} />

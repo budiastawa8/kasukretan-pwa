@@ -18,7 +18,6 @@ import {
   type RingkasanIuran,
 } from "../lib/services/paturunan";
 import {
-  createIuranPaturunan,
   deleteIuranPaturunan,
   listIuranPaturunan,
   updateIuranPaturunan,
@@ -28,6 +27,7 @@ import { formatRupiah, isPastTanggalTarget } from "../lib/paturunan-hitung";
 import { KeuanganImportExportPanel } from "../components/keuangan/KeuanganImportExportPanel";
 import { PaturunanPembayaranDialog } from "../components/paturunan/PaturunanPembayaranDialog";
 import { PaturunanRiwayatPanel } from "../components/paturunan/PaturunanRiwayatPanel";
+import { TambahJenisPaturunanDialog } from "../components/paturunan/TambahJenisPaturunanDialog";
 import {
   PembayaranSavedBanner,
   usePageOkFlash,
@@ -39,7 +39,6 @@ import {
 } from "../lib/page-tab-url";
 import { PaturunanStatusBadge } from "../components/paturunan/PaturunanStatusBadge";
 import { PaturunanWhatsAppButton } from "../components/paturunan/PaturunanWhatsAppButton";
-import { FieldHint } from "../components/pembayaran/pembayaran-dialog-shared";
 import { normalizeTanggalIsoForInput } from "../lib/date-iso";
 import type { Banjar, IuranPaturunanRow, JenisKramaMipilRow, Tempek } from "../lib/types";
 import { cn, formatTanggalLahir } from "../lib/utils";
@@ -78,8 +77,6 @@ import {
   Trash2,
   AlertTriangle,
   CalendarDays,
-  ChevronDown,
-  ChevronUp,
   Wallet,
   History,
 } from "lucide-react";
@@ -130,8 +127,6 @@ export function PaturunanPage() {
   const [editingIuranId, setEditingIuranId] = useState<string | null>(null);
   const [showTambahIuran, setShowTambahIuran] = useState(false);
   const [peringatanList, setPeringatanList] = useState<PeringatanIuranItem[]>([]);
-  const [tanggalTargetBaru, setTanggalTargetBaru] = useState("");
-  const [newIuranNominal, setNewIuranNominal] = useState<RupiahInputValue>("");
   const [editTanggalTarget, setEditTanggalTarget] = useState("");
   const [editIuranNominal, setEditIuranNominal] = useState<RupiahInputValue>("");
   const [bayarRow, setBayarRow] = useState<PaturunanKramaRow | null>(null);
@@ -323,29 +318,6 @@ export function PaturunanPage() {
     setPage(1);
   }
 
-  async function handleCreateIuran(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (!canEdit) return;
-    const form = e.currentTarget;
-    const fd = new FormData(form);
-    try {
-      const id = await createIuranPaturunan(
-        String(fd.get("nama")),
-        newIuranNominal === "" ? 0 : newIuranNominal,
-        tanggalTargetBaru,
-        String(fd.get("keterangan") || "") || undefined
-      );
-      form.reset();
-      setNewIuranNominal("");
-      setTanggalTargetBaru("");
-      setIuranId(id);
-      setShowTambahIuran(false);
-      await load({ force: true });
-    } catch (err) {
-      setError(String(err));
-    }
-  }
-
   async function handleUpdateIuran(e: React.FormEvent<HTMLFormElement>, id: string) {
     e.preventDefault();
     if (!canEdit) return;
@@ -439,6 +411,18 @@ export function PaturunanPage() {
         >
           Impor/Ekspor
         </Button>
+        {canEdit ? (
+          <Button
+            type="button"
+            variant="secondary"
+            icon={Plus}
+            title="Tambah Jenis Paturunan"
+            aria-label="Tambah Jenis Paturunan"
+            onClick={() => setShowTambahIuran(true)}
+          >
+            Paturunan
+          </Button>
+        ) : null}
       </div>
 
       {pageTab === "riwayat" && (
@@ -512,17 +496,6 @@ export function PaturunanPage() {
 
       <Card className={PATURUNAN_CARD}>
         <div className="flex flex-wrap items-center gap-1 mb-1.5">
-          {canEdit && (
-            <Button
-              type="button"
-              variant="secondary"
-              className="h-8 text-xs px-2"
-              icon={showTambahIuran ? ChevronUp : ChevronDown}
-              onClick={() => setShowTambahIuran((v) => !v)}
-            >
-              {showTambahIuran ? "Tutup form" : "Tambah Paturunan"}
-            </Button>
-          )}
           {ringkasan && (
             <StatChip label="Krama Mipil Aktif" value={String(ringkasan.totalMipilAktif)} />
           )}
@@ -550,63 +523,6 @@ export function PaturunanPage() {
             </>
           )}
         </div>
-
-        {canEdit && showTambahIuran && (
-          <form
-            onSubmit={handleCreateIuran}
-            className="grid gap-3 sm:grid-cols-2 mb-3 pb-3 border-b border-copper-100"
-          >
-            <div className="space-y-1">
-              <Label htmlFor="iuran-nama">Nama paturunan</Label>
-              <FieldHint>Judul kegiatan atau iuran, misalnya Ngenteg Linggih 2027.</FieldHint>
-              <Input
-                id="iuran-nama"
-                name="nama"
-                placeholder="Ngenteg Linggih 2027"
-                required
-                className="text-sm h-9"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="iuran-nominal">Nominal dasar</Label>
-              <FieldHint>
-                Tarif acuan per krama; tagihan = nominal × persen jenis krama (Master).
-              </FieldHint>
-              <RupiahInput
-                id="iuran-nominal"
-                value={newIuranNominal}
-                onChange={setNewIuranNominal}
-                className="text-sm h-9"
-                required
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="iuran-target">Tanggal target</Label>
-              <FieldHint>Batas waktu bayar; lewat tanggal ini dianggap telat.</FieldHint>
-              <DateInput
-                id="iuran-target"
-                value={tanggalTargetBaru}
-                onChange={setTanggalTargetBaru}
-                required
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="iuran-keterangan">Keterangan</Label>
-              <FieldHint>Catatan tambahan untuk paturunan ini (opsional).</FieldHint>
-              <Input
-                id="iuran-keterangan"
-                name="keterangan"
-                placeholder="Contoh: pelaksanaan di pura desa"
-                className="text-sm h-9"
-              />
-            </div>
-            <div className="sm:col-span-2 flex justify-end">
-              <Button type="submit" icon={Plus} className="h-9 text-sm px-4">
-                Simpan paturunan
-              </Button>
-            </div>
-          </form>
-        )}
 
         {iuranList.length === 0 ? (
           <p className="text-xs text-muted">Belum ada iuran.</p>
@@ -1156,6 +1072,16 @@ export function PaturunanPage() {
           tagihan={bayarRow.tagihan ?? 0}
         />
       )}
+      {canEdit ? (
+        <TambahJenisPaturunanDialog
+          open={showTambahIuran}
+          onClose={() => setShowTambahIuran(false)}
+          onCreated={async (id) => {
+            setIuranId(id);
+            await load({ force: true });
+          }}
+        />
+      ) : null}
       <ConfirmDialog
         open={deleteIuranTarget != null}
         title="Nonaktifkan iuran?"

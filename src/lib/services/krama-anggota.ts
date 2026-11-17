@@ -50,7 +50,7 @@ export async function addAnggota(input: AddAnggotaInput): Promise<string> {
   const tgl = input.tanggalPencatatan ?? today();
   const kode = krama.klasifikasi_kode;
 
-  if (kode === "TAMIU") assertAgamaTamiu(input.penduduk.agama);
+  if (kode === "KRAMA_TAMIU" || kode === "TAMIU") assertAgamaTamiu(input.penduduk.agama);
 
   {
     const nikTrim = input.penduduk.nik_atau_nika?.trim() || null;
@@ -283,7 +283,7 @@ export async function updateAnggota(input: UpdateAnggotaInput): Promise<void> {
   const kode = krama.klasifikasi_kode;
   const isMipil = kode === "MIPIL";
 
-  if (kode === "TAMIU") assertAgamaTamiu(input.penduduk.agama);
+  if (kode === "KRAMA_TAMIU" || kode === "TAMIU") assertAgamaTamiu(input.penduduk.agama);
 
   {
     const nikTrim = input.penduduk.nik_atau_nika?.trim() || null;

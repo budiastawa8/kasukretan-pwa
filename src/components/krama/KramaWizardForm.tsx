@@ -47,6 +47,10 @@ import {
   updateAnggota,
   updateKrama,
 } from "../../lib/services/krama";
+import {
+  tryKlasifikasiPemasihFromAgama,
+  type KlasifikasiPemasih,
+} from "../../lib/agama-tamiu";
 import { kramaListPath } from "../../lib/krama-routes";
 import type {
   AnggotaDraft,
@@ -214,7 +218,7 @@ function FormHint({ children }: { children: ReactNode }) {
 }
 
 export function KramaWizardForm({
-  klasifikasi,
+  klasifikasi: klasifikasiProp,
   title,
   kramaId,
 }: {
@@ -227,7 +231,14 @@ export function KramaWizardForm({
   const { register, setSuppressUnsavedDialog } = useKramaFormGuard();
   const isPhone = useIsPhoneClient();
   const canScanKk = isPhone && !isDesktopApp();
-  const basePath = kramaListPath(klasifikasi);
+  const isPemasihEntry =
+    klasifikasiProp === "KRAMA_TAMIU" || klasifikasiProp === "TAMIU";
+  const [pemasihKode, setPemasihKode] = useState<KlasifikasiPemasih>(
+    klasifikasiProp === "KRAMA_TAMIU" ? "KRAMA_TAMIU" : "TAMIU"
+  );
+  /** Pemasih: klasifikasi efektif mengikuti agama pengajeg. */
+  const klasifikasi: KlasifikasiKode = isPemasihEntry ? pemasihKode : klasifikasiProp;
+  const basePath = kramaListPath(klasifikasiProp);
   const isEdit = Boolean(kramaId);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -529,9 +540,23 @@ export function KramaWizardForm({
       listJenisMipil().then(setJenisMipil);
       getDesaAdat().then(setDesa);
     }
-    if (isKramaTamiu) listJenisKramaTamiu().then(setJenisKT);
-    if (isTamiu) listJenisTamiu().then(setJenisT);
-  }, [isPipil, isKramaTamiu, isTamiu]);
+    if (isPemasihEntry) {
+      listJenisKramaTamiu().then(setJenisKT);
+      listJenisTamiu().then(setJenisT);
+    }
+  }, [isPipil, isPemasihEntry]);
+
+  function applyPemasihKodeFromAgama(agama?: string | null) {
+    if (!isPemasihEntry) return;
+    const next = tryKlasifikasiPemasihFromAgama(agama);
+    if (!next) return;
+    setPemasihKode((prev) => {
+      if (prev === next) return prev;
+      if (next === "KRAMA_TAMIU") setJenisTamiuId("");
+      else setJenisKramaTamiuId("");
+      return next;
+    });
+  }
 
   useEffect(() => {
     if (banjarId) {
@@ -561,7 +586,14 @@ export function KramaWizardForm({
     if (!kramaId) return;
     const k = await getKramaDetail(kramaId);
     if (!k) throw new Error("Krama tidak ditemukan");
-    if (k.klasifikasi_kode !== klasifikasi) throw new Error("Jenis krama tidak sesuai");
+    if (isPemasihEntry) {
+      if (k.klasifikasi_kode !== "KRAMA_TAMIU" && k.klasifikasi_kode !== "TAMIU") {
+        throw new Error("Jenis krama tidak sesuai");
+      }
+      setPemasihKode(k.klasifikasi_kode);
+    } else if (k.klasifikasi_kode !== klasifikasiProp) {
+      throw new Error("Jenis krama tidak sesuai");
+    }
     setKrama(k);
     setNomorKartu(k.nomor_kartu);
     setBanjarId(k.banjar_id);
@@ -717,6 +749,17 @@ export function KramaWizardForm({
     return null;
   }, [usesKepalaSelect, isEdit, krama, kepalaAnggotaKey, kepalaFromDraft, tableRows]);
 
+  useEffect(() => {
+    applyPemasihKodeFromAgama(kepalaDisplay?.agama);
+  }, [kepalaDisplay?.agama, isPemasihEntry]);
+
+  const pemasihStatusPending =
+    isPemasihEntry &&
+    isEdit &&
+    krama &&
+    (krama.klasifikasi_kode === "KRAMA_TAMIU" || krama.klasifikasi_kode === "TAMIU") &&
+    krama.klasifikasi_kode !== pemasihKode;
+
   function notifyAnggotaPendingMipil() {
     setAnggotaNotice(PIPIL_ANGGOTA_PENDING_NOTICE);
     setAnggotaNoticeWarning(true);
@@ -808,11 +851,15 @@ export function KramaWizardForm({
   function saveAnggotaDraft(values: AnggotaFormValues) {
     if (dialogMode === "add") {
       const clientId = uuid();
-      let list = [...anggotaDraft, { ...values, clientId }];
-      if (usesKepalaSelect && !kepalaAnggotaKey) {
+      const list = [...anggotaDraft, { ...values, clientId }];
+      const becomesKepala = usesKepalaSelect && !kepalaAnggotaKey;
+      if (becomesKepala) {
         setKepalaAnggotaKey(clientId);
       }
       setAnggotaDraft(list);
+      if (becomesKepala || (usesKepalaSelect && kepalaAnggotaKey === clientId)) {
+        applyPemasihKodeFromAgama(values.agama);
+      }
       notifyAnggotaPendingMipil();
     } else if (editingKey) {
       setAnggotaDraft((prev) => {
@@ -821,6 +868,9 @@ export function KramaWizardForm({
         );
         return list;
       });
+      if (usesKepalaSelect && editingKey === kepalaAnggotaKey) {
+        applyPemasihKodeFromAgama(values.agama);
+      }
       notifyAnggotaPendingMipil();
     }
     setDialogMode(null);
@@ -1228,7 +1278,7 @@ export function KramaWizardForm({
           nama_ibu: krama.kepala.nama_ibu ?? undefined,
           nama_ayah: krama.kepala.nama_ayah ?? undefined,
           nik_atau_nika: krama.kepala.nik_atau_nika ?? undefined,
-          agama: krama.kepala.agama ?? undefined,
+          agama: kepalaDisplay?.agama ?? krama.kepala.agama ?? undefined,
           foto_url: krama.kepala.foto_url ?? undefined,
         },
         jenisSebelumCeraiId: isPipil ? jenisSebelumCeraiId : undefined,
@@ -1284,6 +1334,7 @@ export function KramaWizardForm({
     anggotaDraft,
     kramaId,
     krama,
+    kepalaDisplay,
     deferMipilAnggotaSave,
     anggotaEdits,
     anggotaPendingAdd,
@@ -1775,7 +1826,20 @@ export function KramaWizardForm({
             label={isPipil ? "Jenis kelamin (pengarep)" : "Jenis kelamin (pengajeg)"}
             value={kepalaDisplay?.jenis_kelamin}
           />
-          {isTamiu && <FieldReadonly label="Agama" value={kepalaDisplay?.agama} />}
+          {isPemasih && (
+            <FieldReadonly
+              label="Agama (pengajeg)"
+              value={kepalaDisplay?.agama || "— isi lewat anggota —"}
+            />
+          )}
+          {pemasihStatusPending ? (
+            <p className="sm:col-span-2 rounded border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-xs text-amber-950">
+              Agama pengajeg mengubah status menjadi{" "}
+              <strong>{isKramaTamiu ? "Krama Tamiu" : "Tamiu"}</strong>. Pilih{" "}
+              {isKramaTamiu ? "Jenis Krama Tamiu" : "Jenis Tamiu"}
+              {isTamiu ? " dan Provinsi asal" : ""} lalu simpan data kartu.
+            </p>
+          ) : null}
           {usesTanggalPencatatan ? (
             <div>
               <Label>Tanggal pencatatan</Label>

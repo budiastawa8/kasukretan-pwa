@@ -1,10 +1,14 @@
-import { agamaForPenduduk } from "../agama-tamiu";
+import {
+  AGAMA_HINDU,
+  agamaForPenduduk,
+  tryKlasifikasiPemasihFromAgama,
+  type KlasifikasiPemasih,
+} from "../agama-tamiu";
 import { getDb } from "../db/client";
 import { getSheet, isEmptyRow, parseWorkbook } from "../excel-import";
 import { nomorKartuLookupKey } from "../penomoran";
 import {
   buildJenisLookupMap,
-  inferKlasifikasiFromJenisNama,
   jenisPemasihImportErrorMessage,
   klasifikasiPemasihLabel,
   lookupJenisId,
@@ -161,63 +165,57 @@ function toAnggotaDraft(a: ParsedAnggotaRow, kode: KlasifikasiKode): AnggotaDraf
   };
 }
 
-function resolveKlasifikasiForRow(
+/**
+ * Klasifikasi pemasih ditentukan dari agama Pengajeg (Hindu → KT, selainnya → Tamiu).
+ * Kolom klasifikasi Excel opsional; jika bertentangan dengan agama → error.
+ * Kompatibel lama: klasifikasi "Krama Tamiu" + agama kosong → anggap Hindu.
+ */
+function resolveKlasifikasiFromAgamaPengajeg(
+  agamaRaw: string | undefined,
   klasRaw: string,
-  jenisNama: string,
-  existing: { klasifikasi: KlasifikasiKode } | undefined,
-  isCreate: boolean,
   sheet: string,
   excelRow: number,
   errors: ImportIssue[],
   warnings: ImportIssue[],
   summaries: Map<string, ImportSheetSummary>
-): KlasifikasiKode | null {
-  if (!isCreate && existing) {
-    const fromExcel = klasRaw ? parsePemasihKlasifikasiImport(klasRaw) : null;
-    if (fromExcel && fromExcel !== existing.klasifikasi) {
-      warnings.push({
-        sheet,
-        excelRow,
-        column: "klasifikasi",
-        message: `Kolom klasifikasi "${klasifikasiPemasihLabel(fromExcel)}" diabaikan; memakai ${klasifikasiPemasihLabel(existing.klasifikasi)} dari database`,
-      });
-      bumpSummary(summaries, sheet, "warnings");
-    }
-    return existing.klasifikasi;
+): KlasifikasiPemasih | null {
+  let agama = agamaRaw?.trim() || "";
+  const fromKlas = klasRaw ? parsePemasihKlasifikasiImport(klasRaw) : null;
+
+  if (!agama && fromKlas === "KRAMA_TAMIU") {
+    agama = AGAMA_HINDU;
+    warnings.push({
+      sheet,
+      excelRow,
+      column: "agama",
+      message: "Agama kosong — diasumsikan Hindu (Krama Tamiu)",
+    });
+    bumpSummary(summaries, sheet, "warnings");
   }
 
-  const fromKlas = parsePemasihKlasifikasiImport(klasRaw);
-  const fromJenis = inferKlasifikasiFromJenisNama(jenisNama);
-
-  if (fromKlas && fromJenis && fromKlas !== fromJenis) {
+  const fromAgama = tryKlasifikasiPemasihFromAgama(agama);
+  if (!fromAgama) {
     errors.push({
       sheet,
       excelRow,
-      column: "klasifikasi",
-      message: `klasifikasi "${klasifikasiPemasihLabel(fromKlas)}" tidak cocok dengan jenis_nama (menunjukkan ${klasifikasiPemasihLabel(fromJenis)})`,
+      column: "agama",
+      message:
+        "Agama Pengajeg wajib (Hindu → Krama Tamiu; Islam/Kristen/Katholik/Konghucu/Budha → Tamiu)",
     });
     return null;
   }
 
-  if (fromKlas) return fromKlas;
-  if (fromJenis) {
-    warnings.push({
+  if (fromKlas && fromKlas !== fromAgama) {
+    errors.push({
       sheet,
       excelRow,
-      column: "jenis_nama",
-      message: `klasifikasi kosong — disimpulkan ${klasifikasiPemasihLabel(fromJenis)} dari jenis_nama`,
+      column: "klasifikasi",
+      message: `klasifikasi "${klasifikasiPemasihLabel(fromKlas)}" tidak cocok dengan agama "${agama}" (→ ${klasifikasiPemasihLabel(fromAgama)})`,
     });
-    bumpSummary(summaries, sheet, "warnings");
-    return fromJenis;
+    return null;
   }
 
-  errors.push({
-    sheet,
-    excelRow,
-    column: "klasifikasi",
-    message: 'klasifikasi wajib diisi: "Krama Tamiu" atau "Tamiu"',
-  });
-  return null;
+  return fromAgama;
 }
 
 export async function validatePemasihImport(
@@ -262,7 +260,10 @@ export async function validatePemasihImport(
     linkKey: string;
     isCreate: boolean;
     kramaId?: string;
-    klasifikasi: KlasifikasiKode;
+    /** Diisi setelah agama Pengajeg diketahui. */
+    klasifikasi: KlasifikasiPemasih;
+    klasRaw: string;
+    jenisNama: string;
     banjarId: string;
     banjarKode: string;
     tempekId: string;
@@ -316,42 +317,17 @@ export async function validatePemasihImport(
     const isCreate = !existing;
 
     const jenisNama = cellAt(row, kramaColMap, "jenis_nama");
-    const klasifikasi = resolveKlasifikasiForRow(
-      cellAt(row, kramaColMap, "klasifikasi"),
-      jenisNama,
-      existing,
-      isCreate,
-      kramaSheetName,
-      excelRow,
-      errors,
-      warnings,
-      summaries
-    );
-    if (!klasifikasi) {
-      bumpSummary(summaries, kramaSheetName, "errors");
-      continue;
-    }
-
-    const resolved = resolveJenisForKlasifikasi(
-      jenisNama,
-      klasifikasi,
-      maps.jenisKtMap,
-      maps.jenisTMap
-    );
-    if (!resolved) {
-      errors.push({
-        sheet: kramaSheetName,
-        excelRow,
-        column: "jenis_nama",
-        message: jenisPemasihImportErrorMessage(klasifikasi, jenisNama, {
-          isCreate,
-          ktId: lookupJenisId(maps.jenisKtMap, jenisNama),
-          tId: lookupJenisId(maps.jenisTMap, jenisNama),
-        }),
-      });
-      bumpSummary(summaries, kramaSheetName, "errors");
-      continue;
-    }
+    const klasRaw = cellAt(row, kramaColMap, "klasifikasi");
+    /** Provisional — diganti setelah agama Pengajeg terbaca. */
+    const fromExcel = parsePemasihKlasifikasiImport(klasRaw);
+    const existingPemasih: KlasifikasiPemasih | null =
+      existing?.klasifikasi === "KRAMA_TAMIU" || existing?.klasifikasi === "TAMIU"
+        ? existing.klasifikasi
+        : null;
+    const fromExcelPemasih: KlasifikasiPemasih | null =
+      fromExcel === "KRAMA_TAMIU" || fromExcel === "TAMIU" ? fromExcel : null;
+    const klasifikasi: KlasifikasiPemasih =
+      existingPemasih ?? fromExcelPemasih ?? "TAMIU";
 
     const banjarKode = cellAt(row, kramaColMap, "banjar_kode");
     const banjarKodeNorm = banjarKode.padStart(2, "0").slice(-2);
@@ -427,11 +403,11 @@ export async function validatePemasihImport(
       isCreate,
       kramaId: existing?.id,
       klasifikasi,
+      klasRaw,
+      jenisNama,
       banjarId,
       banjarKode: banjarKodeNorm,
       tempekId,
-      jenisKtId: resolved.jenisKtId,
-      jenisTId: resolved.jenisTId,
       tanggalTerdaftar,
       nomorKontak: cellAt(row, kramaColMap, "nomor_kontak") || undefined,
       statusKrama: statusParsed.statusKrama,
@@ -540,19 +516,6 @@ export async function validatePemasihImport(
       bumpSummary(summaries, anggotaSheetName, "errors");
       continue;
     }
-    if (krama.klasifikasi === "TAMIU" && isGelarKepalaStatus(statusFmt, krama.klasifikasi)) {
-      if (!parsed.agama?.trim()) {
-        errors.push({
-          sheet: anggotaSheetName,
-          excelRow,
-          column: "agama",
-          message: "Agama wajib untuk Pengajeg Tamiu",
-        });
-        bumpSummary(summaries, anggotaSheetName, "errors");
-        continue;
-      }
-    }
-
     const list = anggotaByLink.get(linkKey) ?? [];
     list.push(parsed);
     anggotaByLink.set(linkKey, list);
@@ -607,11 +570,68 @@ export async function validatePemasihImport(
     }
 
     const kepala = kepalaRows[0]!;
-    const drafts = anggota.map((a) => toAnggotaDraft(a, krama.klasifikasi));
+    const klasifikasi = resolveKlasifikasiFromAgamaPengajeg(
+      kepala.agama,
+      krama.klasRaw,
+      anggotaSheetName,
+      kepala.excelRow,
+      errors,
+      warnings,
+      summaries
+    );
+    if (!klasifikasi) {
+      bumpSummary(summaries, kramaSheetName, "errors");
+      continue;
+    }
+    if (!kepala.agama?.trim() && klasifikasi === "KRAMA_TAMIU") {
+      kepala.agama = AGAMA_HINDU;
+    }
+    krama.klasifikasi = klasifikasi;
+
+    const resolvedJenis = resolveJenisForKlasifikasi(
+      krama.jenisNama,
+      klasifikasi,
+      maps.jenisKtMap,
+      maps.jenisTMap
+    );
+    if (!resolvedJenis) {
+      errors.push({
+        sheet: kramaSheetName,
+        excelRow: krama.excelRow,
+        column: "jenis_nama",
+        message: jenisPemasihImportErrorMessage(klasifikasi, krama.jenisNama, {
+          isCreate: krama.isCreate,
+          ktId: lookupJenisId(maps.jenisKtMap, krama.jenisNama),
+          tId: lookupJenisId(maps.jenisTMap, krama.jenisNama),
+        }),
+      });
+      bumpSummary(summaries, kramaSheetName, "errors");
+      continue;
+    }
+    krama.jenisKtId = resolvedJenis.jenisKtId;
+    krama.jenisTId = resolvedJenis.jenisTId;
+
+    if (klasifikasi === "TAMIU" && !krama.asalProv?.trim()) {
+      errors.push({
+        sheet: kramaSheetName,
+        excelRow: krama.excelRow,
+        column: "asal_provinsi",
+        message: "asal_provinsi wajib untuk Tamiu (agama selain Hindu)",
+      });
+      bumpSummary(summaries, kramaSheetName, "errors");
+      continue;
+    }
+
+    const drafts = anggota.map((a) => {
+      if (!a.agama?.trim() && kepala.agama?.trim()) {
+        a.agama = kepala.agama;
+      }
+      return toAnggotaDraft(a, klasifikasi);
+    });
     for (const d of drafts) {
       if (
-        !isGelarKepalaStatus(d.status_keluarga, krama.klasifikasi) &&
-        !isValidStatusKeluarga(d.status_keluarga, krama.klasifikasi)
+        !isGelarKepalaStatus(d.status_keluarga, klasifikasi) &&
+        !isValidStatusKeluarga(d.status_keluarga, klasifikasi)
       ) {
         errors.push({
           sheet: anggotaSheetName,
@@ -622,18 +642,18 @@ export async function validatePemasihImport(
     }
 
     const baseInput: CreateKramaInput = {
-      klasifikasiKode: krama.klasifikasi,
+      klasifikasiKode: klasifikasi,
       banjarId: krama.banjarId,
       banjarKode: krama.banjarKode,
       tempekId: krama.tempekId,
-      jenisKramaTamiuId: krama.jenisKtId,
-      jenisTamiuId: krama.jenisTId,
+      jenisKramaTamiuId: klasifikasi === "KRAMA_TAMIU" ? krama.jenisKtId : undefined,
+      jenisTamiuId: klasifikasi === "TAMIU" ? krama.jenisTId : undefined,
       alamat: krama.alamat,
       rtBtn: krama.rtBtn,
       asalDesaAdat: krama.asalDesa,
       asalKecamatan: krama.asalKec,
       asalKabupaten: krama.asalKab,
-      asalProvinsi: krama.asalProv,
+      asalProvinsi: klasifikasi === "TAMIU" ? krama.asalProv : undefined,
       nomorKontak: krama.nomorKontak,
       statusKrama: krama.statusKrama,
       alasanTidakAktif: krama.alasanTidakAktif,
@@ -641,7 +661,7 @@ export async function validatePemasihImport(
       tanggalTerdaftar: krama.tanggalTerdaftar,
       anggota: drafts,
       kepalaAnggotaClientId: kepala.clientId,
-      kepala: toPendudukFields(kepala, krama.klasifikasi),
+      kepala: toPendudukFields(kepala, klasifikasi),
     };
 
     if (krama.isCreate) {
