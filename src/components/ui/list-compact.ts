@@ -1,6 +1,6 @@
 /** Gaya daftar padat & rapi — standar seluruh aplikasi (referensi: Riwayat Paturunan). */
 
-export const LIST_PAGE = "space-y-2 leading-snug text-sm max-w-6xl";
+export const LIST_PAGE = "w-full min-w-0 space-y-2 leading-snug text-sm";
 
 /** Class tambahan pada `<Card compact>` — filter & kontrol padat. */
 export const LIST_CARD =

@@ -1735,7 +1735,7 @@ export function KramaWizardForm({
   );
 
   return (
-    <div className={cn("max-w-6xl space-y-2.5 leading-snug", isPhone ? "pb-[4.5rem]" : "pb-0")}>
+    <div className={cn("w-full min-w-0 space-y-2.5 leading-snug", isPhone ? "pb-[4.5rem]" : "pb-0")}>
       <div className="flex flex-col gap-2 border-b border-copper-200/90 pb-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <div className="min-w-0">
           <h2 className="text-base font-bold tracking-tight text-copper-950 sm:text-lg">{title}</h2>
@@ -1786,7 +1786,7 @@ export function KramaWizardForm({
         <fieldset
           disabled={perluPengarepDulu}
           title={perluPengarepDulu ? `Tambahkan ${gelarLabel} terlebih dahulu` : undefined}
-          className="m-0 min-w-0 border-0 p-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-3 gap-y-2.5"
+          className="m-0 min-w-0 border-0 p-0 grid grid-cols-1 gap-x-3 gap-y-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
         >
           <FormSection title="Identitas & status" first />
           {usesKepalaSelect && (
@@ -1826,7 +1826,7 @@ export function KramaWizardForm({
             />
           )}
           {pemasihStatusPending ? (
-            <p className="sm:col-span-2 rounded border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-xs text-amber-950">
+            <p className="col-span-full rounded border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-xs text-amber-950">
               Agama pengajeg mengubah status menjadi{" "}
               <strong>{isKramaTamiu ? "Krama Tamiu" : "Tamiu"}</strong>. Pilih{" "}
               {isKramaTamiu ? "Jenis Krama Tamiu" : "Jenis Tamiu"}
@@ -2212,7 +2212,7 @@ export function KramaWizardForm({
       {/* Aksi simpan di atas PhoneBottomDock (3.75rem + safe-area) */}
       {isPhone ? (
       <div className="fixed inset-x-0 bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-40 border-t border-copper-200 bg-card/95 px-3 py-2.5 shadow-[0_-6px_20px_rgba(61,35,16,0.12)] backdrop-blur">
-        <div className="mx-auto flex max-w-6xl gap-2">
+        <div className="flex w-full gap-2">
           <Button
             type="button"
             variant="secondary"

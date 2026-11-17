@@ -347,7 +347,7 @@ export function LaporanPlafonDanaDudukanPage() {
                           {loadingTx ? (
                             <p className="text-xs text-muted py-2 pl-6">Memuat transaksi…</p>
                           ) : txs && txs.length > 0 ? (
-                            <table className="w-full text-xs ml-6 max-w-4xl">
+                            <table className="ml-6 w-[calc(100%-1.5rem)] text-xs">
                               <thead>
                                 <tr className="text-muted border-b border-copper-200">
                                   <th className="text-left py-1 pr-2 font-medium">Tanggal</th>

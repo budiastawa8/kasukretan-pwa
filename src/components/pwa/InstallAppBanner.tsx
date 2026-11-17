@@ -1,6 +1,5 @@
 import { Download, Share, X } from "lucide-react";
 import { Button } from "../ui/Button";
-import { cn } from "../../lib/utils";
 import { isDesktopApp } from "../../lib/runtime";
 import {
   dismissInstall,
@@ -16,7 +15,7 @@ const TUNDA_HARI = 14;
 /** Kunjungan pertama dibiarkan bebas ajakan — user sempat mencoba aplikasinya dulu. */
 const MIN_KUNJUNGAN = 2;
 
-export function InstallAppBanner({ isPhone }: { isPhone: boolean }) {
+export function InstallAppBanner() {
   const { canPrompt } = usePwaInstall();
 
   if (isDesktopApp() || isStandalone() || isInstallDismissed()) return null;
@@ -30,10 +29,7 @@ export function InstallAppBanner({ isPhone }: { isPhone: boolean }) {
     <div
       role="dialog"
       aria-label="Pasang aplikasi"
-      className={cn(
-        "mb-3 rounded-lg border border-copper-200 bg-card px-3 py-2.5 text-copper-950 shadow-md shadow-copper-950/10 print:hidden",
-        !isPhone && "max-w-xl"
-      )}
+      className="mb-3 w-full rounded-lg border border-copper-200 bg-card px-3 py-2.5 text-copper-950 shadow-md shadow-copper-950/10 print:hidden"
     >
       <div className="flex items-start gap-2.5">
         <img src="/pwa-192x192.png" alt="" className="h-10 w-10 shrink-0 rounded-lg" />

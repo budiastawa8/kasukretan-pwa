@@ -329,7 +329,7 @@ export function PengumpulanPage() {
 
   if (!petugas) {
     return (
-      <div className="pengumpulan-module max-w-xl mx-auto">
+      <div className="pengumpulan-module w-full min-w-0">
         <Card title="Pengumpulan Dana Partisipasi">
           <p className="text-sm text-amber-900">
             Akun Anda belum dihubungkan ke nama di Tim Kasukretan. Minta admin membuka Pengaturan →
@@ -359,7 +359,7 @@ export function PengumpulanPage() {
   const tidakAktif = krama != null && krama.status_krama !== "aktif";
 
   return (
-    <div className="pengumpulan-module space-y-3 max-w-xl mx-auto">
+    <div className="pengumpulan-module grid w-full min-w-0 grid-cols-1 items-start gap-3 lg:grid-cols-2">
       <Card title="Pengumpulan Dana Partisipasi">
         <p className="text-sm text-copper-950 font-medium">
           {petugas.nama}{" "}
@@ -581,7 +581,7 @@ export function PengumpulanPage() {
         </Card>
       )}
 
-      <Card title="Uang di Tangan Saya">
+      <Card title="Uang di Tangan Saya" className="lg:col-span-2">
         <p className="flex items-center gap-1.5 text-sm">
           <Wallet size={16} className="text-amber-800" aria-hidden />
           Belum disetor{mode ? ` (${MODE_LABEL[mode]})` : ""}:{" "}
