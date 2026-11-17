@@ -106,6 +106,16 @@ export function DudukanPage() {
   const [rtBtnOptions, setRtBtnOptions] = useState<string[]>([]);
   const [klasifikasi, setKlasifikasi] = usePersistedScalar(PAGE_ID, "klasifikasi", "");
   const [jenisFilter, setJenisFilter] = usePersistedScalar(PAGE_ID, "jenisFilter", "");
+  const [tanggalTerdaftarDari, setTanggalTerdaftarDari] = usePersistedScalar(
+    PAGE_ID,
+    "tanggalTerdaftarDari",
+    ""
+  );
+  const [tanggalTerdaftarSampai, setTanggalTerdaftarSampai] = usePersistedScalar(
+    PAGE_ID,
+    "tanggalTerdaftarSampai",
+    ""
+  );
   const [punyaTunggakan, setPunyaTunggakan] = usePersistedScalar(PAGE_ID, "punyaTunggakan", false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -163,6 +173,31 @@ export function DudukanPage() {
   const jenisKramaTamiuId = jenisFilter.startsWith("kt:") ? jenisFilter.slice(3) : undefined;
   const jenisTamiuId = jenisFilter.startsWith("t:") ? jenisFilter.slice(2) : undefined;
 
+  const listSearchParams = useMemo(
+    () => ({
+      q: debouncedQ || undefined,
+      banjarId: banjarId || undefined,
+      klasifikasi: klasifikasi ? (klasifikasi as KlasifikasiKode) : undefined,
+      jenisKramaTamiuId,
+      jenisTamiuId,
+      rtBtn: rtBtn || undefined,
+      punyaTunggakan: punyaTunggakan || undefined,
+      tanggalTerdaftarDari: tanggalTerdaftarDari || undefined,
+      tanggalTerdaftarSampai: tanggalTerdaftarSampai || undefined,
+    }),
+    [
+      debouncedQ,
+      banjarId,
+      klasifikasi,
+      jenisKramaTamiuId,
+      jenisTamiuId,
+      rtBtn,
+      punyaTunggakan,
+      tanggalTerdaftarDari,
+      tanggalTerdaftarSampai,
+    ]
+  );
+
   const initialKeringananPeriode = useMemo(() => {
     if (searchParams.get("aksi") !== "keringanan") return null;
     const tahun = Number(searchParams.get("tahun"));
@@ -197,22 +232,13 @@ export function DudukanPage() {
     setLoading(true);
     setError("");
     try {
-      const filterKlas = klasifikasi ? (klasifikasi as KlasifikasiKode) : undefined;
       const serverPage = !sortKey && !punyaTunggakan;
       const offset = (Math.max(1, page) - 1) * pageSize;
 
       const ringkasanBg = getDudukanRingkasan();
       const [{ list, ringkasanBulan: ringkasanB, totalCount }, b, jkt, jt] = await Promise.all([
         loadDudukanListAndRingkasanBulan(
-          {
-            q: debouncedQ || undefined,
-            banjarId: banjarId || undefined,
-            klasifikasi: filterKlas,
-            jenisKramaTamiuId,
-            jenisTamiuId,
-            rtBtn: rtBtn || undefined,
-            punyaTunggakan: punyaTunggakan || undefined,
-          },
+          listSearchParams,
           tahunIni,
           bulanIni,
           serverPage
@@ -240,21 +266,7 @@ export function DudukanPage() {
       setError(String(e));
       setLoading(false);
     }
-  }, [
-    debouncedQ,
-    banjarId,
-    rtBtn,
-    klasifikasi,
-    jenisFilter,
-    punyaTunggakan,
-    jenisKramaTamiuId,
-    jenisTamiuId,
-    tahunIni,
-    bulanIni,
-    page,
-    pageSize,
-    sortKey,
-  ]);
+  }, [listSearchParams, tahunIni, bulanIni, page, pageSize, sortKey, punyaTunggakan]);
 
   useEffect(() => {
     void load();
@@ -262,7 +274,17 @@ export function DudukanPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedQ, banjarId, rtBtn, klasifikasi, jenisFilter, punyaTunggakan, pageSize]);
+  }, [
+    debouncedQ,
+    banjarId,
+    rtBtn,
+    klasifikasi,
+    jenisFilter,
+    punyaTunggakan,
+    tanggalTerdaftarDari,
+    tanggalTerdaftarSampai,
+    pageSize,
+  ]);
 
   useEffect(() => {
     listRtBtnPemasih({ banjarId: banjarId || undefined, statusKrama: "aktif" }).then(
@@ -276,6 +298,8 @@ export function DudukanPage() {
     rtBtn !== "" ||
     klasifikasi !== "" ||
     jenisFilter !== "" ||
+    tanggalTerdaftarDari !== "" ||
+    tanggalTerdaftarSampai !== "" ||
     punyaTunggakan;
 
   function resetFilters() {
@@ -285,6 +309,8 @@ export function DudukanPage() {
     setRtBtn("");
     setKlasifikasi("");
     setJenisFilter("");
+    setTanggalTerdaftarDari("");
+    setTanggalTerdaftarSampai("");
     setPunyaTunggakan(false);
     setPage(1);
   }
@@ -293,17 +319,8 @@ export function DudukanPage() {
     setPrintingKartu(true);
     setError("");
     try {
-      const filterKlas = klasifikasi ? (klasifikasi as KlasifikasiKode) : undefined;
       const { list: allRows } = await loadDudukanListAndRingkasanBulan(
-        {
-          q: debouncedQ || undefined,
-          banjarId: banjarId || undefined,
-          klasifikasi: filterKlas,
-          jenisKramaTamiuId,
-          jenisTamiuId,
-          rtBtn: rtBtn || undefined,
-          punyaTunggakan: punyaTunggakan || undefined,
-        },
+        listSearchParams,
         tahunIni,
         bulanIni
       );
@@ -525,32 +542,32 @@ export function DudukanPage() {
               icon={Printer}
               iconOnly
               className="h-9 min-h-9 min-w-9 shrink-0"
-              disabled={loading || printingKartu || rows.length === 0}
+              disabled={loading || printingKartu || totalItems === 0}
               onClick={() => void cetakKartuHasilFilter()}
               title={
                 printingKartu
                   ? "Menyiapkan PDF kartu dudukan…"
-                  : rows.length === 0
+                  : totalItems === 0
                     ? "Tidak ada pemasih pada filter"
-                    : rows.length > KARTU_DUDUKAN_BATCH_MAX
-                      ? `Cetak kartu dudukan — maks. ${KARTU_DUDUKAN_BATCH_MAX} (filter: ${rows.length})`
-                      : `Cetak Kartu Dudukan (${rows.length} pemasih)`
+                    : totalItems > KARTU_DUDUKAN_BATCH_MAX
+                      ? `Cetak kartu dudukan — maks. ${KARTU_DUDUKAN_BATCH_MAX} (filter: ${totalItems})`
+                      : `Cetak Kartu Dudukan (${totalItems} pemasih)`
               }
               aria-label={
                 printingKartu
                   ? "Menyiapkan PDF kartu dudukan"
-                  : rows.length === 0
+                  : totalItems === 0
                     ? "Cetak kartu dudukan — tidak ada data"
-                    : rows.length > KARTU_DUDUKAN_BATCH_MAX
+                    : totalItems > KARTU_DUDUKAN_BATCH_MAX
                       ? `Cetak kartu dudukan, maksimal ${KARTU_DUDUKAN_BATCH_MAX} pemasih`
-                      : `Cetak kartu dudukan, ${rows.length} pemasih`
+                      : `Cetak kartu dudukan, ${totalItems} pemasih`
               }
             />
           </div>
         </div>
 
         <div className={DUDUKAN_FILTER_ROW}>
-          <div className={cn(DUDUKAN_FILTER_GRID, "sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5")}>
+          <div className={cn(DUDUKAN_FILTER_GRID, "sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7")}>
             <div className="min-w-0">
               <Label>Klasifikasi</Label>
               <Select
@@ -624,10 +641,27 @@ export function DudukanPage() {
                 <option value="ya">Ada tunggakan saja</option>
               </Select>
             </div>
+            <div className="min-w-0">
+              <Label>Terdaftar dari</Label>
+              <Input
+                type="date"
+                value={tanggalTerdaftarDari}
+                onChange={(e) => setTanggalTerdaftarDari(e.target.value)}
+              />
+            </div>
+            <div className="min-w-0">
+              <Label>Terdaftar sampai</Label>
+              <Input
+                type="date"
+                value={tanggalTerdaftarSampai}
+                min={tanggalTerdaftarDari || undefined}
+                onChange={(e) => setTanggalTerdaftarSampai(e.target.value)}
+              />
+            </div>
           </div>
           <span className="inline-flex items-center gap-1 rounded-md border border-copper-200 bg-copper-50/80 px-2 py-0.5 text-xs text-copper-900 shrink-0 self-end">
             <span className="text-muted">Pemasih:</span>
-            <span className="font-semibold tabular-nums">{rows.length}</span>
+            <span className="font-semibold tabular-nums">{totalItems}</span>
           </span>
         </div>
 

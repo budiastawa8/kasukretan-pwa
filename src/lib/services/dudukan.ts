@@ -548,6 +548,8 @@ function hasDudukanListFilter(params: {
   jenisTamiuId?: string;
   rtBtn?: string;
   punyaTunggakan?: boolean;
+  tanggalTerdaftarDari?: string;
+  tanggalTerdaftarSampai?: string;
 }): boolean {
   return Boolean(
     params.q?.trim() ||
@@ -555,7 +557,9 @@ function hasDudukanListFilter(params: {
       params.klasifikasi ||
       params.jenisKramaTamiuId ||
       params.jenisTamiuId ||
-      params.rtBtn?.trim()
+      params.rtBtn?.trim() ||
+      params.tanggalTerdaftarDari?.trim() ||
+      params.tanggalTerdaftarSampai?.trim()
   );
 }
 
@@ -741,6 +745,8 @@ export async function loadDudukanListAndRingkasanBulan(
     jenisTamiuId?: string;
     rtBtn?: string;
     punyaTunggakan?: boolean;
+    tanggalTerdaftarDari?: string;
+    tanggalTerdaftarSampai?: string;
   } = {},
   tahun: number,
   bulan: number,
@@ -913,6 +919,9 @@ type DudukanBaseFilter = {
   jenisKramaTamiuId?: string;
   jenisTamiuId?: string;
   rtBtn?: string;
+  /** ISO YYYY-MM-DD — filter `krama.tanggal_terdaftar` (inklusif). */
+  tanggalTerdaftarDari?: string;
+  tanggalTerdaftarSampai?: string;
   kramaId?: string;
   limit?: number;
   offset?: number;
@@ -960,6 +969,16 @@ function buildDudukanBaseWhere(params?: DudukanBaseFilter): {
   if (params?.rtBtn?.trim()) {
     whereExtra += ` AND TRIM(k.rt_btn) = $${n++}`;
     args.push(params.rtBtn.trim());
+  }
+  const tglDari = params?.tanggalTerdaftarDari?.trim().slice(0, 10);
+  if (tglDari) {
+    whereExtra += ` AND substr(k.tanggal_terdaftar, 1, 10) >= $${n++}`;
+    args.push(tglDari);
+  }
+  const tglSampai = params?.tanggalTerdaftarSampai?.trim().slice(0, 10);
+  if (tglSampai) {
+    whereExtra += ` AND substr(k.tanggal_terdaftar, 1, 10) <= $${n++}`;
+    args.push(tglSampai);
   }
   if (params?.q) {
     const search = buildKramaSearchSql(
@@ -1064,6 +1083,8 @@ export async function listKramaDudukanSearch(params?: {
   jenisKramaTamiuId?: string;
   jenisTamiuId?: string;
   punyaTunggakan?: boolean;
+  tanggalTerdaftarDari?: string;
+  tanggalTerdaftarSampai?: string;
 }): Promise<DudukanKramaSearchRow[]> {
   const rows = await queryKramaDudukanBase(params);
   const scoped = hasDudukanListFilter(params ?? {});
