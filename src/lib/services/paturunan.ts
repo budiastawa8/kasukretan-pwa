@@ -111,7 +111,7 @@ export function sqlPersenPaturunanIuran(targetPh: string): string {
 }
 
 /** Tagihan = round(nominal * persen / 100) — selaras Math.round untuk nilai positif. */
-function sqlTagihanPaturunan(nominalPh: string, targetPh: string): string {
+export function sqlTagihanPaturunan(nominalPh: string, targetPh: string): string {
   return `CAST(ROUND(${nominalPh} * (${sqlPersenPaturunanIuran(targetPh)}) / 100.0) AS INTEGER)`;
 }
 
