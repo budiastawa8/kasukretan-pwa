@@ -16,6 +16,8 @@ export type LaporanPaturunanFilter = {
   q?: string;
   /** Satu status, banyak status, atau kosong = semua. */
   statusBayar?: LaporanPaturunanStatusFilter | LaporanPaturunanStatusFilter[];
+  /** Sertakan MIPIL nonaktif yang pernah bayar iuran ini (laporan capaian). */
+  includeNonaktifDenganPembayaran?: boolean;
 };
 
 export type LaporanPaturunanRingkasan = RingkasanIuran & {
@@ -92,6 +94,7 @@ export async function getLaporanPaturunan(filter: LaporanPaturunanFilter): Promi
     tempekId: filter.tempekId,
     jenisMipilId: filter.jenisMipilId,
     q: filter.q,
+    includeNonaktifDenganPembayaran: filter.includeNonaktifDenganPembayaran,
   });
   const rows = filterByStatus(all, filter.statusBayar);
   const ringkasan = hitungRingkasanDariRows(base, rows);

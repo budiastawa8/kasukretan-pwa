@@ -104,6 +104,7 @@ export const TUNGGAKAN_PATURUNAN_SORT: SortAccessors<PaturunanKramaRow> = {
 export const CAPAIAN_PATURUNAN_TEMPEK_SORT: SortAccessors<CapaianPaturunanTempekRow> = {
   banjar_nama: (r) => r.banjar_nama,
   tempek_nama: (r) => r.tempek_nama,
+  status_bayar: (r) => r.jumlah_lunas * 1_000_000 + r.jumlah_cicil * 1_000 + r.jumlah_belum,
   tagihan: (r) => r.tagihan,
   dibayar: (r) => r.dibayar,
   sisa: (r) => r.sisa,

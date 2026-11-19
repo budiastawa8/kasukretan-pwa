@@ -12,6 +12,7 @@ import { LaporanExportButtons } from "../../components/laporan/LaporanExportButt
 import { formatRupiah, isPastTanggalTarget } from "../../lib/paturunan-hitung";
 import {
   formatPctTerhadapTagihan,
+  formatStatusLunasCicilBelum,
   getLaporanCapaianPaturunanTempek,
   type CapaianPaturunanTempekRingkasan,
   type CapaianPaturunanTempekRow,
@@ -131,6 +132,7 @@ export function LaporanCapaianPaturunanTempekPage() {
       i + 1,
       formatBanjarLaporanNama(r.banjar_nama),
       r.tempek_nama,
+      formatStatusLunasCicilBelum(r.jumlah_lunas, r.jumlah_cicil, r.jumlah_belum),
       r.tagihan,
       r.dibayar,
       r.pct_dibayar != null ? Number(r.pct_dibayar.toFixed(1)) : "",
@@ -143,6 +145,11 @@ export function LaporanCapaianPaturunanTempekPage() {
         "",
         "",
         "JUMLAH KESELURUHAN",
+        formatStatusLunasCicilBelum(
+          ringkasan.jumlah_lunas,
+          ringkasan.jumlah_cicil,
+          ringkasan.jumlah_belum
+        ),
         ringkasan.total_tagihan,
         ringkasan.total_dibayar,
         ringkasan.pct_dibayar != null ? Number(ringkasan.pct_dibayar.toFixed(1)) : "",
@@ -157,6 +164,7 @@ export function LaporanCapaianPaturunanTempekPage() {
         "No",
         "Banjar",
         "Tempek",
+        "Lunas / Cicil / Belum",
         "Tagihan",
         "Dibayar",
         "% Dibayar",
@@ -195,6 +203,8 @@ export function LaporanCapaianPaturunanTempekPage() {
           </h2>
           <p className="text-xs text-muted mt-0.5">
             Progres tagihan wajib per tempek — % dibayar & % sisa (punia tidak mengurangi sisa).
+            Termasuk krama nonaktif yang pernah bayar iuran ini. Total dibayar/punia mencakup semua
+            pembayaran tercatat (termasuk belum disetor), jadi tidak harus sama dengan Buku Kas.
           </p>
         </div>
         <div className="flex flex-wrap gap-1">
@@ -225,6 +235,14 @@ export function LaporanCapaianPaturunanTempekPage() {
           <div className={cn("flex flex-wrap gap-1", isPhone && "gap-1.5")}>
             <StatChip label="Tempek" value={String(ringkasan.jumlah_tempek)} />
             <StatChip label="Krama" value={String(ringkasan.jumlah_krama)} />
+            <StatChip
+              label="Lunas / Cicil / Belum"
+              value={formatStatusLunasCicilBelum(
+                ringkasan.jumlah_lunas,
+                ringkasan.jumlah_cicil,
+                ringkasan.jumlah_belum
+              )}
+            />
             <StatChip label="Tagihan" value={formatRupiah(ringkasan.total_tagihan)} />
             <StatChip label="Dibayar" value={formatRupiah(ringkasan.total_dibayar)} />
             <StatChip label="% Dibayar" value={formatPctTerhadapTagihan(ringkasan.pct_dibayar)} />
@@ -311,6 +329,14 @@ export function LaporanCapaianPaturunanTempekPage() {
                     onSort={toggleSort}
                   />
                   <SortableTableHead
+                    label="Lunas / Cicil / Belum"
+                    columnKey="status_bayar"
+                    activeKey={sortKey}
+                    direction={sortDir}
+                    onSort={toggleSort}
+                    className="text-right whitespace-nowrap"
+                  />
+                  <SortableTableHead
                     label="Tagihan"
                     columnKey="tagihan"
                     activeKey={sortKey}
@@ -363,13 +389,13 @@ export function LaporanCapaianPaturunanTempekPage() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={9} className="py-4 text-center text-muted text-sm">
+                    <td colSpan={10} className="py-4 text-center text-muted text-sm">
                       Memuat…
                     </td>
                   </tr>
                 ) : pagedRows.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-4 text-center text-muted text-sm">
+                    <td colSpan={10} className="py-4 text-center text-muted text-sm">
                       Tidak ada data.
                     </td>
                   </tr>
@@ -381,6 +407,9 @@ export function LaporanCapaianPaturunanTempekPage() {
                       </td>
                       <td className="pr-2">{formatBanjarLaporanNama(r.banjar_nama)}</td>
                       <td className="pr-2">{r.tempek_nama}</td>
+                      <td className="text-right tabular-nums whitespace-nowrap pr-2">
+                        {formatStatusLunasCicilBelum(r.jumlah_lunas, r.jumlah_cicil, r.jumlah_belum)}
+                      </td>
                       <td className="text-right tabular-nums">{formatRupiah(r.tagihan)}</td>
                       <td className="text-right tabular-nums text-emerald-800">
                         {formatRupiah(r.dibayar)}

@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
-import { Check, RotateCcw } from "lucide-react";
-import { Card } from "../ui/Card";
+import { useEffect, useId, useState, type ReactNode } from "react";
+import { Check, ChevronDown, MessageCircle, RotateCcw } from "lucide-react";
 import { Button } from "../ui/Button";
 import { Label } from "../ui/Input";
 import {
@@ -28,6 +27,82 @@ import {
   saveMipilUmumTemplate,
   saveSetoranTelatTemplate,
 } from "../../lib/whatsapp";
+import { CollapsibleSettingsSection } from "./CollapsibleSettingsSection";
+
+type Placeholder = { key: string; desc: string };
+
+type SectionId = "dudukan" | "paturunan" | "mipil" | "setoran";
+
+function PlaceholderHints({ items }: { items: readonly Placeholder[] }) {
+  const id = useId();
+  return (
+    <details className="group/ph text-xs">
+      <summary className="cursor-pointer list-none text-copper-800 hover:text-copper-950 select-none [&::-webkit-details-marker]:hidden inline-flex items-center gap-1">
+        <ChevronDown
+          size={12}
+          className="shrink-0 transition-transform group-open/ph:rotate-180"
+          aria-hidden
+        />
+        Lihat placeholder
+      </summary>
+      <ul
+        id={id}
+        className="mt-2 space-y-0.5 rounded-md border border-copper-100 bg-copper-50/60 px-3 py-2 text-muted"
+      >
+        {items.map((p) => (
+          <li key={p.key}>
+            <code className="text-copper-900">{p.key}</code> — {p.desc}
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
+function TemplateSection({
+  id,
+  title,
+  hint,
+  open,
+  onToggle,
+  placeholders,
+  children,
+}: {
+  id: SectionId;
+  title: string;
+  hint?: string;
+  open: boolean;
+  onToggle: (id: SectionId) => void;
+  placeholders: readonly Placeholder[];
+  children: ReactNode;
+}) {
+  return (
+    <details
+      className="group/sec rounded-md border border-copper-200 overflow-hidden"
+      open={open}
+    >
+      <summary
+        className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 text-sm font-medium text-copper-900 hover:bg-copper-50/80 select-none [&::-webkit-details-marker]:hidden"
+        onClick={(e) => {
+          e.preventDefault();
+          onToggle(id);
+        }}
+      >
+        <span className="flex-1">{title}</span>
+        <ChevronDown
+          size={14}
+          className="text-muted shrink-0 transition-transform group-open/sec:rotate-180"
+          aria-hidden
+        />
+      </summary>
+      <div className="border-t border-copper-200 px-3 py-3 space-y-3 bg-white">
+        {hint && <p className="text-[11px] text-muted leading-relaxed">{hint}</p>}
+        <PlaceholderHints items={placeholders} />
+        {children}
+      </div>
+    </details>
+  );
+}
 
 export function WhatsAppTemplatePanel() {
   const [dudukanTunggakan, setDudukanTunggakan] = useState(DEFAULT_DUDUKAN_TUNGGAKAN_TEMPLATE);
@@ -37,6 +112,7 @@ export function WhatsAppTemplatePanel() {
   const [mipilUmum, setMipilUmum] = useState(DEFAULT_MIPIL_UMUM_TEMPLATE);
   const [setoranTelat, setSetoranTelat] = useState(DEFAULT_SETORAN_TELAT_TEMPLATE);
   const [saved, setSaved] = useState(false);
+  const [openSection, setOpenSection] = useState<SectionId | null>(null);
 
   useEffect(() => {
     setDudukanTunggakan(getDudukanTunggakanTemplate());
@@ -46,6 +122,10 @@ export function WhatsAppTemplatePanel() {
     setMipilUmum(getMipilUmumTemplate());
     setSetoranTelat(getSetoranTelatTemplate());
   }, []);
+
+  function handleSectionToggle(id: SectionId) {
+    setOpenSection((prev) => (prev === id ? null : id));
+  }
 
   function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -70,33 +150,35 @@ export function WhatsAppTemplatePanel() {
     setSaved(false);
   }
 
-  return (
-    <Card className="space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold text-copper-950">Template pesan WhatsApp</h2>
-        <p className="text-xs text-muted mt-1 leading-relaxed">
-          Dipakai tombol WhatsApp di halaman Dudukan, Paturunan, daftar Krama Mipil, serta pengingat
-          setor petugas (Fonnte / WhatsApp). Placeholder diganti otomatis saat kirim.
-        </p>
-      </div>
+  const textareaClass =
+    "mt-1 w-full rounded-md border border-copper-200 bg-white px-3 py-2 text-sm leading-relaxed resize-y";
 
-      <form onSubmit={handleSave} className="space-y-6">
-        <section className="space-y-3">
-          <h3 className="text-sm font-semibold text-copper-900">Dudukan — Krama Tamiu / Tamiu</h3>
-          <ul className="text-xs text-muted space-y-0.5 rounded-md border border-copper-100 bg-copper-50/60 px-3 py-2">
-            {WHATSAPP_TEMPLATE_PLACEHOLDERS.map((p) => (
-              <li key={p.key}>
-                <code className="text-copper-900">{p.key}</code> — {p.desc}
-              </li>
-            ))}
-          </ul>
+  return (
+    <CollapsibleSettingsSection
+      title="Template pesan WhatsApp"
+      subtitle="Opsional — Dudukan, Paturunan, Mipil, Setoran"
+      icon={MessageCircle}
+    >
+      <p className="text-xs text-muted leading-relaxed -mt-1">
+        Dipakai tombol WhatsApp di halaman terkait dan pengingat setor petugas. Buka satu jenis
+        pesan untuk mengedit; placeholder diganti otomatis saat kirim.
+      </p>
+
+      <form onSubmit={handleSave} className="space-y-3">
+        <TemplateSection
+          id="dudukan"
+          title="Dudukan — Krama Tamiu / Tamiu"
+          open={openSection === "dudukan"}
+          onToggle={handleSectionToggle}
+          placeholders={WHATSAPP_TEMPLATE_PLACEHOLDERS}
+        >
           <div>
             <Label>Ada tunggakan</Label>
             <textarea
               value={dudukanTunggakan}
               onChange={(e) => setDudukanTunggakan(e.target.value)}
               rows={3}
-              className="mt-1 w-full rounded-md border border-copper-200 bg-white px-3 py-2 text-sm leading-relaxed resize-y"
+              className={textareaClass}
             />
           </div>
           <div>
@@ -105,27 +187,25 @@ export function WhatsAppTemplatePanel() {
               value={dudukanUmum}
               onChange={(e) => setDudukanUmum(e.target.value)}
               rows={2}
-              className="mt-1 w-full rounded-md border border-copper-200 bg-white px-3 py-2 text-sm leading-relaxed resize-y"
+              className={textareaClass}
             />
           </div>
-        </section>
+        </TemplateSection>
 
-        <section className="space-y-3">
-          <h3 className="text-sm font-semibold text-copper-900">Paturunan — Krama Mipil</h3>
-          <ul className="text-xs text-muted space-y-0.5 rounded-md border border-copper-100 bg-copper-50/60 px-3 py-2">
-            {PATURUNAN_WHATSAPP_TEMPLATE_PLACEHOLDERS.map((p) => (
-              <li key={p.key}>
-                <code className="text-copper-900">{p.key}</code> — {p.desc}
-              </li>
-            ))}
-          </ul>
+        <TemplateSection
+          id="paturunan"
+          title="Paturunan — Krama Mipil"
+          open={openSection === "paturunan"}
+          onToggle={handleSectionToggle}
+          placeholders={PATURUNAN_WHATSAPP_TEMPLATE_PLACEHOLDERS}
+        >
           <div>
             <Label>Ada sisa paturunan</Label>
             <textarea
               value={paturunanTunggakan}
               onChange={(e) => setPaturunanTunggakan(e.target.value)}
               rows={3}
-              className="mt-1 w-full rounded-md border border-copper-200 bg-white px-3 py-2 text-sm leading-relaxed resize-y"
+              className={textareaClass}
             />
           </div>
           <div>
@@ -134,58 +214,49 @@ export function WhatsAppTemplatePanel() {
               value={paturunanUmum}
               onChange={(e) => setPaturunanUmum(e.target.value)}
               rows={2}
-              className="mt-1 w-full rounded-md border border-copper-200 bg-white px-3 py-2 text-sm leading-relaxed resize-y"
+              className={textareaClass}
             />
           </div>
-        </section>
+        </TemplateSection>
 
-        <section className="space-y-3">
-          <h3 className="text-sm font-semibold text-copper-900">Krama Mipil — pengumuman umum</h3>
-          <ul className="text-xs text-muted space-y-0.5 rounded-md border border-copper-100 bg-copper-50/60 px-3 py-2">
-            {MIPIL_WHATSAPP_TEMPLATE_PLACEHOLDERS.map((p) => (
-              <li key={p.key}>
-                <code className="text-copper-900">{p.key}</code> — {p.desc}
-              </li>
-            ))}
-          </ul>
+        <TemplateSection
+          id="mipil"
+          title="Krama Mipil — pengumuman umum"
+          open={openSection === "mipil"}
+          onToggle={handleSectionToggle}
+          placeholders={MIPIL_WHATSAPP_TEMPLATE_PLACEHOLDERS}
+        >
           <div>
             <Label>Pengumuman umum</Label>
             <textarea
               value={mipilUmum}
               onChange={(e) => setMipilUmum(e.target.value)}
               rows={2}
-              className="mt-1 w-full rounded-md border border-copper-200 bg-white px-3 py-2 text-sm leading-relaxed resize-y"
+              className={textareaClass}
             />
           </div>
-        </section>
+        </TemplateSection>
 
-        <section className="space-y-3">
-          <h3 className="text-sm font-semibold text-copper-900">
-            Setoran — pengingat petugas (Fonnte)
-          </h3>
-          <p className="text-[11px] text-muted leading-relaxed">
-            Dipakai tombol <strong>Ingatkan setor</strong> di panel Setoran dan banner telat. Disimpan
-            di browser ini (sama seperti template lain).
-          </p>
-          <ul className="text-xs text-muted space-y-0.5 rounded-md border border-copper-100 bg-copper-50/60 px-3 py-2">
-            {SETORAN_TELAT_WHATSAPP_TEMPLATE_PLACEHOLDERS.map((p) => (
-              <li key={p.key}>
-                <code className="text-copper-900">{p.key}</code> — {p.desc}
-              </li>
-            ))}
-          </ul>
+        <TemplateSection
+          id="setoran"
+          title="Setoran — pengingat petugas"
+          hint="Dipakai tombol Ingatkan setor di panel Setoran dan banner telat."
+          open={openSection === "setoran"}
+          onToggle={handleSectionToggle}
+          placeholders={SETORAN_TELAT_WHATSAPP_TEMPLATE_PLACEHOLDERS}
+        >
           <div>
             <Label>Pesan pengingat setor</Label>
             <textarea
               value={setoranTelat}
               onChange={(e) => setSetoranTelat(e.target.value)}
-              rows={6}
-              className="mt-1 w-full rounded-md border border-copper-200 bg-white px-3 py-2 text-sm leading-relaxed resize-y font-mono"
+              rows={5}
+              className={`${textareaClass} font-mono`}
             />
           </div>
-        </section>
+        </TemplateSection>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 pt-1">
           <Button type="submit" icon={Check}>
             Simpan template
           </Button>
@@ -195,6 +266,6 @@ export function WhatsAppTemplatePanel() {
           {saved && <span className="text-sm text-green-700 self-center">Tersimpan.</span>}
         </div>
       </form>
-    </Card>
+    </CollapsibleSettingsSection>
   );
 }

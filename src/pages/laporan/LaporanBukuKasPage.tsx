@@ -364,6 +364,8 @@ export function LaporanBukuKasPage() {
           </h2>
           <p className="text-xs text-muted mt-0.5">
             Pemasukan dan pengeluaran per akun — rincian transaksi atau rekap per pos.
+            Penerimaan paturunan hanya yang sudah disetor ke akun ini (bukan semua capaian
+            penagihan).
           </p>
           <Link
             to={`/laporan/rekap-penerimaan-dudukan?dari=${encodeURIComponent(dari)}&sampai=${encodeURIComponent(sampai)}`}

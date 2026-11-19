@@ -136,7 +136,7 @@ const dataKramaItems: LaporanItem[] = [
 
     title: "Capaian Paturunan per Tempek",
 
-    desc: "Persentase dibayar & sisa tagihan wajib per tempek — plus jumlah punia.",
+    desc: "Persentase dibayar & sisa tagihan wajib per tempek — plus punia; termasuk nonaktif yang pernah bayar.",
 
   },
 

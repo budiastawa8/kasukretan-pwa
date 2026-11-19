@@ -1,3 +1,4 @@
+import { statusBayarPaturunan } from "../paturunan-hitung";
 import { compareBanjarRow, compareTempekRow } from "../wilayah-order";
 import { getLaporanPaturunan, type LaporanPaturunanFilter } from "./laporan-paturunan";
 
@@ -10,6 +11,12 @@ export type CapaianPaturunanTempekRow = {
   tempek_nama: string;
   tempek_created_at: string | null;
   jumlah_krama: number;
+  /** Krama wajib bayar yang sudah lunas (termasuk lunas+punia). */
+  jumlah_lunas: number;
+  /** Krama wajib bayar yang masih cicil (termasuk cicil+punia). */
+  jumlah_cicil: number;
+  /** Krama wajib bayar yang belum bayar wajib (termasuk hanya punia). */
+  jumlah_belum: number;
   tagihan: number;
   dibayar: number;
   sisa: number;
@@ -21,6 +28,9 @@ export type CapaianPaturunanTempekRow = {
 export type CapaianPaturunanTempekRingkasan = {
   jumlah_tempek: number;
   jumlah_krama: number;
+  jumlah_lunas: number;
+  jumlah_cicil: number;
+  jumlah_belum: number;
   total_tagihan: number;
   total_dibayar: number;
   total_sisa: number;
@@ -43,6 +53,28 @@ export function formatPctTerhadapTagihan(pct: number | null): string {
   })}%`;
 }
 
+/** Format ringkas status bayar per tempek: `12 / 3 / 5`. */
+export function formatStatusLunasCicilBelum(
+  lunas: number,
+  cicil: number,
+  belum: number
+): string {
+  return `${lunas} / ${cicil} / ${belum}`;
+}
+
+function bumpStatusCounts(
+  agg: Pick<CapaianPaturunanTempekRow, "jumlah_lunas" | "jumlah_cicil" | "jumlah_belum">,
+  tagihan: number,
+  dibayar: number,
+  punia: number
+): void {
+  const status = statusBayarPaturunan(tagihan, dibayar, punia);
+  if (status === "lunas" || status === "lunas_punia") agg.jumlah_lunas += 1;
+  else if (status === "cicil" || status === "cicil_punia") agg.jumlah_cicil += 1;
+  else if (status === "belum" || status === "punia") agg.jumlah_belum += 1;
+  // tidak_wajib: tidak dihitung di ketiga bucket
+}
+
 function aggregateRows(
   rows: Awaited<ReturnType<typeof getLaporanPaturunan>>["rows"]
 ): CapaianPaturunanTempekRow[] {
@@ -60,6 +92,9 @@ function aggregateRows(
         tempek_nama: tempekNama,
         tempek_created_at: r.tempek_created_at ?? null,
         jumlah_krama: 0,
+        jumlah_lunas: 0,
+        jumlah_cicil: 0,
+        jumlah_belum: 0,
         tagihan: 0,
         dibayar: 0,
         sisa: 0,
@@ -69,11 +104,15 @@ function aggregateRows(
       };
       map.set(key, agg);
     }
+    const tagihan = r.tagihan ?? 0;
+    const dibayar = r.dibayar ?? 0;
+    const punia = r.punia ?? 0;
     agg.jumlah_krama += 1;
-    agg.tagihan += r.tagihan ?? 0;
-    agg.dibayar += r.dibayar ?? 0;
+    agg.tagihan += tagihan;
+    agg.dibayar += dibayar;
     agg.sisa += r.sisa ?? 0;
-    agg.punia += r.punia ?? 0;
+    agg.punia += punia;
+    bumpStatusCounts(agg, tagihan, dibayar, punia);
   }
 
   const list = [...map.values()].sort((a, b) => {
@@ -98,6 +137,9 @@ function hitungRingkasan(rows: CapaianPaturunanTempekRow[]): CapaianPaturunanTem
   return {
     jumlah_tempek: rows.length,
     jumlah_krama: rows.reduce((s, r) => s + r.jumlah_krama, 0),
+    jumlah_lunas: rows.reduce((s, r) => s + r.jumlah_lunas, 0),
+    jumlah_cicil: rows.reduce((s, r) => s + r.jumlah_cicil, 0),
+    jumlah_belum: rows.reduce((s, r) => s + r.jumlah_belum, 0),
     total_tagihan,
     total_dibayar,
     total_sisa,
@@ -116,6 +158,7 @@ export async function getLaporanCapaianPaturunanTempek(
   const { ringkasan: base, rows: kramaRows } = await getLaporanPaturunan({
     iuranId: filter.iuranId,
     banjarId: filter.banjarId,
+    includeNonaktifDenganPembayaran: true,
   });
   if (!base) return { ringkasan: null, rows: [] };
 

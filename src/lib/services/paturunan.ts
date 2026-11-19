@@ -327,6 +327,11 @@ export type PaturunanListFilter = {
   jenisMipilId?: string;
   q?: string;
   iuranId?: string;
+  /**
+   * Sertakan MIPIL nonaktif yang punya pembayaran pada iuran ini.
+   * Memerlukan `iuranId`. Dipakai laporan capaian agar setoran sebelum pindah tetap terhitung.
+   */
+  includeNonaktifDenganPembayaran?: boolean;
 };
 
 export type PaturunanListParams = PaturunanListFilter & {
@@ -361,9 +366,27 @@ const PATURUNAN_SQL_ORDER: Record<string, string> = {
 const PATURUNAN_MEMORY_SORT = new Set(["tagihan", "dibayar", "sisa", "punia"]);
 
 function buildPaturunanListWhere(params?: PaturunanListFilter): { where: string; args: unknown[] } {
-  let where = `WHERE kk.kode = 'MIPIL' AND k.status_krama = 'aktif'`;
   const args: unknown[] = [];
   let n = 1;
+  let where: string;
+  const includeNonaktif =
+    Boolean(params?.includeNonaktifDenganPembayaran) && Boolean(params?.iuranId?.trim());
+  if (includeNonaktif) {
+    where = `WHERE kk.kode = 'MIPIL' AND (
+      k.status_krama = 'aktif'
+      OR (
+        k.status_krama = 'nonaktif'
+        AND EXISTS (
+          SELECT 1 FROM paturunan_pembayaran pp
+          WHERE pp.krama_id = k.id AND pp.iuran_id = $${n}
+        )
+      )
+    )`;
+    args.push(params!.iuranId!.trim());
+    n += 1;
+  } else {
+    where = `WHERE kk.kode = 'MIPIL' AND k.status_krama = 'aktif'`;
+  }
   if (params?.banjarId) {
     where += ` AND k.banjar_id = $${n++}`;
     args.push(params.banjarId);
