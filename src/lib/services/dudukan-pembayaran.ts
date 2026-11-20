@@ -11,6 +11,7 @@ import {
   periodeKey,
   pesanDudukanBelumBerlakuPeriode,
 } from "../dudukan-hitung";
+import { commitPaymentWrites, type CommitPaymentWritesResult } from "../petugas-payment-outbox";
 import { isJabatanPenerimaSemuaBanjar } from "../petugas-jabatan";
 import type { DudukanPembayaranRow } from "../types";
 import { uuid } from "../utils";
@@ -631,10 +632,7 @@ export async function listRiwayatDudukanKrama(
   );
 }
 
-/** Jumlah placeholder bind per baris (created_at memakai datetime('now')). */
-const DUDUKAN_PEMBAYARAN_INSERT_COLS = 13;
-
-/** Simpan pembayaran untuk beberapa bulan sekaligus (validasi batch, satu INSERT multi-row). */
+/** Simpan pembayaran untuk beberapa bulan sekaligus (validasi batch). */
 export async function createPembayaranDudukanMulti(
   params: {
     kramaId: string;
@@ -647,7 +645,7 @@ export async function createPembayaranDudukanMulti(
     disetorLangsung?: boolean;
   },
   opts?: DudukanPembayaranSaveOptions
-): Promise<string[]> {
+): Promise<CommitPaymentWritesResult> {
   if (!params.items.length) {
     throw new Error("Pilih minimal satu bulan untuk dibayar");
   }
@@ -657,7 +655,6 @@ export async function createPembayaranDudukanMulti(
   if (!opts?.riwayatImport) await assertKramaAktifUntukPembayaran(params.kramaId);
   await assertPetugasForKrama(params.petugasId, params.kramaId);
 
-  const db = await getDb();
   const akunId = await resolveAkunPembayaranOlehPetugas({
     petugasId: params.petugasId,
     akunKeuanganId: params.akunKeuanganId,
@@ -724,31 +721,29 @@ export async function createPembayaranDudukanMulti(
     });
   }
 
-  const valueParts: string[] = [];
-  const bindArgs: unknown[] = [];
-  for (let i = 0; i < rows.length; i++) {
-    const base = i * DUDUKAN_PEMBAYARAN_INSERT_COLS;
-    const ph = Array.from(
-      { length: DUDUKAN_PEMBAYARAN_INSERT_COLS },
-      (_, j) => `$${base + j + 1}`
-    ).join(", ");
-    valueParts.push(`(${ph}, datetime('now'))`);
-    bindArgs.push(...rows[i]!.args);
-  }
-
-  await db.execute(
-    `INSERT INTO dudukan_pembayaran
+  const singleRowSql = `INSERT INTO dudukan_pembayaran
       (id, krama_id, tahun, bulan, jumlah, tanggal, petugas_id, akun_keuangan_id, keterangan,
        jenis_krama_tamiu_id, jenis_tamiu_id, jenis_nama, tanggal_setor, created_at)
-     VALUES ${valueParts.join(", ")}`,
-    bindArgs
-  );
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, datetime('now'))`;
 
-  const ids = rows.map((r) => r.id);
-  const { tryAutoPushPayments } = await import("../sync/auto-push-payment");
-  void tryAutoPushPayments({ dudukanIds: ids });
+  const result = await commitPaymentWrites({
+    kind: "dudukan",
+    label: "Dudukan",
+    allowOfflineQueue: params.disetorLangsung === false,
+    writes: rows.map((r) => ({
+      paymentId: r.id,
+      table: "dudukan_pembayaran",
+      sql: singleRowSql,
+      bind: r.args,
+    })),
+  });
 
-  return ids;
+  if (result.mode === "synced") {
+    const { tryAutoPushPayments } = await import("../sync/auto-push-payment");
+    void tryAutoPushPayments({ dudukanIds: result.paymentIds });
+  }
+
+  return result;
 }
 
 export async function createPembayaranDudukan(
@@ -764,7 +759,7 @@ export async function createPembayaranDudukan(
   },
   opts?: DudukanPembayaranSaveOptions
 ): Promise<string> {
-  const ids = await createPembayaranDudukanMulti(
+  const result = await createPembayaranDudukanMulti(
     {
       kramaId: params.kramaId,
       tanggal: params.tanggal,
@@ -777,7 +772,7 @@ export async function createPembayaranDudukan(
     },
     opts
   );
-  return ids[0]!;
+  return result.paymentIds[0]!;
 }
 
 export async function updatePembayaranDudukan(

@@ -16,7 +16,8 @@ import type {
   StrukDudukanPeriodeLine,
 } from "../struk-pembayaran-dudukan-pdf";
 import type { StrukPaturunanPdfPayload } from "../struk-pembayaran-paturunan-pdf";
-import type { IuranPaturunanRow } from "../types";
+import type { StrukDanaLainPdfPayload } from "../struk-pembayaran-dana-lain-pdf";
+import type { IuranPaturunanRow, PenerimaanDanaLainJenis } from "../types";
 import type { PembayaranSetoranItem } from "./setoran";
 import { getTunggakanDudukanKrama } from "./dudukan";
 import { listIuranPaturunan } from "./iuran-paturunan";
@@ -229,6 +230,36 @@ export function buildStrukDudukanPengumpulan(params: {
     total: params.items.reduce((s, i) => s + i.jumlah, 0),
     tanggal: params.tanggal,
     petugasNama: params.petugasNama,
+  };
+}
+
+/** Struk dana lain dari payload lokal (tanpa baca server — cocok setelah outbox). */
+export function buildStrukDanaLainPengumpulan(params: {
+  jenis: PenerimaanDanaLainJenis;
+  sumberNama: string;
+  sumberTipeLabel: string;
+  nomorKartu?: string | null;
+  kegiatan?: string | null;
+  mitraJenis?: string | null;
+  jumlah: number;
+  tanggal: string;
+  petugasNama: string;
+  keterangan?: string | null;
+}): StrukDanaLainPdfPayload {
+  const slug = (params.sumberNama || "mitra").replace(/\W/g, "").slice(0, 24);
+  return {
+    filename: `struk-${params.jenis}-${slug}-${params.tanggal}`,
+    jenis: params.jenis,
+    sumberNama: params.sumberNama.trim() || "—",
+    sumberTipeLabel: params.sumberTipeLabel,
+    nomorKartu: params.nomorKartu ?? null,
+    kegiatan: params.kegiatan ?? null,
+    mitraJenis: params.mitraJenis ?? null,
+    jumlah: params.jumlah,
+    total: params.jumlah,
+    tanggal: params.tanggal,
+    petugasNama: params.petugasNama,
+    keterangan: params.keterangan ?? null,
   };
 }
 

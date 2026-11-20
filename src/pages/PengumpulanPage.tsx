@@ -30,6 +30,7 @@ import {
 import {
   bolehModePengumpulan,
   bolehPengumpulanKrama,
+  buildStrukDanaLainPengumpulan,
   buildStrukDudukanPengumpulan,
   buildStrukPaturunanPengumpulan,
   cariKramaPengumpulan,
@@ -49,6 +50,13 @@ import {
   type RingkasanPaturunanPengumpulan,
   type RingkasanPengumpulan,
 } from "../lib/services/pengumpulan";
+import {
+  flushPetugasPaymentOutbox,
+  isBrowserOnline,
+  listPetugasPaymentOutbox,
+  PETUGAS_OUTBOX_CHANGED_EVENT,
+  type PetugasOutboxItem,
+} from "../lib/petugas-payment-outbox";
 import {
   deletePembayaranBelumDisetor,
   listPembayaranBelumDisetor,
@@ -167,6 +175,15 @@ export function PengumpulanPage() {
   const [strukUlangBusy, setStrukUlangBusy] = useState<string | null>(null);
   const [hapusItem, setHapusItem] = useState<PembayaranSetoranItem | null>(null);
   const [hapusBusy, setHapusBusy] = useState(false);
+  const [outboxItems, setOutboxItems] = useState<PetugasOutboxItem[]>([]);
+  const [outboxOnline, setOutboxOnline] = useState(() => isBrowserOnline());
+  const [outboxFlushBusy, setOutboxFlushBusy] = useState(false);
+
+  const refreshOutbox = useCallback(() => {
+    void listPetugasPaymentOutbox()
+      .then(setOutboxItems)
+      .catch(() => setOutboxItems([]));
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -193,6 +210,28 @@ export function PengumpulanPage() {
   useEffect(() => {
     void loadPegangan();
   }, [loadPegangan]);
+
+  useEffect(() => {
+    refreshOutbox();
+    const onChanged = () => refreshOutbox();
+    const onOnline = () => {
+      setOutboxOnline(true);
+      refreshOutbox();
+      void flushPetugasPaymentOutbox().then(() => {
+        refreshOutbox();
+        void loadPegangan();
+      });
+    };
+    const onOffline = () => setOutboxOnline(false);
+    window.addEventListener(PETUGAS_OUTBOX_CHANGED_EVENT, onChanged);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    return () => {
+      window.removeEventListener(PETUGAS_OUTBOX_CHANGED_EVENT, onChanged);
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
+  }, [refreshOutbox, loadPegangan]);
 
   const loadRingkasan = useCallback(async (k: KramaPengumpulan) => {
     setRingkasanLoading(true);
@@ -293,6 +332,34 @@ export function PengumpulanPage() {
     setFlash(message);
     if (krama) void loadRingkasan(krama);
     void loadPegangan();
+    refreshOutbox();
+  }
+
+  async function kirimOutboxSekarang() {
+    setOutboxFlushBusy(true);
+    setError("");
+    try {
+      const result = await flushPetugasPaymentOutbox();
+      refreshOutbox();
+      void loadPegangan();
+      if (result.synced > 0) {
+        setFlash(
+          result.remaining > 0
+            ? `${result.synced} transaksi terkirim; ${result.remaining} masih menunggu.`
+            : `${result.synced} transaksi menunggu berhasil dikirim.`
+        );
+      } else if (!isBrowserOnline()) {
+        setFlash("Masih offline — transaksi tetap di perangkat.");
+      } else if (result.failed > 0) {
+        setError("Sebagian transaksi gagal dikirim. Cek detail di banner.");
+      } else if (result.remaining === 0) {
+        setFlash("Tidak ada transaksi menunggu.");
+      }
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setOutboxFlushBusy(false);
+    }
   }
 
   function bukaStruk(state: PetugasStrukPreviewState) {
@@ -341,6 +408,10 @@ export function PengumpulanPage() {
     );
   }
 
+  const pendingOutbox = outboxItems.filter(
+    (r) => r.status === "pending" || r.status === "failed" || r.status === "syncing"
+  );
+  const failedOutbox = outboxItems.filter((r) => r.status === "failed");
   const totalSemuaPegangan = pegangan.reduce((s, p) => s + p.jumlah, 0);
   const peganganMode = mode ? pegangan.filter((p) => peganganCocokMode(p, mode)) : pegangan;
   const modeDanaLain = mode != null && isModePengumpulanDanaLain(mode);
@@ -372,6 +443,45 @@ export function PengumpulanPage() {
           Wilayah: {petugas.semua_banjar ? "semua banjar" : `Banjar ${petugas.banjar_nama}`}
           {petugas.is_tim_bantuan ? " · tanpa Paturunan" : ""}
         </p>
+        {(!outboxOnline || pendingOutbox.length > 0) && (
+          <div
+            className={cn(
+              "mt-3 rounded-lg border px-3 py-2 text-sm",
+              !outboxOnline
+                ? "border-amber-300 bg-amber-50 text-amber-950"
+                : "border-sky-300 bg-sky-50 text-sky-950"
+            )}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p>
+                {!outboxOnline ? "Offline" : "Online"}
+                {pendingOutbox.length > 0
+                  ? ` · ${pendingOutbox.length} transaksi menunggu kirim`
+                  : " · tidak ada antrian"}
+              </p>
+              {pendingOutbox.length > 0 && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={outboxFlushBusy || !outboxOnline}
+                  onClick={() => void kirimOutboxSekarang()}
+                >
+                  {outboxFlushBusy ? "Mengirim…" : "Kirim sekarang"}
+                </Button>
+              )}
+            </div>
+            {failedOutbox.length > 0 && (
+              <ul className="mt-1 space-y-0.5 text-xs text-red-800">
+                {failedOutbox.slice(0, 3).map((item) => (
+                  <li key={item.id}>
+                    {item.label}: {item.error || "gagal sync"}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
         {!mode ? (
           <PilihMode onPilih={gantiMode} allowed={modePengumpulanDiizinkan(petugas)} />
         ) : (
@@ -728,31 +838,31 @@ export function PengumpulanPage() {
           jenis={bayarDanaLain}
           petugasLapangan={petugas}
           createdBy={user?.id}
-          onSaved={({ id, jumlah, sumberNama }) => {
+          onSaved={(info) => {
             setFlash(
-              `Tercatat ${formatRupiah(jumlah)} dari ${sumberNama} — masuk uang di tangan Anda.`
+              info.mode === "queued"
+                ? `Disimpan di perangkat (${formatRupiah(info.jumlah)}) — akan dikirim saat sinyal kembali.`
+                : `Tercatat ${formatRupiah(info.jumlah)} dari ${info.sumberNama} — masuk uang di tangan Anda.`
             );
             void loadPegangan();
-            void (async () => {
-              try {
-                const state = await getStrukCetakUlang(petugas, {
-                  sumber: "dana_lain",
-                  id,
-                  tanggal: "",
-                  jumlah,
-                  nomor_kartu: "—",
-                  kepala_nama: sumberNama,
-                  uraian: "",
-                  akun_nama: null,
-                  petugas_id: petugas.id,
-                  created_at: "",
-                  jenis_dana: bayarDanaLain,
-                });
-                if (state) setStrukBaru(state);
-              } catch {
-                /* struk opsional */
-              }
-            })();
+            refreshOutbox();
+            setStrukBaru({
+              kind: "dana_lain",
+              payload: buildStrukDanaLainPengumpulan({
+                jenis: bayarDanaLain,
+                sumberNama: info.sumberNama,
+                sumberTipeLabel: info.sumberTipeLabel,
+                nomorKartu: info.nomorKartu,
+                kegiatan: info.kegiatan,
+                mitraJenis: info.mitraJenis,
+                jumlah: info.jumlah,
+                tanggal: info.tanggal,
+                petugasNama: petugas.nama,
+                keterangan: info.keterangan,
+              }),
+              backTo: "/pengumpulan",
+              backLabel: "Pengumpulan",
+            });
           }}
         />
       )}

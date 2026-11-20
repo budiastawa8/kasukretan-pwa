@@ -582,7 +582,7 @@ export function DudukanPembayaranDialog({
     setError("");
     setLoading(true);
     try {
-      await createPembayaranDudukanMulti({
+      const saved = await createPembayaranDudukanMulti({
         kramaId,
         tanggal,
         petugasId,
@@ -593,11 +593,16 @@ export function DudukanPembayaranDialog({
       });
       onPembayaranBaru?.({ items, tanggal });
       setKeterangan("");
-      completePembayaranBaruSave("Pembayaran dudukan berhasil disimpan.", {
-        onSuccess,
-        onClose,
-        onSaved,
-      });
+      completePembayaranBaruSave(
+        saved.mode === "queued"
+          ? "Pembayaran disimpan di perangkat — akan dikirim saat sinyal kembali."
+          : "Pembayaran dudukan berhasil disimpan.",
+        {
+          onSuccess,
+          onClose,
+          onSaved,
+        }
+      );
     } catch (err) {
       setError(String(err));
     } finally {

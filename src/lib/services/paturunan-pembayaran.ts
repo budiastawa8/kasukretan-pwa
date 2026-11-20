@@ -10,6 +10,7 @@ import {
   resolvePersenPaturunanIuran,
 } from "../paturunan-hitung";
 import type { PaturunanPembayaranJenis, PaturunanPembayaranRow } from "../types";
+import { commitPaymentWrites, type CommitPaymentWritesResult } from "../petugas-payment-outbox";
 import { uuid } from "../utils";
 import {
   assertAkunForPembayaranPaturunan,
@@ -348,6 +349,52 @@ export async function listPembayaranPaturunan(
   return rows.map((r) => ({ ...r, jenis: normalizeJenis(r.jenis) }));
 }
 
+type InsertPaturunanPrepared = {
+  id: string;
+  sql: string;
+  bind: unknown[];
+};
+
+async function prepareInsertPembayaran(params: {
+  kramaId: string;
+  iuranId: string;
+  jenis: PaturunanPembayaranJenis;
+  jumlah: number;
+  tanggal: string;
+  petugasId: string;
+  keterangan?: string;
+  akunKeuanganId?: string;
+  disetorLangsung?: boolean;
+}): Promise<InsertPaturunanPrepared> {
+  const tanggal = parseIsoDateString(params.tanggal);
+  if (!tanggal) throw new Error("Tanggal pembayaran tidak valid");
+  await assertPetugasForKrama(params.petugasId, params.kramaId);
+
+  const akunId = params.akunKeuanganId?.trim() || (await getDefaultAkunPaturunanId());
+  await assertAkunForPembayaranPaturunan(akunId);
+
+  const id = uuid();
+  return {
+    id,
+    sql: `INSERT INTO paturunan_pembayaran
+      (id, krama_id, iuran_id, jenis, jumlah, tanggal, petugas_id, akun_keuangan_id, keterangan,
+       tanggal_setor, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, datetime('now'))`,
+    bind: [
+      id,
+      params.kramaId,
+      params.iuranId,
+      params.jenis,
+      parseJumlahPembayaran(params.jumlah),
+      tanggal,
+      params.petugasId,
+      akunId,
+      params.keterangan?.trim() || null,
+      params.disetorLangsung === false ? null : tanggal,
+    ],
+  };
+}
+
 async function insertPembayaran(params: {
   kramaId: string;
   iuranId: string;
@@ -359,35 +406,13 @@ async function insertPembayaran(params: {
   akunKeuanganId?: string;
   disetorLangsung?: boolean;
 }): Promise<string> {
-  const tanggal = parseIsoDateString(params.tanggal);
-  if (!tanggal) throw new Error("Tanggal pembayaran tidak valid");
-  await assertPetugasForKrama(params.petugasId, params.kramaId);
-
-  const akunId = params.akunKeuanganId?.trim() || (await getDefaultAkunPaturunanId());
-  await assertAkunForPembayaranPaturunan(akunId);
-
+  const prepared = await prepareInsertPembayaran(params);
   const db = await getDb();
-  const id = uuid();
-  await db.execute(
-    `INSERT INTO paturunan_pembayaran
-      (id, krama_id, iuran_id, jenis, jumlah, tanggal, petugas_id, akun_keuangan_id, keterangan,
-       tanggal_setor, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, datetime('now'))`,
-    [
-      id,
-      params.kramaId,
-      params.iuranId,
-      params.jenis,
-      parseJumlahPembayaran(params.jumlah),
-      tanggal,
-      params.petugasId,
-      akunId,
-      params.keterangan?.trim() || null,
-      params.disetorLangsung === false ? null : tanggal,
-    ]
-  );
-  return id;
+  await db.execute(prepared.sql, prepared.bind);
+  return prepared.id;
 }
+
+export type CreatePembayaranAlokasiResult = CommitPaymentWritesResult;
 
 /** Simpan pembayaran dengan alokasi otomatis wajib / punia. */
 export async function createPembayaranDenganAlokasi(
@@ -404,7 +429,7 @@ export async function createPembayaranDenganAlokasi(
     disetorLangsung?: boolean;
   },
   opts?: PaturunanPembayaranSaveOptions
-): Promise<string[]> {
+): Promise<CreatePembayaranAlokasiResult> {
   if (!opts?.riwayatImport) await assertKramaAktifUntukPembayaran(params.kramaId);
   const totals = await getPembayaranTotals(params.kramaId, params.iuranId);
   const { wajib, punia } = alokasiPembayaranBaru(
@@ -412,12 +437,12 @@ export async function createPembayaranDenganAlokasi(
     totals.wajib,
     params.jumlah
   );
-  const ids: string[] = [];
   const ket = params.keterangan?.trim() || null;
+  const prepared: InsertPaturunanPrepared[] = [];
 
   if (wajib > 0) {
-    ids.push(
-      await insertPembayaran({
+    prepared.push(
+      await prepareInsertPembayaran({
         kramaId: params.kramaId,
         iuranId: params.iuranId,
         jenis: "wajib",
@@ -431,8 +456,8 @@ export async function createPembayaranDenganAlokasi(
     );
   }
   if (punia > 0) {
-    ids.push(
-      await insertPembayaran({
+    prepared.push(
+      await prepareInsertPembayaran({
         kramaId: params.kramaId,
         iuranId: params.iuranId,
         jenis: "punia",
@@ -448,10 +473,24 @@ export async function createPembayaranDenganAlokasi(
     );
   }
 
-  const { tryAutoPushPayments } = await import("../sync/auto-push-payment");
-  void tryAutoPushPayments({ paturunanIds: ids });
+  const result = await commitPaymentWrites({
+    kind: "paturunan",
+    label: "Paturunan",
+    allowOfflineQueue: params.disetorLangsung === false,
+    writes: prepared.map((p) => ({
+      paymentId: p.id,
+      table: "paturunan_pembayaran",
+      sql: p.sql,
+      bind: p.bind,
+    })),
+  });
 
-  return ids;
+  if (result.mode === "synced") {
+    const { tryAutoPushPayments } = await import("../sync/auto-push-payment");
+    void tryAutoPushPayments({ paturunanIds: result.paymentIds });
+  }
+
+  return result;
 }
 
 export async function updatePembayaranPaturunan(

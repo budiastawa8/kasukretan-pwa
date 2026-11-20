@@ -4,6 +4,7 @@ import { AppSplash } from "./components/layout/AppSplash";
 import { initLanClientDatabase } from "./lib/db/init";
 import { probeLanBridge } from "./lib/lan-client";
 import { startPetugasCapacitorShell } from "./lib/petugas-capacitor-shell";
+import { startPetugasOutboxAutoFlush } from "./lib/petugas-payment-outbox";
 
 const MIN_SPLASH_MS = 900;
 const FADE_MS = 320;
@@ -19,6 +20,7 @@ export function BootstrapApp() {
     const runId = ++bootRunId;
     let fadeTimer: ReturnType<typeof setTimeout> | undefined;
     const stopShell = startPetugasCapacitorShell();
+    const stopOutboxFlush = startPetugasOutboxAutoFlush();
 
     void (async () => {
       const started = Date.now();
@@ -41,6 +43,7 @@ export function BootstrapApp() {
 
     return () => {
       stopShell();
+      stopOutboxFlush();
       if (fadeTimer) clearTimeout(fadeTimer);
     };
   }, []);

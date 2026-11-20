@@ -7,6 +7,7 @@ import type {
   PenerimaanDanaLainSatuanWaktu,
   PenerimaanDanaLainSumberTipe,
 } from "../types";
+import { commitPaymentWrites, type CommitPaymentWritesResult } from "../petugas-payment-outbox";
 import { uuid } from "../utils";
 import {
   isPetugasTimBantuanAktif,
@@ -208,7 +209,7 @@ export type CreatePenerimaanDanaLainInput = {
 
 export async function createPenerimaanDanaLain(
   params: CreatePenerimaanDanaLainInput
-): Promise<string> {
+): Promise<CommitPaymentWritesResult> {
   if (!isPenerimaanDanaLainJenis(params.jenis)) {
     throw new Error("Jenis penerimaan tidak valid");
   }
@@ -281,9 +282,7 @@ export async function createPenerimaanDanaLain(
   const posId = await resolvePosId(params.jenis);
   const tanggalSetor = params.disetorLangsung === false ? null : tanggal;
   const id = uuid();
-
-  await db.execute(
-    `INSERT INTO penerimaan_dana_lain (
+  const sql = `INSERT INTO penerimaan_dana_lain (
        id, jenis, pos_pemasukan_id, jumlah, tanggal, petugas_id, akun_keuangan_id, keterangan,
        sumber_tipe, krama_id, lembaga_badan_id, sumber_nama, kegiatan,
        mitra_jenis, jumlah_orang, satuan_waktu, lama, tarif_satuan,
@@ -293,31 +292,43 @@ export async function createPenerimaanDanaLain(
        ?, ?, ?, ?, ?,
        ?, ?, ?, ?, ?,
        NULL, ?, ?, datetime('now')
-     )`,
-    [
-      id,
-      params.jenis,
-      posId,
-      jumlah,
-      tanggal,
-      params.petugasId?.trim() || null,
-      akunId,
-      params.keterangan?.trim() || null,
-      sumberTipeFinal,
-      kramaId,
-      lembagaId,
-      sumberNama,
-      params.kegiatan?.trim() || null,
-      params.mitraJenis?.trim() || null,
-      params.jumlahOrang == null ? null : Math.floor(Number(params.jumlahOrang) || 0),
-      normalizeSatuanWaktu(params.satuanWaktu),
-      params.lama == null ? null : Number(params.lama) || 0,
-      params.tarifSatuan == null ? null : Math.round(Number(params.tarifSatuan) || 0),
-      tanggalSetor,
-      params.createdBy?.trim() || null,
-    ]
-  );
-  return id;
+     )`;
+  const bind = [
+    id,
+    params.jenis,
+    posId,
+    jumlah,
+    tanggal,
+    params.petugasId?.trim() || null,
+    akunId,
+    params.keterangan?.trim() || null,
+    sumberTipeFinal,
+    kramaId,
+    lembagaId,
+    sumberNama,
+    params.kegiatan?.trim() || null,
+    params.mitraJenis?.trim() || null,
+    params.jumlahOrang == null ? null : Math.floor(Number(params.jumlahOrang) || 0),
+    normalizeSatuanWaktu(params.satuanWaktu),
+    params.lama == null ? null : Number(params.lama) || 0,
+    params.tarifSatuan == null ? null : Math.round(Number(params.tarifSatuan) || 0),
+    tanggalSetor,
+    params.createdBy?.trim() || null,
+  ];
+
+  return commitPaymentWrites({
+    kind: "dana_lain",
+    label: params.jenis === "dana_kerjasama" ? "Dana kerjasama" : "Punia kasukretan",
+    allowOfflineQueue: params.disetorLangsung === false,
+    writes: [
+      {
+        paymentId: id,
+        table: "penerimaan_dana_lain",
+        sql,
+        bind,
+      },
+    ],
+  });
 }
 
 export async function updatePenerimaanDanaLain(

@@ -48,7 +48,18 @@ type Props = {
   editingId?: string | null;
   petugasLapangan?: PetugasLapangan | null;
   createdBy?: string | null;
-  onSaved?: (info: { id: string; jumlah: number; sumberNama: string }) => void;
+  onSaved?: (info: {
+    id: string;
+    jumlah: number;
+    sumberNama: string;
+    mode: "synced" | "queued";
+    tanggal: string;
+    sumberTipeLabel: string;
+    kegiatan: string | null;
+    mitraJenis: string | null;
+    keterangan: string | null;
+    nomorKartu: string | null;
+  }) => void;
 };
 
 export function PenerimaanDanaLainDialog({
@@ -243,16 +254,32 @@ export function PenerimaanDanaLainDialog({
       };
 
       let id = editingId || "";
+      let saveMode: "synced" | "queued" = "synced";
       if (isEdit && editingId) {
         await updatePenerimaanDanaLain(editingId, payload);
       } else {
-        id = await createPenerimaanDanaLain({
+        const saved = await createPenerimaanDanaLain({
           ...payload,
           disetorLangsung: isLapangan ? false : disetorLangsung,
           createdBy: createdBy ?? null,
         });
+        id = saved.paymentIds[0] ?? "";
+        saveMode = saved.mode;
       }
-      onSaved?.({ id, jumlah: nominal, sumberNama: nama || "—" });
+      const sumberTipeLabel =
+        SUMBER_TIPE_OPTIONS.find((o) => o.value === sumberTipe)?.label ?? sumberTipe;
+      onSaved?.({
+        id,
+        jumlah: nominal,
+        sumberNama: nama || "—",
+        mode: saveMode,
+        tanggal,
+        sumberTipeLabel,
+        kegiatan: kegiatan || null,
+        mitraJenis: isKerjasama ? mitraJenis || null : null,
+        keterangan: keterangan || null,
+        nomorKartu: null,
+      });
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal menyimpan");

@@ -64,6 +64,7 @@
     "autoprefixer": "^10.5.0",
     "concurrently": "^9.1.2",
     "dotenv": "^16.5.0",
+    "fake-indexeddb": "^6.2.8",
     "tailwindcss": "^4.3.0",
     "tsx": "^4.19.4",
     "typescript": "~5.8.3",

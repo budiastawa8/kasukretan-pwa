@@ -229,7 +229,7 @@ export function PaturunanPembayaranDialog({
     setLoading(true);
     try {
       const alokasi = preview;
-      await createPembayaranDenganAlokasi({
+      const saved = await createPembayaranDenganAlokasi({
         kramaId,
         iuranId,
         jumlah: jumlah === "" ? 0 : jumlah,
@@ -243,11 +243,16 @@ export function PaturunanPembayaranDialog({
       if (alokasi) onPembayaranBaru?.({ ...alokasi, tanggal });
       setJumlah("");
       setKeterangan("");
-      completePembayaranBaruSave("Pembayaran paturunan berhasil disimpan.", {
-        onSuccess,
-        onClose,
-        onSaved,
-      });
+      completePembayaranBaruSave(
+        saved.mode === "queued"
+          ? "Pembayaran disimpan di perangkat — akan dikirim saat sinyal kembali."
+          : "Pembayaran paturunan berhasil disimpan.",
+        {
+          onSuccess,
+          onClose,
+          onSaved,
+        }
+      );
     } catch (err) {
       setError(String(err));
     } finally {
