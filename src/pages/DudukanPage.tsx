@@ -506,9 +506,9 @@ export function DudukanPage() {
       >
         <div className="flex flex-wrap items-end gap-1.5 mb-1.5">
           <div className="flex-1 min-w-[min(100%,18rem)]">
-            <Label className="font-semibold text-copper-900">Cari nama / no. pemasih</Label>
+            <Label className="font-semibold text-copper-900">Cari nama / no. pemasih / alamat</Label>
             <Input
-              placeholder="Ketik nama pengajeg, anggota, atau no. pemasih…"
+              placeholder="Ketik nama pengajeg, anggota, no. pemasih, atau alamat…"
               value={q}
               onChange={(e) => setQ(e.target.value)}
               className="!h-10 !text-sm border-2 border-copper-400 bg-copper-50/80 shadow-sm focus:border-copper-500 focus:ring-copper-500/40"

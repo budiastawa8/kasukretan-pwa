@@ -123,7 +123,7 @@ export async function cloudFetch<T>(
   }
   if (res.status === 401) {
     clearCloudSession();
-    throw new Error("Sesi API habis — login ulang di Pengaturan → tab Modul Online");
+    throw new Error("Sesi API habis — masuk ulang ke aplikasi.");
   }
   if (!res.ok) {
     let detail = res.statusText;

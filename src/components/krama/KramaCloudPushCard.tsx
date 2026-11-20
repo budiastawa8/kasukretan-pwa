@@ -3,8 +3,6 @@ import { CloudUpload } from "lucide-react";
 import { Button } from "../ui/Button";
 import { getCloudApiToken, formatCloudFetchError } from "../../lib/sync/cloud-config";
 import { pushKramaByIds } from "../../lib/sync/krama-sync";
-import { Link } from "react-router-dom";
-import { settingsPath } from "../../lib/settings-routes";
 
 type Props = {
   kramaId: string;
@@ -25,7 +23,7 @@ export function KramaCloudPushCard({ kramaId, nomorKartu, statusKrama }: Props) 
     setError("");
     try {
       if (!getCloudApiToken()) {
-        setError("Login API dulu di Pengaturan → Modul Online.");
+        setError("Sesi API belum ada. Masuk ulang ke aplikasi.");
         return;
       }
       const res = await pushKramaByIds([kramaId]);
@@ -61,10 +59,7 @@ export function KramaCloudPushCard({ kramaId, nomorKartu, statusKrama }: Props) 
       </Button>
       {!getCloudApiToken() && (
         <p className="text-[11px] text-muted">
-          <Link to={settingsPath("online")} className="underline">
-            Login API
-          </Link>{" "}
-          di Modul Online terlebih dahulu.
+          Masuk ulang ke aplikasi sebelum mengirim kartu ini.
         </p>
       )}
       {message && <p className="text-xs text-emerald-800">{message}</p>}

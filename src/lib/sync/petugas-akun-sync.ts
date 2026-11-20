@@ -41,7 +41,7 @@ export async function pushPetugasAkunToCloud() {
   const accounts = await collectPetugasAkunForSync();
   if (accounts.length === 0) {
     throw new Error(
-      "Belum ada akun petugas di desktop — tambahkan di Pengaturan → tab Modul Online → Akun petugas lapangan."
+      "Belum ada akun petugas. Tambahkan di Pengaturan → Pengguna dengan peran Petugas Lapangan."
     );
   }
 

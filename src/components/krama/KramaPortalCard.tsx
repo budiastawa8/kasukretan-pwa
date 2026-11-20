@@ -74,15 +74,7 @@ export function KramaPortalCard({ kramaId, nomorKartu, statusKrama }: Props) {
       // Desktop SQLite perlu push; browser staf sudah menulis ke DB cloud.
       if (desktop) {
         if (!getCloudApiToken()) {
-          setWarning(
-            <>
-              Kirim ke server lewat{" "}
-              <Link to={settingsPath("online")} className="underline font-medium">
-                Pengaturan → Modul Online
-              </Link>{" "}
-              (login API dulu).
-            </>
-          );
+          setWarning("PIN tersimpan di komputer ini.");
         } else {
           const push = await tryAutoPushPortal();
           if (push.ok) {
@@ -91,17 +83,7 @@ export function KramaPortalCard({ kramaId, nomorKartu, statusKrama }: Props) {
             setMessage(`PIN disimpan. Cloud: ${push.upserted} akun, ${push.errors!.length} gagal.`);
             setWarning(push.errors!.slice(0, 3).join(" · "));
           } else {
-            setWarning(
-              push.message ?? (
-                <>
-                  Gagal kirim otomatis ke server — coba Kirim portal di{" "}
-                  <Link to={settingsPath("online")} className="underline font-medium">
-                    Pengaturan → Modul Online
-                  </Link>
-                  .
-                </>
-              )
-            );
+            setWarning(push.message ?? "Gagal kirim otomatis ke server.");
           }
         }
       }
@@ -124,15 +106,7 @@ export function KramaPortalCard({ kramaId, nomorKartu, statusKrama }: Props) {
       if (desktop && getCloudApiToken()) {
         const push = await tryAutoPushPortal();
         if (!push.ok && push.message) {
-          setWarning(
-            <>
-              {push.message} — coba Kirim portal di{" "}
-              <Link to={settingsPath("online")} className="underline font-medium">
-                Pengaturan → Modul Online
-              </Link>
-              .
-            </>
-          );
+          setWarning(push.message);
         }
       }
     } catch (e) {
@@ -156,9 +130,13 @@ export function KramaPortalCard({ kramaId, nomorKartu, statusKrama }: Props) {
       </summary>
       <div className="border-t border-copper-200 px-4 py-3 space-y-3">
       <p className="text-xs text-muted leading-relaxed">
-        Krama dapat login di <code className="text-[10px]">/portal/login</code> dengan nomor kartu{" "}
-        <strong>{nomorKartu}</strong> dan PIN yang Anda atur di sini. Perlu sinkronisasi server jika
-        portal dipakai.
+        Krama masuk di <code className="text-[10px]">/portal/login</code> dengan nomor kartu{" "}
+        <strong>{nomorKartu}</strong> dan PIN yang Anda atur di sini. PIN yang sama untuk semua krama
+        aktif ada di{" "}
+        <Link to={settingsPath("portal")} className="underline font-medium">
+          Pengaturan → Portal Krama
+        </Link>
+        .
       </p>
 
       {!staffDb && (

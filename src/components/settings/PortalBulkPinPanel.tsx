@@ -12,8 +12,6 @@ import {
 import { getCloudApiToken } from "../../lib/sync/cloud-config";
 import { tryAutoPushPortal } from "../../lib/sync/auto-push-portal";
 import { canUseStaffApp, isDesktopApp } from "../../lib/runtime";
-import { settingsPath } from "../../lib/settings-routes";
-import { Link } from "react-router-dom";
 
 export function PortalBulkPinPanel() {
   const desktop = isDesktopApp();
@@ -59,7 +57,9 @@ export function PortalBulkPinPanel() {
       return;
     }
     const ok = window.confirm(
-      `Terapkan PIN yang sama ke ${activeCount} krama aktif?\n\nPIN lama (jika ada) akan diganti. Setelah itu kirim portal ke cloud agar krama bisa login online.`
+      desktop
+        ? `Terapkan PIN yang sama ke ${activeCount} krama aktif?\n\nPIN lama (jika ada) akan diganti di komputer ini.`
+        : `Terapkan PIN yang sama ke ${activeCount} krama aktif?\n\nPIN lama (jika ada) akan diganti. Krama masuk di portal dengan nomor kartu dan PIN ini.`
     );
     if (!ok) return;
 
@@ -77,12 +77,7 @@ export function PortalBulkPinPanel() {
 
       if (desktop) {
         if (!getCloudApiToken()) {
-          setWarning(
-            <>
-              Login API di bawah lalu klik <strong>Kirim portal ke cloud</strong> agar krama bisa
-              login di browser.
-            </>
-          );
+          setWarning("PIN tersimpan di komputer ini.");
         } else {
           const push = await tryAutoPushPortal();
           if (push.ok) {
@@ -93,13 +88,7 @@ export function PortalBulkPinPanel() {
             setMessage(`PIN diterapkan. Cloud: ${push.upserted} akun, ${push.errors!.length} gagal.`);
             setWarning(push.errors!.slice(0, 3).join(" · "));
           } else {
-            setWarning(
-              push.message ?? (
-                <>
-                  PIN tersimpan lokal — coba <strong>Kirim portal ke cloud</strong> di bawah.
-                </>
-              )
-            );
+            setWarning(push.message ?? "PIN tersimpan di komputer ini.");
           }
         }
       }
@@ -167,13 +156,7 @@ export function PortalBulkPinPanel() {
       <p className="text-[11px] text-muted flex items-center gap-1.5">
         <Globe size={14} className="shrink-0" aria-hidden />
         {desktop ? (
-          <>
-            Setelah menerapkan, pastikan krama sudah di-push ke cloud lalu{" "}
-            <Link to={settingsPath("online")} className="underline">
-              kirim portal
-            </Link>
-            .
-          </>
+          <>PIN diterapkan di komputer ini.</>
         ) : (
           <>
             PIN tersimpan di database online. Krama masuk di{" "}

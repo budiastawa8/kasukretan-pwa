@@ -46,6 +46,7 @@ describe("buildKramaSearchSql", () => {
   it("teks memakai nama + EXISTS anggota", () => {
     const r = buildKramaSearchSql("Wayan", aliases, { startN: 2 });
     expect(r.sql).toContain("p.nama_lengkap LIKE");
+    expect(r.sql).toContain("k.alamat");
     expect(r.sql).toContain("EXISTS");
     expect(r.args.every((a) => String(a).includes("Wayan"))).toBe(true);
   });

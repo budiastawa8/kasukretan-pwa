@@ -15,21 +15,13 @@ import { Input, Label } from "../components/ui/Input";
 import { useAuth } from "../context/AuthContext";
 import { CloudBackupPanel } from "../components/settings/CloudBackupPanel";
 import { CloudRestorePanel } from "../components/settings/CloudRestorePanel";
-import { CloudSubscriptionPanel } from "../components/settings/CloudSubscriptionPanel";
-import { CloudSyncPanel } from "../components/settings/CloudSyncPanel";
 import { PortalBulkPinPanel } from "../components/settings/PortalBulkPinPanel";
-import { PetugasAkunPanel } from "../components/settings/PetugasAkunPanel";
 import { LanNetworkPanel } from "../components/settings/LanNetworkPanel";
 import { UsersPanel } from "../components/settings/UsersPanel";
 import { WhatsAppTemplatePanel } from "../components/settings/WhatsAppTemplatePanel";
 import { AppAboutPanel } from "../components/settings/AppAboutPanel";
 import { ChangePasswordPanel } from "../components/settings/ChangePasswordPanel";
 import { canEditKeuangan, isAdmin } from "../lib/auth-roles";
-import {
-  isOnlineModuleEnabledSync,
-  refreshOnlineModuleLicense,
-  useOnlineModuleEnabled,
-} from "../lib/online-module";
 import { isDesktopApp } from "../lib/runtime";
 import { parseSettingsTab, type SettingsTab } from "../lib/settings-routes";
 import { cn } from "../lib/utils";
@@ -84,7 +76,7 @@ const TAB_DEFS: TabDef[] = [
   { id: "akun", label: "Akun" },
   { id: "database", label: "Database", adminOnly: true },
   { id: "pengguna", label: "Pengguna", adminOnly: true },
-  { id: "online", label: "Modul Online", adminOnly: true },
+  { id: "portal", label: "Portal Krama", adminOnly: true },
   { id: "jaringan", label: "Jaringan", adminOnly: true, desktopOnly: true },
 ];
 
@@ -96,12 +88,6 @@ export function SettingsPage() {
   const canEdit = admin;
   const canEditWaTemplates = admin || canEditKeuangan(user?.peran);
   const desktop = isDesktopApp();
-  const onlineFromHook = useOnlineModuleEnabled();
-  const [onlineBump, setOnlineBump] = useState(0);
-  const onlineEnabled = useMemo(() => {
-    void onlineBump;
-    return onlineFromHook || isOnlineModuleEnabledSync();
-  }, [onlineBump, onlineFromHook]);
   const tab = parseSettingsTab(searchParams.get("tab"));
 
   const [form, setForm] = useState<WilayahFormState>(emptyForm());
@@ -119,12 +105,16 @@ export function SettingsPage() {
   );
 
   useEffect(() => {
-    if ((tab === "database" || tab === "pengguna" || tab === "online") && !admin) {
+    if (searchParams.get("tab") === "online") {
+      setSearchParams({ tab: "portal" }, { replace: true });
+      return;
+    }
+    if ((tab === "database" || tab === "pengguna" || tab === "portal") && !admin) {
       setSearchParams({}, { replace: true });
     } else if (tab === "jaringan" && (!admin || !desktop)) {
       setSearchParams({}, { replace: true });
     }
-  }, [tab, admin, desktop, setSearchParams]);
+  }, [tab, admin, desktop, searchParams, setSearchParams]);
 
   useEffect(() => {
     getDesaAdatWithMedia().then((d) => {
@@ -184,7 +174,7 @@ export function SettingsPage() {
       <div>
         <h2 className="text-xl sm:text-2xl font-bold">Pengaturan</h2>
         <p className="text-xs text-muted mt-0.5">
-          Wilayah desa, akun Anda, backup database, dan pengguna staf.
+          Wilayah desa, akun Anda, backup database, pengguna staf, dan PIN portal krama.
         </p>
       </div>
 
@@ -340,29 +330,7 @@ export function SettingsPage() {
 
       {activeTab === "pengguna" && admin && <UsersPanel />}
 
-      {activeTab === "online" && admin && (
-        <div className="space-y-4">
-          {desktop && (
-            <CloudSubscriptionPanel
-              onActivated={() => {
-                void refreshOnlineModuleLicense().then(() => setOnlineBump((n) => n + 1));
-              }}
-            />
-          )}
-          {onlineEnabled ? (
-            <>
-              <PortalBulkPinPanel />
-              <PetugasAkunPanel />
-              {desktop && <CloudSyncPanel />}
-            </>
-          ) : (
-            <p className="text-sm text-muted rounded-lg border border-copper-200 bg-copper-50/60 px-4 py-3">
-              Aktifkan langganan cloud di atas agar PIN portal, akun petugas, dan sinkronisasi
-              tersedia.
-            </p>
-          )}
-        </div>
-      )}
+      {activeTab === "portal" && admin && <PortalBulkPinPanel />}
 
       {activeTab === "jaringan" && admin && desktop && <LanNetworkPanel />}
     </div>
