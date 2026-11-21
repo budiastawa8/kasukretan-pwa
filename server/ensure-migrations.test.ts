@@ -21,14 +21,16 @@ const DESA_FULL = [
   { name: "id" },
   { name: "tim_bantuan_aktif" },
   { name: "cek_tunggakan_paturunan_publik" },
+  { name: "jenis_balu_ngempu_mipil_id" },
 ];
 const KRAMA_FULL = [{ name: "id" }, { name: "nomor_kartu" }, { name: "nomor_kartu_norm" }];
 
-/** Setelah kolom kartu: SELECT desa kode, SELECT all tim, lalu cek tunggakan + krama. */
+/** Setelah kolom kartu: SELECT desa kode, SELECT all tim, lalu cek tunggakan + ngempu + krama. */
 function mockAfterKartuColumns(opts: { staleNorm: unknown[] }) {
   dbSelect.mockResolvedValueOnce([{ kode_desa_adat: "9999" }]);
   dbSelect.mockResolvedValueOnce([]); // allTim kosong
-  dbSelect.mockResolvedValueOnce(DESA_FULL);
+  dbSelect.mockResolvedValueOnce(DESA_FULL); // cek_tunggakan_paturunan_publik
+  dbSelect.mockResolvedValueOnce(DESA_FULL); // jenis_balu_ngempu_mipil_id
   dbSelect.mockResolvedValueOnce(KRAMA_FULL);
   dbSelect.mockResolvedValueOnce(opts.staleNorm);
 }
@@ -63,6 +65,8 @@ describe("ensureServerMigrations", () => {
     dbSelect.mockResolvedValueOnce([{ kode_desa_adat: "9999" }]);
     dbSelect.mockResolvedValueOnce([{ id: "t1", nomor_pengenal: null }]);
     dbSelect.mockResolvedValueOnce([{ name: "id" }, { name: "tim_bantuan_aktif" }]);
+    // jenis_balu_ngempu_mipil_id belum ada → ALTER
+    dbSelect.mockResolvedValueOnce([{ name: "id" }, { name: "cek_tunggakan_paturunan_publik" }]);
     dbSelect.mockResolvedValueOnce([{ name: "id" }, { name: "nomor_kartu" }]);
     dbSelect.mockResolvedValueOnce([{ x: 1 }]);
     // seed kas_tim_bantuan_alokasi bila kosong
@@ -81,6 +85,9 @@ describe("ensureServerMigrations", () => {
     const { ensureServerMigrations } = await import("./ensure-migrations.js");
     await ensureServerMigrations();
 
+    expect(dbExecute).toHaveBeenCalledWith(
+      "ALTER TABLE desa_adat ADD COLUMN jenis_balu_ngempu_mipil_id TEXT"
+    );
     expect(dbExecute).toHaveBeenCalledWith(
       "ALTER TABLE tim_kasukretan ADD COLUMN nomor_pengenal TEXT"
     );
@@ -136,6 +143,7 @@ describe("ensureServerMigrations", () => {
       .mockResolvedValueOnce(TIM_FULL)
       .mockResolvedValueOnce(TIM_FULL)
       .mockResolvedValueOnce(TIM_FULL);
+    // cek_tunggakan + jenis_balu_ngempu (sudah ada di DESA_FULL via mockAfterKartuColumns)
     mockAfterKartuColumns({ staleNorm: [{ x: 1 }] });
     // seed sudah ada + plafon_pool sudah ada + Dana Tim Bantuan sudah ada
     dbSelect.mockResolvedValueOnce([{ c: 1 }]);

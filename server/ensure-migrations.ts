@@ -75,6 +75,9 @@ async function runEnsureMigrations(): Promise<void> {
   // Halaman publik cek tunggakan Paturunan (default off)
   await ensureColumn("desa_adat", "cek_tunggakan_paturunan_publik", "INTEGER NOT NULL DEFAULT 0");
 
+  // Nyada saat Dapukan: Balu Ngempu (pemilihan jenis mipil terpisah dari Nglintik)
+  await ensureColumn("desa_adat", "jenis_balu_ngempu_mipil_id", "TEXT");
+
   // Pencarian cepat nomor kartu
   await ensureColumn("krama", "nomor_kartu_norm", "TEXT");
   const staleNorm = await dbSelect(
