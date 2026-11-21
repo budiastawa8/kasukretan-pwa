@@ -181,7 +181,7 @@ export async function gantiPengarepMeninggal(input: GantiPengarepMeninggalInput)
   const kodeDapukan = jenisDapukanKode(krama.jenis_krama_mipil_id, desa);
   if ((kodeDapukan || isJenisBaluNglintik(krama.jenis_krama_mipil_id, desa)) && !isStatusPasangan(pengganti.status_keluarga)) {
     throw new Error(
-      "Pengarep Krama Dapukan hanya dapat digantikan oleh istri/suami. Bila tidak ada, nonaktifkan kartu."
+      "Pengarep Krama Dapukan / Balu Nglintik hanya dapat digantikan oleh istri/suami. Bila tidak ada, nonaktifkan kartu."
     );
   }
   const kramaNyada = isKramaNyada(krama.jenis_krama_mipil_id, desa);

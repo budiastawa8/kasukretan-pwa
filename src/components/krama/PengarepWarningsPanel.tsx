@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { AlertTriangle } from "lucide-react";
 import { listJenisDapukanIds } from "../../lib/dapukan-ketentuan";
-import { parseBatasUmurNyada } from "../../lib/nyada-ketentuan";
+import { listJenisNyadaIds, parseBatasUmurNyada } from "../../lib/nyada-ketentuan";
 import { getPengarepWarnings } from "../../lib/pengarep-warnings";
 import { isKepalaPenduduk } from "../../lib/status-keluarga";
 import type { DesaAdat, JenisKramaMipilRow, KramaDetail } from "../../lib/types";
@@ -44,7 +44,10 @@ export function PengarepWarningsPanel({
         jenisNyadaId: desa?.jenis_krama_mipil_id,
         jenisCeraiMatiId: desa?.jenis_cerai_mati_mipil_id,
         jenisCeraiHidupId: desa?.jenis_cerai_hidup_mipil_id,
-        jenisDapukanIds: listJenisDapukanIds(desa),
+        jenisDapukanIds: [
+          ...listJenisDapukanIds(desa),
+          ...listJenisNyadaIds(desa).filter((id) => id !== desa?.jenis_krama_mipil_id?.trim()),
+        ],
       },
       jenisNama: (id) => jenisMipil.find((j) => j.id === id)?.nama,
     });

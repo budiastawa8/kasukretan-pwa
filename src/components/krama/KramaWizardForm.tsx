@@ -19,6 +19,7 @@ import {
   getNyadaSuggestion,
   formatAlasanNyada,
   isKramaNyada,
+  listJenisNyadaIds,
   isUmurMencapaiBatasNyada,
   parseBatasUmurNyada,
   resolveJenisSetelahLepasNyada,
@@ -476,7 +477,7 @@ export function KramaWizardForm({
         batas != null ? `, atau langsung Nyada bila sudah berumur ${batas} tahun` : ""
       }. Anak tidak menggantikan Pengarep.`;
     }
-    return "Pengarep Krama Dapukan / Balu Nglintik tidak digantikan anak. Bila tidak ada istri/suami, kartu dinonaktifkan.";
+    return "Pengarep Balu Nglintik tidak digantikan anak. Bila tidak ada istri/suami, kartu dinonaktifkan.";
   }, [pengarepHanyaPasangan, kodeDapukanKrama, jenisMipil, desa]);
 
   async function handleGantiPengarepMeninggal(values: {
@@ -1593,7 +1594,10 @@ export function KramaWizardForm({
       jenisNyadaId: desa?.jenis_krama_mipil_id,
       jenisCeraiMatiId: desa?.jenis_cerai_mati_mipil_id,
       jenisCeraiHidupId: desa?.jenis_cerai_hidup_mipil_id,
-      jenisDapukanIds: listJenisDapukanIds(desa),
+      jenisDapukanIds: [
+        ...listJenisDapukanIds(desa),
+        ...listJenisNyadaIds(desa).filter((id) => id !== desa?.jenis_krama_mipil_id?.trim()),
+      ],
     }),
     [desa]
   );

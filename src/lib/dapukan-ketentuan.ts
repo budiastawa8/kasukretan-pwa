@@ -49,19 +49,45 @@ export function isJenisBaluNglintik(
   return !!cur && cur === desa?.jenis_balu_nglintik_mipil_id?.trim();
 }
 
+export function isJenisBaluNgempu(
+  jenisMipilId: string | null | undefined,
+  desa: Pick<DesaAdat, "jenis_balu_ngempu_mipil_id"> | null | undefined
+): boolean {
+  const cur = jenisMipilId?.trim();
+  return !!cur && cur === desa?.jenis_balu_ngempu_mipil_id?.trim();
+}
+
 export function isStatusPasangan(statusKeluarga: string | null | undefined): boolean {
   return /^(istri|suami)$/i.test(statusKeluarga?.trim() ?? "");
 }
 
-/** Jenis Dapukan dan Balu Nglintik yang terisi di Profil Desa (termasuk warisan Balu Dapukan). */
+/** Jenis Dapukan (bukan Nyada) yang terisi di Profil Desa, termasuk warisan Balu Dapukan. */
 export function listJenisDapukanIds(desa: DesaAdat | null | undefined): string[] {
-  return [
-    desa?.jenis_dapukan_mipil_id,
-    desa?.jenis_balu_dapukan_mipil_id,
-    desa?.jenis_balu_nglintik_mipil_id,
-  ]
+  return [desa?.jenis_dapukan_mipil_id, desa?.jenis_balu_dapukan_mipil_id]
     .map((id) => id?.trim() ?? "")
     .filter(Boolean);
+}
+
+/**
+ * Pilih jenis Nyada saat keluar Dapukan / sinkron subtype Nyada.
+ * - Kawin → Nyada Jangkep (`jenis_krama_mipil_id`)
+ * - Cerai + lewat umur (masih Anak belum kawin) → Balu Ngempu
+ * - Cerai + Dapukan selesai → Balu Nglintik (selama masih Pengarep; tidak mensyaratkan sendirian)
+ */
+export function pilihJenisNyadaDapukan(
+  keluarga: Pick<KeadaanKeluargaDapukan, "adaPasangan" | "adaAnakBelumKawin">,
+  desa: Pick<
+    DesaAdat,
+    "jenis_krama_mipil_id" | "jenis_balu_nglintik_mipil_id" | "jenis_balu_ngempu_mipil_id"
+  >,
+  jalur: "selesai" | "lewat_umur"
+): string {
+  const jangkep = desa.jenis_krama_mipil_id?.trim() || "";
+  const nglintik = desa.jenis_balu_nglintik_mipil_id?.trim() || "";
+  const ngempu = desa.jenis_balu_ngempu_mipil_id?.trim() || "";
+  if (keluarga.adaPasangan) return jangkep;
+  if (jalur === "lewat_umur" && ngempu) return ngempu;
+  return nglintik || jangkep;
 }
 
 /** Ulang tahun Pengarep ke-batas umur Dapukan, atau null bila batas tidak diatur. */
@@ -132,14 +158,26 @@ export type KeputusanNyadaOtomatis =
     }
   | { aksi: "dapukan"; jenisId: string; sejak: string; dapukanBatas: string | null; tanpaPasangan: boolean };
 
+function keteranganNyadaDapukan(jalur: "selesai" | "lewat_umur", adaPasangan: boolean): string {
+  if (jalur === "lewat_umur") {
+    return adaPasangan
+      ? "Mencapai batas umur Krama Dapukan"
+      : "Mencapai batas umur Krama Dapukan (Balu Ngempu)";
+  }
+  return adaPasangan
+    ? "Tidak ada lagi Anak belum kawin"
+    : "Tidak ada lagi Anak belum kawin (Balu Nglintik)";
+}
+
 /**
  * Jenis krama Mipil berikutnya menurut Nyada otomatis dan Krama Dapukan.
- * Krama Nyada tidak pernah dikembalikan; Dapukan tanpa pasangan yang tinggal sendirian menjadi Balu Nglintik.
+ * Saat Dapukan aktif: Nyada Jangkep / Balu Nglintik / Balu Ngempu.
+ * Krama Nyada tidak pernah dikembalikan ke non-Nyada.
  */
 export function tentukanNyadaOtomatis(params: {
   jenisId: string | null | undefined;
   dapukanBatas?: string | null;
-  /** Riwayat Dapukan tanpa pasangan — untuk Balu Nglintik setelah Nyada. */
+  /** Riwayat Dapukan tanpa pasangan — metadata; pemilihan jenis tidak lagi bergantung sendirian. */
   baluDapukanSejak?: string | null;
   pengarepTanggalLahir: string | null | undefined;
   keluarga: KeadaanKeluargaDapukan;
@@ -148,23 +186,21 @@ export function tentukanNyadaOtomatis(params: {
 }): KeputusanNyadaOtomatis {
   const { desa, keluarga, hariIni } = params;
   const jenisNyada = desa.jenis_krama_mipil_id?.trim() || "";
-  const jenisNglintik = desa.jenis_balu_nglintik_mipil_id?.trim() || "";
   const jenisDapukan = desa.jenis_dapukan_mipil_id?.trim() || "";
   const jenisId = params.jenisId?.trim() || "";
+  const dapukanAktif = isDapukanAktif(desa, hariIni);
 
   if (isKramaNyada(jenisId, desa)) {
-    if (
-      jenisId === jenisNyada &&
-      jenisNglintik &&
-      params.baluDapukanSejak &&
-      keluarga.sendirian
-    ) {
+    if (!dapukanAktif || !jenisNyada) return { aksi: "tetap" };
+    const jalur: "selesai" | "lewat_umur" = keluarga.adaAnakBelumKawin ? "lewat_umur" : "selesai";
+    const target = pilihJenisNyadaDapukan(keluarga, desa, jalur);
+    if (target && target !== jenisId) {
       return {
         aksi: "nyada",
-        jenisId: jenisNglintik,
+        jenisId: target,
         sejak: hariIni,
         alasan: "dapukan",
-        keterangan: "Dapukan tanpa pasangan tinggal sendirian di Pipil",
+        keterangan: keteranganNyadaDapukan(jalur, keluarga.adaPasangan),
       };
     }
     return { aksi: "tetap" };
@@ -175,21 +211,27 @@ export function tentukanNyadaOtomatis(params: {
     const batas = params.dapukanBatas || tanggalBatasDapukan(params.pengarepTanggalLahir, desa);
     const tanpaPasangan = !keluarga.adaPasangan;
     if (!keluarga.adaAnakBelumKawin) {
+      const jenisIdNyada = dapukanAktif
+        ? pilihJenisNyadaDapukan(keluarga, desa, "selesai")
+        : jenisNyada;
       return {
         aksi: "nyada",
-        jenisId: tanpaPasangan && keluarga.sendirian && jenisNglintik ? jenisNglintik : jenisNyada,
+        jenisId: jenisIdNyada,
         sejak: hariIni,
         alasan: "dapukan",
-        keterangan: "Tidak ada lagi Anak belum kawin",
+        keterangan: keteranganNyadaDapukan("selesai", keluarga.adaPasangan),
       };
     }
     if (batas && batas <= hariIni) {
+      const jenisIdNyada = dapukanAktif
+        ? pilihJenisNyadaDapukan(keluarga, desa, "lewat_umur")
+        : jenisNyada;
       return {
         aksi: "nyada",
-        jenisId: jenisNyada,
+        jenisId: jenisIdNyada,
         sejak: batas,
         alasan: "dapukan",
-        keterangan: "Mencapai batas umur Krama Dapukan",
+        keterangan: keteranganNyadaDapukan("lewat_umur", keluarga.adaPasangan),
       };
     }
     // Samakan warisan Balu Dapukan ke jenis Dapukan desa.
@@ -209,15 +251,15 @@ export function tentukanNyadaOtomatis(params: {
   if (!sejak || sejak > hariIni) return { aksi: "tetap" };
 
   const dapukanMulai = getDapukanBerlakuMulai(desa);
-  if (isDapukanAktif(desa, hariIni) && dapukanMulai && sejak >= dapukanMulai && keluarga.adaAnakBelumKawin) {
+  if (dapukanAktif && dapukanMulai && sejak >= dapukanMulai && keluarga.adaAnakBelumKawin) {
     const batas = tanggalBatasDapukan(params.pengarepTanggalLahir, desa);
     if (batas && batas <= hariIni) {
       return {
         aksi: "nyada",
-        jenisId: jenisNyada,
+        jenisId: pilihJenisNyadaDapukan(keluarga, desa, "lewat_umur"),
         sejak: batas,
         alasan: "dapukan",
-        keterangan: "Mencapai batas umur Krama Dapukan",
+        keterangan: keteranganNyadaDapukan("lewat_umur", keluarga.adaPasangan),
       };
     }
     return {

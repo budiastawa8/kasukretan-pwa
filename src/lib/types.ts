@@ -35,8 +35,10 @@ export interface DesaAdat {
   jenis_dapukan_mipil_id?: string | null;
   /** @deprecated Tidak dipakai lagi; kolom DB dipertahankan untuk migrasi. */
   jenis_balu_dapukan_mipil_id?: string | null;
-  /** Nyada setelah Pengarep Dapukan tanpa pasangan tinggal sendirian di Pipil. */
+  /** Nyada setelah Pengarep Dapukan Cerai (Dapukan selesai); tetap selama masih Pengarep. */
   jenis_balu_nglintik_mipil_id?: string | null;
+  /** Nyada setelah lewat batas umur Dapukan, Pengarep Cerai, masih ada Anak belum kawin. */
+  jenis_balu_ngempu_mipil_id?: string | null;
   /** Usia minimum Yowana (tahun) */
   yowana_umur_min?: number | null;
   /** Usia maksimum Yowana (tahun) */

@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS desa_adat (
   jenis_dapukan_mipil_id TEXT,
   jenis_balu_dapukan_mipil_id TEXT, -- deprecated; selalu NULL setelah migrasi UI
   jenis_balu_nglintik_mipil_id TEXT,
+  jenis_balu_ngempu_mipil_id TEXT,
   yowana_umur_min INTEGER,
   yowana_umur_max INTEGER,
   bandesa_nama TEXT,

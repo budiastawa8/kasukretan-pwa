@@ -9,6 +9,7 @@ import {
   type AlasanNyada,
 } from "../nyada-ketentuan";
 import {
+  isDapukanAktif,
   jenisDapukanKode,
   keadaanKeluargaDapukan,
   tentukanNyadaOtomatis,
@@ -58,13 +59,14 @@ async function loadAnggotaHidupByKrama(
 
 /**
  * Nyada otomatis per umur Pengarep sejak tanggal berlaku, termasuk Krama Dapukan
- * (Anak belum kawin) dan Balu Nglintik. Krama Nyada tidak pernah dikembalikan.
+ * dan subtype Nyada (Jangkep / Balu Nglintik / Balu Ngempu). Krama Nyada tidak pernah dikembalikan.
  * @returns jumlah krama yang berubah jenis.
  */
 export async function syncNyadaOtomatis(opts?: { kramaId?: string }): Promise<number> {
   const desa = await getDesaAdat();
   if (!desa || !isNyadaOtomatisAktif(desa)) return 0;
   const hariIni = dateToIsoLocal(new Date());
+  const dapukanAktif = isDapukanAktif(desa, hariIni);
 
   const db = await getDb();
   let sql = `
@@ -81,9 +83,7 @@ export async function syncNyadaOtomatis(opts?: { kramaId?: string }): Promise<nu
     args.push(opts.kramaId);
   }
   const rows = (await db.select<KramaNyadaSyncRow[]>(sql, args)).filter(
-    (r) =>
-      !isKramaNyada(r.jenis_krama_mipil_id, desa) ||
-      (!!r.balu_dapukan_sejak && !!desa.jenis_balu_nglintik_mipil_id?.trim())
+    (r) => !isKramaNyada(r.jenis_krama_mipil_id, desa) || dapukanAktif
   );
   const anggotaMap = await loadAnggotaHidupByKrama(rows.map((r) => r.id));
 
@@ -120,13 +120,30 @@ export async function syncNyadaOtomatis(opts?: { kramaId?: string }): Promise<nu
       continue;
     }
     if (keputusan.aksi === "nyada") {
-      await db.execute(
-        `UPDATE krama SET jenis_krama_mipil_id = $1, jenis_sebelum_nyada_id = $2,
-           nyada_sejak = $3, nyada_sampai = NULL, alasan_nyada = $4, keterangan_nyada = $5,
-           updated_at = datetime('now')
-         WHERE id = $6`,
-        [keputusan.jenisId, row.jenis_krama_mipil_id, keputusan.sejak, keputusan.alasan, keputusan.keterangan, row.id]
-      );
+      if (isKramaNyada(row.jenis_krama_mipil_id, desa)) {
+        // Pindah subtype Nyada: jangan timpa jenis_sebelum_nyada / nyada_sejak.
+        await db.execute(
+          `UPDATE krama SET jenis_krama_mipil_id = $1, keterangan_nyada = $2,
+             alasan_nyada = COALESCE(alasan_nyada, $3), updated_at = datetime('now')
+           WHERE id = $4`,
+          [keputusan.jenisId, keputusan.keterangan, keputusan.alasan, row.id]
+        );
+      } else {
+        await db.execute(
+          `UPDATE krama SET jenis_krama_mipil_id = $1, jenis_sebelum_nyada_id = $2,
+             nyada_sejak = $3, nyada_sampai = NULL, alasan_nyada = $4, keterangan_nyada = $5,
+             updated_at = datetime('now')
+           WHERE id = $6`,
+          [
+            keputusan.jenisId,
+            row.jenis_krama_mipil_id,
+            keputusan.sejak,
+            keputusan.alasan,
+            keputusan.keterangan,
+            row.id,
+          ]
+        );
+      }
     } else {
       await db.execute(
         `UPDATE krama SET jenis_krama_mipil_id = $1, jenis_sebelum_nyada_id = $2,
@@ -273,7 +290,9 @@ export async function catatPerubahanJenisNyada(params: {
   }
 
   const alasan: AlasanNyada =
-    baru === desa?.jenis_balu_nglintik_mipil_id?.trim() || jenisDapukanKode(lama, desa)
+    baru === desa?.jenis_balu_nglintik_mipil_id?.trim() ||
+    baru === desa?.jenis_balu_ngempu_mipil_id?.trim() ||
+    jenisDapukanKode(lama, desa)
       ? "dapukan"
       : isUmurMencapaiBatasNyada(params.pengarepTanggalLahir, desa?.jenis_umur_nyada)
         ? "umur"

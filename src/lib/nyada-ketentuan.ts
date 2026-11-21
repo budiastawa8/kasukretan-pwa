@@ -50,16 +50,38 @@ export function resolveJenisSetelahLepasNyada(
   return desa?.jenis_cerai_mati_mipil_id?.trim() || krama?.jenis_sebelum_nyada_id?.trim() || null;
 }
 
-/** Nyada, termasuk Krama Balu Nglintik (Nyada setelah Dapukan tanpa pasangan tinggal sendirian). */
+/**
+ * Nyada (Jangkep), termasuk Balu Nglintik dan Balu Ngempu saat mode Krama Dapukan.
+ */
 export function isKramaNyada(
   jenisMipilId: string | null | undefined,
-  desa: Pick<DesaAdat, "jenis_krama_mipil_id" | "jenis_balu_nglintik_mipil_id"> | null | undefined
+  desa: Pick<
+    DesaAdat,
+    "jenis_krama_mipil_id" | "jenis_balu_nglintik_mipil_id" | "jenis_balu_ngempu_mipil_id"
+  > | null | undefined
 ): boolean {
   const cur = jenisMipilId?.trim();
   if (!cur) return false;
   const nyada = desa?.jenis_krama_mipil_id?.trim();
   const nglintik = desa?.jenis_balu_nglintik_mipil_id?.trim();
-  return cur === nyada || cur === nglintik;
+  const ngempu = desa?.jenis_balu_ngempu_mipil_id?.trim();
+  return cur === nyada || cur === nglintik || cur === ngempu;
+}
+
+/** Semua jenis Mipil yang dihitung sebagai Nyada (Jangkep / Nglintik / Ngempu). */
+export function listJenisNyadaIds(
+  desa: Pick<
+    DesaAdat,
+    "jenis_krama_mipil_id" | "jenis_balu_nglintik_mipil_id" | "jenis_balu_ngempu_mipil_id"
+  > | null | undefined
+): string[] {
+  return [
+    desa?.jenis_krama_mipil_id,
+    desa?.jenis_balu_nglintik_mipil_id,
+    desa?.jenis_balu_ngempu_mipil_id,
+  ]
+    .map((id) => id?.trim() ?? "")
+    .filter(Boolean);
 }
 
 /** Tanggal berlaku Nyada otomatis (YYYY-MM-DD) atau null jika tidak diatur. */

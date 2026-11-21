@@ -278,6 +278,7 @@ export async function runMasterDataMigrations(db: Database): Promise<void> {
     { table: "desa_adat", name: "jenis_dapukan_mipil_id", ddl: "TEXT" },
     { table: "desa_adat", name: "jenis_balu_dapukan_mipil_id", ddl: "TEXT" },
     { table: "desa_adat", name: "jenis_balu_nglintik_mipil_id", ddl: "TEXT" },
+    { table: "desa_adat", name: "jenis_balu_ngempu_mipil_id", ddl: "TEXT" },
   ];
   for (const col of nyadaCols) {
     if (await tableHasColumn(db, col.table, col.name)) continue;

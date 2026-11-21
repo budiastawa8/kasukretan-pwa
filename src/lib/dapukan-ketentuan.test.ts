@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   isBatasUmurDapukanTidakValid,
   keadaanKeluargaDapukan,
+  pilihJenisNyadaDapukan,
   tentukanNyadaOtomatis,
   type KeadaanKeluargaDapukan,
 } from "./dapukan-ketentuan";
+import { isKramaNyada } from "./nyada-ketentuan";
 import type { DesaAdat } from "./types";
 
 const desa: DesaAdat = {
@@ -24,6 +26,7 @@ const desa: DesaAdat = {
   jenis_dapukan_mipil_id: "dapukan",
   jenis_balu_dapukan_mipil_id: null,
   jenis_balu_nglintik_mipil_id: "nglintik",
+  jenis_balu_ngempu_mipil_id: "ngempu",
 };
 
 const keluarga = (k: Partial<KeadaanKeluargaDapukan>): KeadaanKeluargaDapukan => ({
@@ -53,6 +56,40 @@ describe("keadaanKeluargaDapukan", () => {
         "p"
       ).adaAnakBelumKawin
     ).toBe(true);
+  });
+});
+
+describe("pilihJenisNyadaDapukan", () => {
+  it("Kawin → Nyada Jangkep", () => {
+    expect(pilihJenisNyadaDapukan(keluarga({}), desa, "selesai")).toBe("nyada");
+    expect(pilihJenisNyadaDapukan(keluarga({ adaAnakBelumKawin: true }), desa, "lewat_umur")).toBe(
+      "nyada"
+    );
+  });
+
+  it("Cerai Dapukan selesai → Balu Nglintik", () => {
+    expect(
+      pilihJenisNyadaDapukan(keluarga({ adaPasangan: false, sendirian: false }), desa, "selesai")
+    ).toBe("nglintik");
+  });
+
+  it("Cerai lewat umur → Balu Ngempu", () => {
+    expect(
+      pilihJenisNyadaDapukan(
+        keluarga({ adaPasangan: false, adaAnakBelumKawin: true }),
+        desa,
+        "lewat_umur"
+      )
+    ).toBe("ngempu");
+  });
+});
+
+describe("isKramaNyada", () => {
+  it("mencakup Jangkep, Nglintik, dan Ngempu", () => {
+    expect(isKramaNyada("nyada", desa)).toBe(true);
+    expect(isKramaNyada("nglintik", desa)).toBe(true);
+    expect(isKramaNyada("ngempu", desa)).toBe(true);
+    expect(isKramaNyada("dapukan", desa)).toBe(false);
   });
 });
 
@@ -112,13 +149,34 @@ describe("tentukanNyadaOtomatis", () => {
     ).toMatchObject({ aksi: "nyada", jenisId: "nyada" });
   });
 
-  it("Dapukan menjadi Nyada saat Anak terakhir kawin", () => {
+  it("Dapukan selesai + Kawin → Nyada Jangkep", () => {
     expect(
       tentukanNyadaOtomatis({ ...base, jenisId: "dapukan", keluarga: keluarga({}) })
     ).toMatchObject({ aksi: "nyada", jenisId: "nyada", sejak: hariIni, alasan: "dapukan" });
   });
 
-  it("Dapukan menjadi Nyada pada batas umur Dapukan", () => {
+  it("Dapukan selesai + Cerai (ada anggota lain) → Balu Nglintik", () => {
+    expect(
+      tentukanNyadaOtomatis({
+        ...base,
+        jenisId: "dapukan",
+        keluarga: keluarga({ adaPasangan: false, sendirian: false }),
+      })
+    ).toMatchObject({ aksi: "nyada", jenisId: "nglintik" });
+  });
+
+  it("Dapukan selesai + Cerai sendirian → Balu Nglintik", () => {
+    expect(
+      tentukanNyadaOtomatis({
+        ...base,
+        jenisId: "dapukan",
+        pengarepTanggalLahir: "1980-01-01",
+        keluarga: keluarga({ adaPasangan: false, sendirian: true }),
+      })
+    ).toMatchObject({ aksi: "nyada", jenisId: "nglintik" });
+  });
+
+  it("lewat umur Dapukan + Kawin → Nyada Jangkep", () => {
     expect(
       tentukanNyadaOtomatis({
         ...base,
@@ -127,6 +185,17 @@ describe("tentukanNyadaOtomatis", () => {
         keluarga: keluarga({ adaAnakBelumKawin: true }),
       })
     ).toMatchObject({ aksi: "nyada", jenisId: "nyada", sejak: "2026-08-01" });
+  });
+
+  it("lewat umur Dapukan + Cerai → Balu Ngempu", () => {
+    expect(
+      tentukanNyadaOtomatis({
+        ...base,
+        jenisId: "dapukan",
+        dapukanBatas: "2026-08-01",
+        keluarga: keluarga({ adaAnakBelumKawin: true, adaPasangan: false }),
+      })
+    ).toMatchObject({ aksi: "nyada", jenisId: "ngempu", sejak: "2026-08-01" });
   });
 
   it("pasangan Pengarep Dapukan meninggal: tetap Dapukan dengan batas umur semula", () => {
@@ -158,43 +227,44 @@ describe("tentukanNyadaOtomatis", () => {
     });
   });
 
-  it("Dapukan tanpa pasangan sendirian menjadi Balu Nglintik", () => {
+  it("Ngempu → anak terakhir kawin → Balu Nglintik", () => {
     expect(
       tentukanNyadaOtomatis({
         ...base,
-        jenisId: "dapukan",
-        pengarepTanggalLahir: "1980-01-01",
-        keluarga: keluarga({ adaPasangan: false, sendirian: true }),
+        jenisId: "ngempu",
+        keluarga: keluarga({ adaPasangan: false, adaAnakBelumKawin: false }),
       })
     ).toMatchObject({ aksi: "nyada", jenisId: "nglintik" });
   });
 
-  it("Dapukan tanpa pasangan tidak sendirian menjadi Nyada, lalu Balu Nglintik saat sendirian", () => {
+  it("Nglintik tetap Nglintik meski tidak sendirian (masih Pengarep)", () => {
     expect(
       tentukanNyadaOtomatis({
         ...base,
-        jenisId: "dapukan",
-        keluarga: keluarga({ adaPasangan: false }),
-      })
-    ).toMatchObject({ aksi: "nyada", jenisId: "nyada" });
-    expect(
-      tentukanNyadaOtomatis({
-        ...base,
-        jenisId: "nyada",
-        baluDapukanSejak: "2026-01-01",
-        keluarga: keluarga({ adaPasangan: false, sendirian: true }),
-      })
-    ).toMatchObject({ aksi: "nyada", jenisId: "nglintik" });
-  });
-
-  it("Nyada tanpa riwayat Dapukan tanpa pasangan tidak disentuh", () => {
-    expect(
-      tentukanNyadaOtomatis({
-        ...base,
-        jenisId: "nyada",
-        keluarga: keluarga({ adaAnakBelumKawin: true, sendirian: true }),
+        jenisId: "nglintik",
+        keluarga: keluarga({ adaPasangan: false, sendirian: false }),
       })
     ).toEqual({ aksi: "tetap" });
+  });
+
+  it("Jangkep Cerai dengan Anak belum kawin → Ngempu", () => {
+    expect(
+      tentukanNyadaOtomatis({
+        ...base,
+        jenisId: "nyada",
+        keluarga: keluarga({ adaPasangan: false, adaAnakBelumKawin: true }),
+      })
+    ).toMatchObject({ aksi: "nyada", jenisId: "ngempu" });
+  });
+
+  it("Nyada tanpa pasangan tanpa Anak belum kawin → Nglintik", () => {
+    expect(
+      tentukanNyadaOtomatis({
+        ...base,
+        jenisId: "nyada",
+        keluarga: keluarga({ adaPasangan: false, sendirian: true }),
+      })
+    ).toMatchObject({ aksi: "nyada", jenisId: "nglintik" });
   });
 });
 
