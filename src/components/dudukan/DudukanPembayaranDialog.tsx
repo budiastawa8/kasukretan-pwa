@@ -984,7 +984,7 @@ export function DudukanPembayaranDialog({
                               }
                             }}
                             className={cn(
-                              "flex items-center gap-3 min-h-[44px]",
+                              "flex items-center gap-2 min-h-[44px]",
                               bisaBayar && "cursor-pointer"
                             )}
                           >
@@ -997,7 +997,7 @@ export function DudukanPembayaranDialog({
                               className="h-5 w-5 shrink-0"
                               aria-label={`Pilih ${formatBulanIndonesiaSingkat(b.bulan, b.tahun)}`}
                             />
-                            <div className="min-w-0 flex-1 leading-tight">
+                            <div className="min-w-0 shrink-0 leading-tight">
                               <span className="text-sm font-semibold tabular-nums text-copper-950">
                                 {formatBulanIndonesiaSingkat(b.bulan, b.tahun)}
                               </span>
@@ -1018,42 +1018,44 @@ export function DudukanPembayaranDialog({
                               )}
                             </div>
                             {bisaBayar && !b.dipilih && (
-                              <span className="shrink-0 text-sm font-semibold text-amber-900 tabular-nums">
+                              <span className="ml-auto shrink-0 text-sm font-semibold text-amber-900 tabular-nums">
                                 {formatRupiah(b.sisa)}
                               </span>
                             )}
-                          </div>
-                          {bisaBayar && b.dipilih && (
-                            <div
-                              className="mt-2 flex items-center gap-2 pl-8"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <RupiahInput
-                                value={b.jumlahInput}
-                                onChange={(v) => setJumlahBulan(id, v)}
-                                showPrefix={false}
-                                className="h-10 text-sm flex-1 min-w-0 px-2 rounded-md"
-                              />
-                              <Button
-                                type="button"
-                                variant="secondary"
-                                className="h-10 text-xs font-semibold shrink-0"
-                                onClick={() => isiSisaBulan(id)}
+                            {bisaBayar && b.dipilih && (
+                              <div
+                                className="ml-auto flex items-center gap-1.5 shrink-0"
+                                onClick={(e) => e.stopPropagation()}
                               >
-                                Penuh
-                              </Button>
-                              {canKelola && !b.di_muka && b.keringanan <= 0 && (
+                                <div className="w-[4.75rem] shrink-0">
+                                  <RupiahInput
+                                    value={b.jumlahInput}
+                                    onChange={(v) => setJumlahBulan(id, v)}
+                                    showPrefix={false}
+                                    className="h-9 min-h-9 text-sm px-1.5 rounded-md"
+                                  />
+                                </div>
                                 <Button
                                   type="button"
-                                  variant="ghost"
-                                  className="h-10 text-xs font-semibold shrink-0 text-violet-900 px-2"
-                                  onClick={() => bukaKeringanan(b)}
+                                  variant="secondary"
+                                  className="h-9 text-xs font-semibold shrink-0 px-2"
+                                  onClick={() => isiSisaBulan(id)}
                                 >
-                                  Ker.
+                                  Penuh
                                 </Button>
-                              )}
-                            </div>
-                          )}
+                                {canKelola && !b.di_muka && b.keringanan <= 0 && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    className="h-9 text-xs font-semibold shrink-0 text-violet-900 px-1.5"
+                                    onClick={() => bukaKeringanan(b)}
+                                  >
+                                    Ker.
+                                  </Button>
+                                )}
+                              </div>
+                            )}
+                          </div>
                           {bisaBayar && b.keringanan > 0 && (
                             <p className="mt-1 pl-8 text-[11px] text-violet-900 tabular-nums">
                               Keringanan {formatRupiah(b.keringanan)}
