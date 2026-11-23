@@ -68,6 +68,9 @@ export type KramaListFilter = {
   /** Default: hanya krama aktif. */
   statusKrama?: "aktif" | "nonaktif";
   alasanTidakAktif?: "meninggal" | "pindah" | "pawanengan_3_bulan";
+  /** ISO YYYY-MM-DD — filter `krama.tanggal_terdaftar` (inklusif). */
+  tanggalTerdaftarDari?: string;
+  tanggalTerdaftarSampai?: string;
 };
 
 export type KramaListParams = KramaListFilter & {
@@ -170,6 +173,16 @@ function buildKramaListWhere(params?: KramaListFilter): {
     where += search.sql;
     args.push(...search.args);
     n = search.nextN;
+  }
+  const tglDari = params?.tanggalTerdaftarDari?.trim().slice(0, 10);
+  if (tglDari) {
+    where += ` AND substr(k.tanggal_terdaftar, 1, 10) >= $${n++}`;
+    args.push(tglDari);
+  }
+  const tglSampai = params?.tanggalTerdaftarSampai?.trim().slice(0, 10);
+  if (tglSampai) {
+    where += ` AND substr(k.tanggal_terdaftar, 1, 10) <= $${n++}`;
+    args.push(tglSampai);
   }
   return { where, args, statusFilter };
 }

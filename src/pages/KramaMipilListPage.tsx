@@ -89,6 +89,16 @@ export function KramaMipilListPage() {
   const [banjarId, setBanjarId] = usePersistedScalar(PAGE_ID, "banjarId", "");
   const [tempekId, setTempekId] = usePersistedScalar(PAGE_ID, "tempekId", "");
   const [arahanId, setArahanId] = usePersistedScalar(PAGE_ID, "arahanId", "");
+  const [tanggalTerdaftarDari, setTanggalTerdaftarDari] = usePersistedScalar(
+    PAGE_ID,
+    "tanggalTerdaftarDari",
+    ""
+  );
+  const [tanggalTerdaftarSampai, setTanggalTerdaftarSampai] = usePersistedScalar(
+    PAGE_ID,
+    "tanggalTerdaftarSampai",
+    ""
+  );
   const [listTab, setListTab] = usePersistedScalar<ListTab>(PAGE_ID, "listTab", "aktif");
   const [pageTab, setPageTab] = usePersistedScalar<PageTab>(PAGE_ID, "pageTab", "daftar");
   const [page, setPage] = useState(1);
@@ -110,7 +120,18 @@ export function KramaMipilListPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [sortKey, sortDir, debouncedQ, banjarId, jenisKramaMipilId, tempekId, arahanId, listTab]);
+  }, [
+    sortKey,
+    sortDir,
+    debouncedQ,
+    banjarId,
+    jenisKramaMipilId,
+    tempekId,
+    arahanId,
+    tanggalTerdaftarDari,
+    tanggalTerdaftarSampai,
+    listTab,
+  ]);
 
   useEffect(() => {
     if (page !== safePage) setPage(safePage);
@@ -153,9 +174,20 @@ export function KramaMipilListPage() {
       jenisKramaMipilId: jenisKramaMipilId || undefined,
       tempekId: tempekId || undefined,
       arahanId: arahanId || undefined,
+      tanggalTerdaftarDari: tanggalTerdaftarDari || undefined,
+      tanggalTerdaftarSampai: tanggalTerdaftarSampai || undefined,
       statusKrama: listTab,
     }),
-    [debouncedQ, banjarId, jenisKramaMipilId, tempekId, arahanId, listTab]
+    [
+      debouncedQ,
+      banjarId,
+      jenisKramaMipilId,
+      tempekId,
+      arahanId,
+      tanggalTerdaftarDari,
+      tanggalTerdaftarSampai,
+      listTab,
+    ]
   );
 
   const reloadList = useCallback(async () => {
@@ -201,6 +233,8 @@ export function KramaMipilListPage() {
     setBanjarId("");
     setTempekId("");
     setArahanId("");
+    setTanggalTerdaftarDari("");
+    setTanggalTerdaftarSampai("");
   }
 
   function switchTab(tab: ListTab) {
@@ -408,6 +442,23 @@ export function KramaMipilListPage() {
                     </option>
                   ))}
                 </Select>
+              </div>
+              <div className="min-w-0">
+                <Label>Terdaftar dari</Label>
+                <Input
+                  type="date"
+                  value={tanggalTerdaftarDari}
+                  onChange={(e) => setTanggalTerdaftarDari(e.target.value)}
+                />
+              </div>
+              <div className="min-w-0">
+                <Label>Terdaftar sampai</Label>
+                <Input
+                  type="date"
+                  value={tanggalTerdaftarSampai}
+                  min={tanggalTerdaftarDari || undefined}
+                  onChange={(e) => setTanggalTerdaftarSampai(e.target.value)}
+                />
               </div>
             </div>
             <Button
