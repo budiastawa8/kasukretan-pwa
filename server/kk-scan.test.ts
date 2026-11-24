@@ -31,4 +31,32 @@ describe("normalizeKkScanMembers", () => {
     expect(members[0]?.tanggal_lahir).toBe("1985-06-15");
     expect(members[1]?.nama_lengkap).toBe("NI KADEK");
   });
+
+  it("menormalisasi agama ke opsi form Pemasih", () => {
+    const members = normalizeKkScanMembers({
+      members: [
+        {
+          nama_lengkap: "BUDI",
+          nik: "5171031506850001",
+          agama: "ISLAM",
+          selected: true,
+        },
+        {
+          nama_lengkap: "WAYAN",
+          nik: "5171031506850002",
+          agama: "HINDU",
+          selected: true,
+        },
+        {
+          nama_lengkap: "ANA",
+          nik: "5171031506850003",
+          agama: "Katolik",
+          selected: true,
+        },
+      ],
+    });
+    expect(members[0]?.agama).toBe("Islam");
+    expect(members[1]?.agama).toBe("Hindu");
+    expect(members[2]?.agama).toBe("Katholik");
+  });
 });

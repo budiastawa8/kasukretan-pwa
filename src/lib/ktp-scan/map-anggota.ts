@@ -1,4 +1,5 @@
 import { AGAMA_HINDU, isValidAgamaTamiu } from "../agama-tamiu";
+import { parseAgamaKk } from "../kk-scan/parse-kk";
 import { STATUS_KAWIN_KODE, normalizeStatusKawinKode } from "../status-kawin";
 import type { AnggotaDraft, KlasifikasiKode } from "../types";
 import type { KtpOcrPerson } from "./types";
@@ -16,10 +17,10 @@ export function mapKtpToAnggotaFormValues(
 ): KtpAnggotaFormValues {
   const isPipil = klasifikasi === "MIPIL";
 
-  let agama = person.agama?.trim() || current?.agama || "";
+  let agama = parseAgamaKk(person.agama) || current?.agama || "";
   if (isPipil) agama = AGAMA_HINDU;
   else if (agama && !isValidAgamaTamiu(agama)) {
-    // biarkan user koreksi di form bila OCR salah
+    // biarkan user koreksi di form bila OCR/Vision tidak cocok opsi
   }
 
   const statusKawin =

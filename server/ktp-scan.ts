@@ -74,16 +74,17 @@ function sanitizeNama(raw: string): string {
     .trim();
 }
 
+/** Samakan ke opsi form Pemasih agar dropdown langsung terisi. */
 function normalizeAgama(raw: string): string | undefined {
   const t = cleanStr(raw);
   if (!t) return undefined;
-  const upper = t.toUpperCase();
-  if (upper === "HINDU") return "Hindu";
-  if (upper === "ISLAM") return "Islam";
-  if (upper === "KRISTEN" || upper === "PROTESTAN") return "Kristen";
-  if (upper === "KATHOLIK" || upper === "KATOLIK") return "Katholik";
-  if (upper === "BUDHA" || upper === "BUDDHA") return "Budha";
-  if (upper === "KONGHUCU" || upper === "KONG HU CU") return "Konghucu";
+  const s = t.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
+  if (s.includes("hindu")) return "Hindu";
+  if (s.includes("islam") || s.includes("muslim")) return "Islam";
+  if (s.includes("katholik") || s.includes("katolik") || s.includes("catholic")) return "Katholik";
+  if (s.includes("kristen") || s.includes("protestan") || s.includes("christian")) return "Kristen";
+  if (s.includes("budha") || s.includes("buddha")) return "Budha";
+  if (s.includes("konghucu") || s.includes("khonghucu") || s.includes("kong hu")) return "Konghucu";
   return t;
 }
 

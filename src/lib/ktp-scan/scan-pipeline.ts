@@ -232,7 +232,7 @@ export async function scanKartuTandaPenduduk(
     };
   }
 
-  const prepared = await prepareKkImageForUpload(file);
+  const prepared = await prepareKkImageForUpload(file, "ktp");
   const status = await fetchKtpScanStatus();
   const visionOnly = opts?.preferVisionOnly ?? status.configured;
 

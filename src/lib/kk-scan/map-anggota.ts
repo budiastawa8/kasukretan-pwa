@@ -1,6 +1,7 @@
 import { AGAMA_HINDU } from "../agama-tamiu";
 import { STATUS_KAWIN_KODE } from "../status-kawin";
 import type { KlasifikasiKode } from "../types";
+import { parseAgamaKk } from "./parse-kk";
 import type { KkOcrMember } from "./types";
 
 export type AnggotaFromKk = {
@@ -105,7 +106,7 @@ export function mapKkMemberToAnggota(
     agama: isPipil
       ? AGAMA_HINDU
       : isKramaTamiu || isTamiu
-        ? member.agama?.trim() || ""
+        ? parseAgamaKk(member.agama) || ""
         : undefined,
   };
 }

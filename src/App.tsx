@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation, useParams } from "react-router-dom";
+import { UpdatePrompt } from "./components/pwa/UpdatePrompt";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { PortalAuthProvider } from "./context/PortalAuthContext";
 import { canAccessPath, defaultHomePath } from "./lib/auth-roles";
@@ -100,6 +101,7 @@ export default function App() {
     <AuthProvider>
       <ModalStackProvider>
       <BrowserRouter>
+        <UpdatePrompt />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/cek-tunggakan-paturunan" element={<CekTunggakanPaturunanPage />} />

@@ -237,4 +237,18 @@ describe("mapKkMemberToAnggota", () => {
     );
     expect(mapped.agama).toBe("Hindu");
   });
+
+  it("menormalisasi agama Vision (huruf besar) untuk Pemasih", () => {
+    const mapped = mapKkMemberToAnggota(
+      {
+        nik: "5171031506850004",
+        nama_lengkap: "SITI",
+        jenis_kelamin: "P",
+        agama: "ISLAM",
+        selected: true,
+      },
+      "TAMIU"
+    );
+    expect(mapped.agama).toBe("Islam");
+  });
 });

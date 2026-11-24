@@ -80,6 +80,20 @@ function sanitizeNama(raw: string): string {
     .trim();
 }
 
+/** Samakan ke opsi form Pemasih (Hindu, Islam, …) agar dropdown langsung terisi. */
+function normalizeAgama(raw: string): string | undefined {
+  const t = cleanStr(raw);
+  if (!t) return undefined;
+  const s = t.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
+  if (s.includes("hindu")) return "Hindu";
+  if (s.includes("islam") || s.includes("muslim")) return "Islam";
+  if (s.includes("katholik") || s.includes("katolik") || s.includes("catholic")) return "Katholik";
+  if (s.includes("kristen") || s.includes("protestan") || s.includes("christian")) return "Kristen";
+  if (s.includes("budha") || s.includes("buddha")) return "Budha";
+  if (s.includes("konghucu") || s.includes("khonghucu") || s.includes("kong hu")) return "Konghucu";
+  return t;
+}
+
 function defaultSelected(hubungan: string): boolean {
   const h = hubungan.toLowerCase();
   if (h.includes("pembantu") || h.includes("lainnya") || h.includes("famili lain")) return false;
@@ -115,7 +129,7 @@ export function normalizeKkScanMembers(raw: unknown): KkScanMemberDto[] {
       jenis_kelamin: parseJenisKelamin(cleanStr(o.jenis_kelamin)),
       tempat_lahir: cleanStr(o.tempat_lahir) || undefined,
       tanggal_lahir: normalizeTanggal(cleanStr(o.tanggal_lahir)) || undefined,
-      agama: cleanStr(o.agama) || undefined,
+      agama: normalizeAgama(cleanStr(o.agama)),
       status_kawin: cleanStr(o.status_kawin) || undefined,
       pekerjaan: cleanStr(o.pekerjaan) || undefined,
       status_hubungan_kk: hubungan || undefined,

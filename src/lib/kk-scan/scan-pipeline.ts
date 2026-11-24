@@ -2,7 +2,12 @@ import { API_BASE } from "../api/client";
 import { getLanToken } from "../lan-client";
 import { normalizeStatusKawinKode } from "../status-kawin";
 import { recognizeKkImage, type KkOcrProgress } from "./ocr";
-import { looksLikeKartuKeluarga, parseKkOcrText, sanitizePersonName } from "./parse-kk";
+import {
+  looksLikeKartuKeluarga,
+  parseAgamaKk,
+  parseKkOcrText,
+  sanitizePersonName,
+} from "./parse-kk";
 import { prepareKkImageForUpload } from "./prepare-image";
 import type { KkOcrMember } from "./types";
 
@@ -67,7 +72,7 @@ function mapApiMembers(list: ApiMember[]): KkOcrMember[] {
       jenis_kelamin: m.jenis_kelamin,
       tempat_lahir: m.tempat_lahir,
       tanggal_lahir: m.tanggal_lahir,
-      agama: m.agama,
+      agama: parseAgamaKk(m.agama),
       status_kawin: normalizeStatusKawinKode(m.status_kawin) ?? m.status_kawin,
       pekerjaan: m.pekerjaan,
       status_hubungan_kk: m.status_hubungan_kk,
@@ -247,7 +252,7 @@ export async function scanKartuKeluarga(
     };
   }
 
-  const prepared = await prepareKkImageForUpload(file);
+  const prepared = await prepareKkImageForUpload(file, "kk");
   const status = await fetchKkScanStatus();
   const visionOnly = opts?.preferVisionOnly ?? status.configured;
 
