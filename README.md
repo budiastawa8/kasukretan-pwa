@@ -85,8 +85,8 @@ npm run db:init -- --env=.env.turso
    - `TURSO_DATABASE_URL` — URL dari langkah 2
    - `TURSO_AUTH_TOKEN` — token dari langkah 2
    - `JWT_SECRET` — hasil `npm run jwt:secret` (buat baru, jangan sama dengan lokal)
-   - `GEMINI_API_KEY` — (opsional) kunci [Google AI Studio](https://aistudio.google.com/apikey) untuk **scan KK cepat** di HP; tanpa ini aplikasi memakai OCR Tesseract di perangkat
-   - `GEMINI_MODEL` — (opsional, default `gemini-2.5-flash`) model Vision
+   - `OPENROUTER_API_KEY` — (opsional) kunci [OpenRouter](https://openrouter.ai/keys) untuk **scan KK/KTP cepat** di HP; tanpa ini aplikasi memakai OCR Tesseract di perangkat
+   - `OPENROUTER_MODEL` — (opsional, default `google/gemini-2.5-flash`) model Vision di OpenRouter
 4. **Deploy**. Setelah selesai, buka alamat `https://nama-proyek.vercel.app`.
 
 Setiap `git push` ke GitHub akan otomatis men-deploy versi baru. Pengguna yang sedang membuka

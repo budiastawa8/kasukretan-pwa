@@ -6,7 +6,7 @@ import { looksLikeKartuKeluarga, parseKkOcrText, sanitizePersonName } from "./pa
 import { prepareKkImageForUpload } from "./prepare-image";
 import type { KkOcrMember } from "./types";
 
-export type KkScanEngine = "gemini" | "tesseract";
+export type KkScanEngine = "openrouter" | "tesseract";
 
 export type KkScanPipelineResult = {
   members: KkOcrMember[];
@@ -25,7 +25,7 @@ export type KkScanPipelineProgress = {
 
 export type KkScanStatus = {
   configured: boolean;
-  engine: "gemini" | null;
+  engine: "openrouter" | null;
   model?: string | null;
   reachable: boolean;
   detail?: string;
@@ -79,7 +79,7 @@ function mapApiMembers(list: ApiMember[]): KkOcrMember[] {
   return out;
 }
 
-/** Cek apakah server mengaktifkan scan cepat (Gemini). */
+/** Cek apakah server mengaktifkan scan cepat (OpenRouter). */
 export async function fetchKkScanStatus(): Promise<KkScanStatus> {
   const token = getLanToken();
   if (!token) {
@@ -114,17 +114,17 @@ export async function fetchKkScanStatus(): Promise<KkScanStatus> {
     }
     const data = (await res.json()) as {
       configured?: boolean;
-      engine?: "gemini" | null;
+      engine?: "openrouter" | null;
       model?: string | null;
     };
     return {
       configured: Boolean(data.configured),
-      engine: data.configured ? "gemini" : null,
+      engine: data.configured ? "openrouter" : null,
       model: data.model ?? null,
       reachable: true,
       detail: data.configured
         ? `Scan cepat aktif${data.model ? ` (${data.model})` : ""}.`
-        : "GEMINI_API_KEY belum diset di server — memakai OCR di HP.",
+        : "OPENROUTER_API_KEY belum diset di server — memakai OCR di HP.",
     };
   } catch {
     return {
@@ -136,7 +136,7 @@ export async function fetchKkScanStatus(): Promise<KkScanStatus> {
   }
 }
 
-async function tryGeminiScan(
+async function tryOpenRouterScan(
   imageDataUrl: string,
   onProgress?: (p: KkScanPipelineProgress) => void
 ): Promise<KkOcrMember[]> {
@@ -161,7 +161,7 @@ async function tryGeminiScan(
   }
 
   if (res.status === 503) {
-    let detail = "Scan cepat belum dikonfigurasi (GEMINI_API_KEY).";
+    let detail = "Scan cepat belum dikonfigurasi (OPENROUTER_API_KEY).";
     try {
       const err = (await res.json()) as { error?: string };
       if (err.error) detail = err.error;
@@ -227,7 +227,7 @@ export type ScanKartuKeluargaOptions = {
 };
 
 /**
- * Scan KK: Vision (Gemini) bila memungkinkan; OCR di HP sebagai cadangan eksplisit.
+ * Scan KK: Vision (OpenRouter) bila memungkinkan; OCR di HP sebagai cadangan eksplisit.
  */
 export async function scanKartuKeluarga(
   file: Blob,
@@ -257,13 +257,13 @@ export async function scanKartuKeluarga(
     return {
       members,
       engine: "tesseract",
-      note: "Dibaca dengan OCR di HP — login cloud / GEMINI_API_KEY belum siap.",
+      note: "Dibaca dengan OCR di HP — login cloud / OPENROUTER_API_KEY belum siap.",
       visionWarning: status.detail,
     };
   }
 
   if (!status.configured) {
-    onProgress?.({ percent: 15, message: "OCR di HP (GEMINI_API_KEY belum diset)…" });
+    onProgress?.({ percent: 15, message: "OCR di HP (OPENROUTER_API_KEY belum diset)…" });
     const members = await tesseractScan(file, onProgress);
     return {
       members,
@@ -274,11 +274,11 @@ export async function scanKartuKeluarga(
   }
 
   try {
-    const visionMembers = await tryGeminiScan(prepared, onProgress);
+    const visionMembers = await tryOpenRouterScan(prepared, onProgress);
     onProgress?.({ percent: 100, message: "Selesai (scan cepat)." });
     return {
       members: visionMembers,
-      engine: "gemini",
+      engine: "openrouter",
       note: "Dibaca dengan scan cepat (Vision).",
     };
   } catch (err) {

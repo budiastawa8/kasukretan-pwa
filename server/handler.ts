@@ -22,8 +22,8 @@ import {
   restoreStatus,
 } from "./restore.js";
 import { toJsonValue } from "./sql-convert.js";
-import { isKkScanConfigured, kkScanModel, scanKkWithGemini } from "./kk-scan.js";
-import { isKtpScanConfigured, ktpScanModel, scanKtpWithGemini } from "./ktp-scan.js";
+import { isKkScanConfigured, kkScanModel, scanKkWithOpenRouter } from "./kk-scan.js";
+import { isKtpScanConfigured, ktpScanModel, scanKtpWithOpenRouter } from "./ktp-scan.js";
 import {
   handlePortalAuthedRoute,
   handlePortalLoginRoute,
@@ -135,7 +135,7 @@ async function handleRoute(path: string, req: ApiRequest, res: ServerResponse): 
       bridge: "sqlite",
       dbReady,
       dbError,
-      kkScan: { configured: isKkScanConfigured(), engine: isKkScanConfigured() ? "gemini" : null },
+      kkScan: { configured: isKkScanConfigured(), engine: isKkScanConfigured() ? "openrouter" : null },
       fonnte: { configured: isFonnteConfigured() },
     });
     return;
@@ -213,12 +213,12 @@ async function handleRoute(path: string, req: ApiRequest, res: ServerResponse): 
     return;
   }
 
-  /** Status mesin scan KK cepat (Gemini). */
+  /** Status mesin scan KK cepat (OpenRouter Vision). */
   if (path === "kk-scan/status" && method === "GET") {
     send(res, 200, {
       ok: true,
       configured: isKkScanConfigured(),
-      engine: isKkScanConfigured() ? "gemini" : null,
+      engine: isKkScanConfigured() ? "openrouter" : null,
       model: isKkScanConfigured() ? kkScanModel() : null,
     });
     return;
@@ -245,7 +245,7 @@ async function handleRoute(path: string, req: ApiRequest, res: ServerResponse): 
     return;
   }
 
-  /** Baca tabel anggota Kartu Keluarga lewat Vision (Gemini). */
+  /** Baca tabel anggota Kartu Keluarga lewat Vision (OpenRouter). */
   if (path === "kk-scan" && method === "POST") {
     if (user.peran === "prajuru") {
       throw new HttpError(403, "Peran prajuru tidak berhak scan KK.");
@@ -253,23 +253,23 @@ async function handleRoute(path: string, req: ApiRequest, res: ServerResponse): 
     const body = await readBody(req);
     const imageBase64 = String(body.imageBase64 ?? body.image ?? "");
     if (!imageBase64.trim()) throw new HttpError(400, "imageBase64 wajib.");
-    const members = await scanKkWithGemini(imageBase64);
-    send(res, 200, { ok: true, engine: "gemini", members });
+    const members = await scanKkWithOpenRouter(imageBase64);
+    send(res, 200, { ok: true, engine: "openrouter", members });
     return;
   }
 
-  /** Status mesin scan KTP cepat (Gemini — kunci sama dengan KK). */
+  /** Status mesin scan KTP cepat (OpenRouter — kunci sama dengan KK). */
   if (path === "ktp-scan/status" && method === "GET") {
     send(res, 200, {
       ok: true,
       configured: isKtpScanConfigured(),
-      engine: isKtpScanConfigured() ? "gemini" : null,
+      engine: isKtpScanConfigured() ? "openrouter" : null,
       model: isKtpScanConfigured() ? ktpScanModel() : null,
     });
     return;
   }
 
-  /** Baca satu KTP lewat Vision (Gemini). */
+  /** Baca satu KTP lewat Vision (OpenRouter). */
   if (path === "ktp-scan" && method === "POST") {
     if (user.peran === "prajuru") {
       throw new HttpError(403, "Peran prajuru tidak berhak scan KTP.");
@@ -277,8 +277,8 @@ async function handleRoute(path: string, req: ApiRequest, res: ServerResponse): 
     const body = await readBody(req);
     const imageBase64 = String(body.imageBase64 ?? body.image ?? "");
     if (!imageBase64.trim()) throw new HttpError(400, "imageBase64 wajib.");
-    const person = await scanKtpWithGemini(imageBase64);
-    send(res, 200, { ok: true, engine: "gemini", person });
+    const person = await scanKtpWithOpenRouter(imageBase64);
+    send(res, 200, { ok: true, engine: "openrouter", person });
     return;
   }
 

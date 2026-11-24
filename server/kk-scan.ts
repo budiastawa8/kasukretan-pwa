@@ -1,4 +1,12 @@
 import { HttpError } from "./auth.js";
+import {
+  approxBytesFromBase64,
+  extractJsonObject,
+  isOpenRouterConfigured,
+  openRouterVisionModel,
+  openRouterVisionText,
+  stripDataUrl,
+} from "./openrouter-vision.js";
 
 export type KkScanMemberDto = {
   nik?: string;
@@ -15,8 +23,6 @@ export type KkScanMemberDto = {
   selected: boolean;
 };
 
-/** Model Vision default — bisa diganti lewat GEMINI_MODEL. */
-const DEFAULT_MODEL = "gemini-2.5-flash";
 const MAX_IMAGE_BYTES = 2.5 * 1024 * 1024;
 
 const PROMPT = `Anda membaca foto Kartu Keluarga (KK) Indonesia.
@@ -35,23 +41,11 @@ Balas HANYA JSON valid tanpa markdown:
 {"members":[{"nama_lengkap":"","nik":"","jenis_kelamin":"L","tempat_lahir":"","tanggal_lahir":"","agama":"","status_kawin":"","pekerjaan":"","status_hubungan_kk":"","nama_ayah":"","nama_ibu":"","selected":true}]}`;
 
 export function isKkScanConfigured(): boolean {
-  return Boolean(process.env.GEMINI_API_KEY?.trim());
+  return isOpenRouterConfigured();
 }
 
 export function kkScanModel(): string {
-  return process.env.GEMINI_MODEL?.trim() || DEFAULT_MODEL;
-}
-
-function stripDataUrl(imageBase64: string): { mime: string; data: string } {
-  const m = imageBase64.trim().match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/s);
-  if (m) {
-    return { mime: m[1]!, data: m[2]!.replace(/\s/g, "") };
-  }
-  return { mime: "image/jpeg", data: imageBase64.replace(/\s/g, "") };
-}
-
-function approxBytesFromBase64(b64: string): number {
-  return Math.floor((b64.length * 3) / 4);
+  return openRouterVisionModel();
 }
 
 function cleanStr(v: unknown): string {
@@ -133,34 +127,11 @@ export function normalizeKkScanMembers(raw: unknown): KkScanMemberDto[] {
   return out;
 }
 
-function extractJsonObject(text: string): unknown {
-  const trimmed = text.trim();
-  const fence = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  const body = fence ? fence[1]!.trim() : trimmed;
-  const start = body.indexOf("{");
-  const end = body.lastIndexOf("}");
-  if (start < 0 || end <= start) throw new HttpError(502, "Respons Vision tidak berisi JSON.");
-  return JSON.parse(body.slice(start, end + 1)) as unknown;
-}
-
-type GeminiResponse = {
-  candidates?: Array<{
-    content?: { parts?: Array<{ text?: string }> };
-    finishReason?: string;
-  }>;
-  error?: { message?: string };
-};
-
 /**
- * Baca tabel anggota KK lewat Gemini Vision.
- * Membutuhkan env GEMINI_API_KEY.
+ * Baca tabel anggota KK lewat Vision (OpenRouter).
+ * Membutuhkan env OPENROUTER_API_KEY.
  */
-export async function scanKkWithGemini(imageBase64: string): Promise<KkScanMemberDto[]> {
-  const apiKey = process.env.GEMINI_API_KEY?.trim();
-  if (!apiKey) {
-    throw new HttpError(503, "Scan KK cepat belum dikonfigurasi (GEMINI_API_KEY).");
-  }
-
+export async function scanKkWithOpenRouter(imageBase64: string): Promise<KkScanMemberDto[]> {
   const { mime, data } = stripDataUrl(imageBase64);
   if (!data) throw new HttpError(400, "Gambar kosong.");
   if (approxBytesFromBase64(data) > MAX_IMAGE_BYTES) {
@@ -170,64 +141,12 @@ export async function scanKkWithGemini(imageBase64: string): Promise<KkScanMembe
     throw new HttpError(400, "Berkas harus berupa gambar.");
   }
 
-  const model = kkScanModel();
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
-
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 55_000);
-  let res: Response;
+  let text: string;
   try {
-    res = await fetch(url, {
-      method: "POST",
-      signal: ctrl.signal,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: "user",
-            parts: [
-              { text: PROMPT },
-              // camelCase — format REST Gemini terkini
-              { inlineData: { mimeType: mime, data } },
-            ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.1,
-          responseMimeType: "application/json",
-        },
-      }),
-    });
+    text = await openRouterVisionText({ prompt: PROMPT, mime, data, label: "Scan KK" });
   } catch (err) {
-    if (err instanceof Error && err.name === "AbortError") {
-      throw new HttpError(504, "Scan KK Vision timeout. Coba lagi atau gunakan foto lebih kecil.");
-    }
+    if (err instanceof HttpError) throw err;
     throw new HttpError(502, "Gagal menghubungi layanan Vision.");
-  } finally {
-    clearTimeout(timer);
-  }
-
-  const payload = (await res.json()) as GeminiResponse & {
-    promptFeedback?: { blockReason?: string };
-  };
-  if (!res.ok) {
-    const msg = payload.error?.message || `Vision HTTP ${res.status}`;
-    throw new HttpError(502, msg.replace(/key=[^&\s]+/gi, "key=***"));
-  }
-
-  const block = payload.promptFeedback?.blockReason;
-  if (block) {
-    throw new HttpError(502, `Vision menolak gambar (block: ${block}). Coba foto lebih jelas.`);
-  }
-
-  const candidate = payload.candidates?.[0];
-  const text = candidate?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
-  if (!text.trim()) {
-    const reason = candidate?.finishReason ?? "unknown";
-    throw new HttpError(
-      502,
-      `Vision tidak mengembalikan teks (finish: ${reason}). Coba foto ulang tabel anggota lebih dekat.`
-    );
   }
 
   let parsed: unknown;

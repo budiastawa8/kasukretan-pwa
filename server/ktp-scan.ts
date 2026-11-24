@@ -1,5 +1,11 @@
 import { HttpError } from "./auth.js";
 import { isKkScanConfigured, kkScanModel } from "./kk-scan.js";
+import {
+  approxBytesFromBase64,
+  extractJsonObject,
+  openRouterVisionText,
+  stripDataUrl,
+} from "./openrouter-vision.js";
 
 export type KtpScanDto = {
   nik?: string;
@@ -35,18 +41,6 @@ export function isKtpScanConfigured(): boolean {
 
 export function ktpScanModel(): string {
   return kkScanModel();
-}
-
-function stripDataUrl(imageBase64: string): { mime: string; data: string } {
-  const m = imageBase64.trim().match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/s);
-  if (m) {
-    return { mime: m[1]!, data: m[2]!.replace(/\s/g, "") };
-  }
-  return { mime: "image/jpeg", data: imageBase64.replace(/\s/g, "") };
-}
-
-function approxBytesFromBase64(b64: string): number {
-  return Math.floor((b64.length * 3) / 4);
 }
 
 function cleanStr(v: unknown): string {
@@ -133,35 +127,11 @@ export function normalizeKtpScan(raw: unknown): KtpScanDto | null {
   };
 }
 
-function extractJsonObject(text: string): unknown {
-  const trimmed = text.trim();
-  const fence = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  const body = fence ? fence[1]!.trim() : trimmed;
-  const start = body.indexOf("{");
-  const end = body.lastIndexOf("}");
-  if (start < 0 || end <= start) throw new HttpError(502, "Respons Vision tidak berisi JSON.");
-  return JSON.parse(body.slice(start, end + 1)) as unknown;
-}
-
-type GeminiResponse = {
-  candidates?: Array<{
-    content?: { parts?: Array<{ text?: string }> };
-    finishReason?: string;
-  }>;
-  error?: { message?: string };
-  promptFeedback?: { blockReason?: string };
-};
-
 /**
- * Baca satu KTP lewat Gemini Vision.
- * Membutuhkan env GEMINI_API_KEY (sama dengan scan KK).
+ * Baca satu KTP lewat Vision (OpenRouter).
+ * Membutuhkan env OPENROUTER_API_KEY (sama dengan scan KK).
  */
-export async function scanKtpWithGemini(imageBase64: string): Promise<KtpScanDto> {
-  const apiKey = process.env.GEMINI_API_KEY?.trim();
-  if (!apiKey) {
-    throw new HttpError(503, "Scan KTP cepat belum dikonfigurasi (GEMINI_API_KEY).");
-  }
-
+export async function scanKtpWithOpenRouter(imageBase64: string): Promise<KtpScanDto> {
   const { mime, data } = stripDataUrl(imageBase64);
   if (!data) throw new HttpError(400, "Gambar kosong.");
   if (approxBytesFromBase64(data) > MAX_IMAGE_BYTES) {
@@ -171,61 +141,12 @@ export async function scanKtpWithGemini(imageBase64: string): Promise<KtpScanDto
     throw new HttpError(400, "Berkas harus berupa gambar.");
   }
 
-  const model = ktpScanModel();
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
-
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 55_000);
-  let res: Response;
+  let text: string;
   try {
-    res = await fetch(url, {
-      method: "POST",
-      signal: ctrl.signal,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: "user",
-            parts: [
-              { text: PROMPT },
-              { inlineData: { mimeType: mime, data } },
-            ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.1,
-          responseMimeType: "application/json",
-        },
-      }),
-    });
+    text = await openRouterVisionText({ prompt: PROMPT, mime, data, label: "Scan KTP" });
   } catch (err) {
-    if (err instanceof Error && err.name === "AbortError") {
-      throw new HttpError(504, "Scan KTP Vision timeout. Coba lagi atau gunakan foto lebih kecil.");
-    }
+    if (err instanceof HttpError) throw err;
     throw new HttpError(502, "Gagal menghubungi layanan Vision.");
-  } finally {
-    clearTimeout(timer);
-  }
-
-  const payload = (await res.json()) as GeminiResponse;
-  if (!res.ok) {
-    const msg = payload.error?.message || `Vision HTTP ${res.status}`;
-    throw new HttpError(502, msg.replace(/key=[^&\s]+/gi, "key=***"));
-  }
-
-  const block = payload.promptFeedback?.blockReason;
-  if (block) {
-    throw new HttpError(502, `Vision menolak gambar (block: ${block}). Coba foto lebih jelas.`);
-  }
-
-  const candidate = payload.candidates?.[0];
-  const text = candidate?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
-  if (!text.trim()) {
-    const reason = candidate?.finishReason ?? "unknown";
-    throw new HttpError(
-      502,
-      `Vision tidak mengembalikan teks (finish: ${reason}). Coba foto ulang KTP lebih dekat dan terang.`
-    );
   }
 
   let parsed: unknown;
