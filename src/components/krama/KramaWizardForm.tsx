@@ -262,11 +262,6 @@ export function KramaWizardForm({
   const isPemasih = isKramaTamiu || isTamiu;
   const usesTanggalPencatatan = isPipil || isPemasih;
   const gelarLabel = gelarKepalaLabel(klasifikasi);
-  const cardTitle = isPipil
-    ? "PIPIL KULAWARGA KRAMA DESA ADAT"
-    : isKramaTamiu
-      ? "PEMASIH KRAMA TAMIU"
-      : "PEMASIH TAMIU";
 
   const [banjarId, setBanjarId] = useState("");
   const [banjarKode, setBanjarKode] = useState("");
@@ -762,6 +757,18 @@ export function KramaWizardForm({
   useEffect(() => {
     applyPemasihKodeFromAgama(kepalaDisplay?.agama);
   }, [kepalaDisplay?.agama, isPemasihEntry]);
+
+  /** Baru: KT vs Tamiu baru pasti setelah agama pengajeg diisi. */
+  const pemasihKlasifikasiConfirmed =
+    !isPemasihEntry || tryKlasifikasiPemasihFromAgama(kepalaDisplay?.agama) != null;
+
+  const cardTitle = isPipil
+    ? "PIPIL KULAWARGA KRAMA DESA ADAT"
+    : !pemasihKlasifikasiConfirmed
+      ? "PEMASIH"
+      : isKramaTamiu
+        ? "PEMASIH KRAMA TAMIU"
+        : "PEMASIH TAMIU";
 
   const pemasihStatusPending =
     isPemasihEntry &&
@@ -1506,7 +1513,13 @@ export function KramaWizardForm({
     navigateAfterSave(kramaDetailPath(klasifikasiProp, saved.id));
   }
 
-  const nomorLabel = isPipil ? "NPK" : isKramaTamiu ? "NPKT" : "NPT";
+  const nomorLabel = isPipil
+    ? "NPK"
+    : !pemasihKlasifikasiConfirmed
+      ? "No."
+      : isKramaTamiu
+        ? "NPKT"
+        : "NPT";
 
   const kramaNonaktifEfektif =
     statusKrama === "nonaktif" || (isEdit && krama ? isKramaNonaktifTotal(krama) : false);
@@ -1865,8 +1878,22 @@ export function KramaWizardForm({
           {/* Readonly jenis hanya di md+ — di HP cukup Select di bawah (hindari duplikat) */}
           <FieldReadonly
             className="hidden md:block"
-            label={isPipil ? "Jenis Krama Mipil" : isKramaTamiu ? "Jenis Krama Tamiu" : "Jenis Tamiu"}
-            value={isEdit ? krama?.jenis_nama : jenisNama}
+            label={
+              isPipil
+                ? "Jenis Krama Mipil"
+                : !pemasihKlasifikasiConfirmed
+                  ? "Jenis"
+                  : isKramaTamiu
+                    ? "Jenis Krama Tamiu"
+                    : "Jenis Tamiu"
+            }
+            value={
+              isEdit
+                ? krama?.jenis_nama
+                : !pemasihKlasifikasiConfirmed
+                  ? "— isi agama pengajeg dulu —"
+                  : jenisNama
+            }
           />
           <FieldReadonly
             label={isPipil ? "Jenis kelamin (pengarep)" : "Jenis kelamin (pengajeg)"}
@@ -1986,7 +2013,7 @@ export function KramaWizardForm({
               )}
             </div>
           )}
-          {isKramaTamiu && (
+          {pemasihKlasifikasiConfirmed && isKramaTamiu && (
             <div>
               <Label>Jenis Krama Tamiu</Label>
               <Select
@@ -2003,7 +2030,7 @@ export function KramaWizardForm({
               </Select>
             </div>
           )}
-          {isTamiu && (
+          {pemasihKlasifikasiConfirmed && isTamiu && (
             <div>
               <Label>Jenis Tamiu</Label>
               <Select value={jenisTamiuId} onChange={(e) => setJenisTamiuId(e.target.value)} required>
