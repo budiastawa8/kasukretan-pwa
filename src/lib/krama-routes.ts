@@ -16,3 +16,14 @@ export function kramaEditPath(kode: KlasifikasiKode, id: string): string {
 export function kramaDetailPath(kode: KlasifikasiKode, id: string): string {
   return `${kramaListPath(kode)}/${id}`;
 }
+
+/** Flash setelah simpan kartu baru — form kosong siap input berikutnya. */
+export type KramaJustSavedFlash = {
+  id: string;
+  nomorKartu: string;
+  label: "Pipil" | "Pemasih";
+};
+
+export type KramaNewLocationState = {
+  justSaved?: KramaJustSavedFlash;
+};

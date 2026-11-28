@@ -3,7 +3,7 @@ import {
   serializeKramaFormSnapshot,
   type KramaFormSnapshotFields,
 } from "../../lib/krama-form-snapshot";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useGuardedNavigate, useKramaFormGuard } from "../../context/KramaFormGuardContext";
 import { Check, ScanLine, UserPlus, X } from "lucide-react";
 import { useIsCompactClient, useIsPhoneClient } from "../../hooks/useClientFormFactor";
@@ -51,7 +51,13 @@ import {
   tryKlasifikasiPemasihFromAgama,
   type KlasifikasiPemasih,
 } from "../../lib/agama-tamiu";
-import { kramaListPath } from "../../lib/krama-routes";
+import {
+  kramaDetailPath,
+  kramaListPath,
+  kramaNewPath,
+  type KramaJustSavedFlash,
+} from "../../lib/krama-routes";
+import { PembayaranSavedBanner } from "../pembayaran/pembayaran-dialog-shared";
 import type {
   AnggotaDraft,
   Arahan,
@@ -221,10 +227,13 @@ export function KramaWizardForm({
   klasifikasi: klasifikasiProp,
   title,
   kramaId,
+  justSaved,
 }: {
   klasifikasi: KlasifikasiKode;
   title: string;
   kramaId?: string;
+  /** Flash setelah simpan kartu baru (form kosong untuk input berikutnya). */
+  justSaved?: KramaJustSavedFlash | null;
 }) {
   const navigate = useGuardedNavigate();
   const navigateAfterSave = useNavigate();
@@ -1201,7 +1210,7 @@ export function KramaWizardForm({
     async (opts?: {
       jenisMipilId?: string;
       nyadaManual?: NyadaManualInput;
-    }): Promise<string | null> => {
+    }): Promise<{ id: string; nomorKartu?: string } | null> => {
     const mipilJenisId = opts?.jenisMipilId ?? jenisMipilId;
     setLoading(true);
     setError("");
@@ -1214,7 +1223,7 @@ export function KramaWizardForm({
         } else if (!kepalaFromDraft) {
           throw new Error(`Tambahkan anggota dan tetapkan satu ${gelarLabel}`);
         }
-        const id = await createKrama({
+        const created = await createKrama({
           klasifikasiKode: klasifikasi,
           banjarId,
           banjarKode,
@@ -1242,7 +1251,7 @@ export function KramaWizardForm({
           jenisSebelumCeraiId: isPipil ? jenisSebelumCeraiId : undefined,
           nyadaManual: isPipil ? opts?.nyadaManual : undefined,
         });
-        return id;
+        return created;
       }
 
       if (!kramaId || !krama) throw new Error("Data krama tidak ada");
@@ -1291,7 +1300,7 @@ export function KramaWizardForm({
       } else if (usesTanggalPencatatan) {
         await loadKrama();
       }
-      return kramaId;
+      return { id: kramaId, nomorKartu: krama.nomor_kartu };
     } catch (e) {
       setError(String(e));
       return null;
@@ -1362,7 +1371,10 @@ export function KramaWizardForm({
     [isEdit, klasifikasi, krama, kepalaFromDraft, jenisMipilId, jenisMipil]
   );
 
-  const saveWithNyadaCheck = useCallback(async (): Promise<string | null> => {
+  const saveWithNyadaCheck = useCallback(async (): Promise<{
+    id: string;
+    nomorKartu?: string;
+  } | null> => {
     if (!isPipil) {
       return persistForm();
     }
@@ -1416,20 +1428,20 @@ export function KramaWizardForm({
       }
     }
 
-    const savedId = await persistForm({
+    const saved = await persistForm({
       jenisMipilId: jenisOverride,
       nyadaManual,
     });
-    if (savedId && jenisOverride) setJenisMipilId(jenisOverride);
-    if (savedId && statusKrama === "aktif") {
-      // Pengarep/tanggal lahir bisa berubah lewat anggota setelah updateKrama.
-      const berubah = await syncNyadaOtomatis({ kramaId: savedId }).catch(() => 0);
+    if (saved && jenisOverride) setJenisMipilId(jenisOverride);
+    // createKrama sudah syncNyadaOtomatis untuk Pipil baru — jangan ulang.
+    if (saved && statusKrama === "aktif" && isEdit) {
+      const berubah = await syncNyadaOtomatis({ kramaId: saved.id }).catch(() => 0);
       if (berubah > 0) {
-        const terbaru = await getKramaDetail(savedId).catch(() => null);
+        const terbaru = await getKramaDetail(saved.id).catch(() => null);
         if (terbaru) setJenisMipilId(terbaru.jenis_krama_mipil_id ?? "");
       }
     }
-    return savedId;
+    return saved;
   }, [
     isPipil,
     isEdit,
@@ -1462,8 +1474,8 @@ export function KramaWizardForm({
     register({
       isDirty: isFormDirty,
       onSave: async () => {
-        const savedId = await saveWithNyadaCheck();
-        if (!savedId) return false;
+        const saved = await saveWithNyadaCheck();
+        if (!saved) return false;
         setFormBaseline(formSnapshot);
         return true;
       },
@@ -1472,12 +1484,26 @@ export function KramaWizardForm({
   }, [register, isFormDirty, saveWithNyadaCheck, formSnapshot]);
 
   async function submit() {
-    const savedId = await saveWithNyadaCheck();
-    if (!savedId) return;
+    const saved = await saveWithNyadaCheck();
+    if (!saved) return;
     setFormBaseline(formSnapshot);
     register(null);
     // Lewati guard "simpan perubahan?" — data baru saja disimpan; baseline React belum ter-update.
-    navigateAfterSave(`${basePath}/${savedId}`);
+    if (!isEdit) {
+      const label: KramaJustSavedFlash["label"] = isPipil ? "Pipil" : "Pemasih";
+      navigateAfterSave(kramaNewPath(klasifikasiProp), {
+        replace: true,
+        state: {
+          justSaved: {
+            id: saved.id,
+            nomorKartu: saved.nomorKartu ?? "",
+            label,
+          } satisfies KramaJustSavedFlash,
+        },
+      });
+      return;
+    }
+    navigateAfterSave(kramaDetailPath(klasifikasiProp, saved.id));
   }
 
   const nomorLabel = isPipil ? "NPK" : isKramaTamiu ? "NPKT" : "NPT";
@@ -1760,6 +1786,29 @@ export function KramaWizardForm({
           </Button>
         </div>
       </div>
+
+      {justSaved && (
+        <div className="space-y-1">
+          <PembayaranSavedBanner
+            message={`${justSaved.label} ${justSaved.nomorKartu || "baru"} tersimpan. Form siap untuk input berikutnya.`}
+          />
+          <p className="text-xs text-muted">
+            <Link
+              to={kramaDetailPath(klasifikasiProp, justSaved.id)}
+              className="font-medium text-copper-800 underline underline-offset-2"
+            >
+              Lihat pratinjau PDF
+            </Link>
+            {" · "}
+            <Link
+              to={basePath}
+              className="font-medium text-copper-800 underline underline-offset-2"
+            >
+              Kembali ke daftar
+            </Link>
+          </p>
+        </div>
+      )}
 
       {error && <p className="text-red-600 text-xs">{error}</p>}
 

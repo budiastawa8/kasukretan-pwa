@@ -43,6 +43,6 @@ export {
 export type { CreateKramaInput, UpdateKramaInput, KramaKepalaInput } from "./krama-input";
 
 export { reaktivasiKrama, nonaktifkanKramaPindah, deleteKrama } from "./krama-lifecycle";
-export { createKrama, updateKrama } from "./krama-crud";
+export { createKrama, updateKrama, type CreateKramaResult } from "./krama-crud";
 
 export { previewStatusIlikita } from "../status-ilikita";

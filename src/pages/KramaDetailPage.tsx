@@ -1,9 +1,9 @@
 ﻿import { useCallback, useEffect, useState } from "react";
-import { RefreshCw, SquarePen } from "lucide-react";
+import { Plus, RefreshCw, SquarePen } from "lucide-react";
 import { useParams, useLocation } from "react-router-dom";
 import { getKramaDetail } from "../lib/services/krama";
-import { DESA_ADAT_UPDATED_EVENT, getDesaAdatWithMedia } from "../lib/services/desa";
-import { kramaEditPath, kramaListPath } from "../lib/krama-routes";
+import { DESA_ADAT_UPDATED_EVENT, getDesaAdat } from "../lib/services/desa";
+import { kramaEditPath, kramaListPath, kramaNewPath } from "../lib/krama-routes";
 import type { DesaAdat, KramaDetail } from "../lib/types";
 import { isAutoPerpanjangPemasihUntuk } from "../lib/ilikita-kebijakan";
 import { formatBerlakuSdKrama, hasMasaBerlakuTahun } from "../lib/masa-berlaku";
@@ -62,14 +62,16 @@ export function KramaDetailPage() {
   }, [load, location.key]);
 
   useEffect(() => {
-    void getDesaAdatWithMedia().then(setDesa);
-    const onDesaUpdated = () => void getDesaAdatWithMedia().then(setDesa);
+    void getDesaAdat().then(setDesa);
+    const onDesaUpdated = () => void getDesaAdat().then(setDesa);
     window.addEventListener(DESA_ADAT_UPDATED_EVENT, onDesaUpdated);
     return () => window.removeEventListener(DESA_ADAT_UPDATED_EVENT, onDesaUpdated);
   }, []);
 
   if (error && !krama) return <p className="text-red-600">{error}</p>;
   if (!krama) return <p className="text-muted">Memuat...</p>;
+
+  const baruLabel = krama.klasifikasi_kode === "MIPIL" ? "Pipil baru" : "Pemasih baru";
 
   return (
     <div className="space-y-4">
@@ -86,6 +88,15 @@ export function KramaDetailPage() {
           Kembali ke daftar
         </BackLink>
         <div className={cn("flex gap-2", isPhone ? "flex-col" : "flex-wrap")}>
+          {canEdit && (
+            <IconLink
+              to={kramaNewPath(krama.klasifikasi_kode)}
+              icon={Plus}
+              className={cn(isPhone && "h-11 w-full justify-center")}
+            >
+              {baruLabel}
+            </IconLink>
+          )}
           {canEdit && pemasihTidakAktif && (
             <Button
               type="button"

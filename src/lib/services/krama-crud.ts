@@ -35,7 +35,9 @@ import type { CreateKramaInput, UpdateKramaInput } from "./krama-input";
 import { catatBiayaAdministrasiIlikita } from "./tarif-administrasi-ilikita";
 import { catatPerubahanJenisNyada, syncNyadaOtomatis } from "./nyada-otomatis";
 
-export async function createKrama(input: CreateKramaInput): Promise<string> {
+export type CreateKramaResult = { id: string; nomorKartu: string };
+
+export async function createKrama(input: CreateKramaInput): Promise<CreateKramaResult> {
   const desa = await getDesaAdat();
   if (!isDesaConfigured(desa)) {
     throw new Error("Lengkapi konfigurasi desa adat terlebih dahulu");
@@ -254,7 +256,7 @@ export async function createKrama(input: CreateKramaInput): Promise<string> {
     void tryAutoPushKrama(kramaId);
   }
 
-  return kramaId;
+  return { id: kramaId, nomorKartu };
 }
 
 async function simpanJenisSebelumCerai(kramaId: string, jenisId: string | null): Promise<void> {

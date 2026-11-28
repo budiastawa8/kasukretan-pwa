@@ -1,7 +1,7 @@
-﻿import { useEffect, useState } from "react";
+﻿import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { FileText, ScrollText, LogOut } from "lucide-react";
-import { getDesaAdatWithMedia } from "../../lib/services/desa";
+import { Eye, FileText, LogOut, ScrollText } from "lucide-react";
+import { getDesaAdat, getDesaAdatWithMedia } from "../../lib/services/desa";
 import { listJenisMipil } from "../../lib/services/master";
 import { isPemasihPrintKlasifikasi, pemasihPrintMeta } from "../../lib/pemasih-print";
 import { normalizeKramaStatus } from "../../lib/krama-status";
@@ -23,25 +23,46 @@ export function KramaPrintPreviewView({ krama }: { krama: KramaDetail }) {
   const isTamiu = krama.klasifikasi_kode === "TAMIU";
   const isPemasihSheet = isPemasihPrintKlasifikasi(krama.klasifikasi_kode);
   const pemasihMeta = pemasihPrintMeta(krama.klasifikasi_kode);
-  const [desa, setDesa] = useState<DesaAdat | null>(null);
-  const [desaReady, setDesaReady] = useState(false);
+  const [desaCore, setDesaCore] = useState<DesaAdat | null>(null);
+  const [desaMedia, setDesaMedia] = useState<DesaAdat | null>(null);
+  const [desaMediaReady, setDesaMediaReady] = useState(false);
   const [jenisMipil, setJenisMipil] = useState<JenisKramaMipilRow[]>([]);
   const [skkOpen, setSkkOpen] = useState(false);
   const [skpOpen, setSkpOpen] = useState(false);
   const [tampilkanTtdBandesa, setTampilkanTtdBandesa] = useState(false);
   const [hasTtdImage, setHasTtdImage] = useState(false);
+  const [showPdfPreview, setShowPdfPreview] = useState(false);
+  const [showKartuPreview, setShowKartuPreview] = useState(false);
 
   useEffect(() => {
+    void getDesaAdat().then(setDesaCore);
+    if (isPipil) void listJenisMipil().then(setJenisMipil);
+  }, [isPipil]);
+
+  const ensureDesaMedia = useCallback(() => {
+    if (desaMedia) {
+      setDesaMediaReady(true);
+      return;
+    }
     void getDesaAdatWithMedia()
       .then((d) => {
-        setDesa(d);
+        setDesaMedia(d);
         const has = !!d?.bandesa_ttd_url?.trim()?.startsWith("data:image/");
         setHasTtdImage(has);
         if (!has) setTampilkanTtdBandesa(false);
       })
-      .finally(() => setDesaReady(true));
-    if (isPipil) void listJenisMipil().then(setJenisMipil);
-  }, [isPipil]);
+      .finally(() => setDesaMediaReady(true));
+  }, [desaMedia]);
+
+  const openPdfPreview = () => {
+    setShowPdfPreview(true);
+    ensureDesaMedia();
+  };
+
+  const openKartuPreview = () => {
+    setShowKartuPreview(true);
+    ensureDesaMedia();
+  };
 
   const label = isPipil ? "Pipil" : "Pemasih";
   const showIlikitaSheet = isPipil || (isPemasihSheet && !!pemasihMeta);
@@ -64,6 +85,7 @@ export function KramaPrintPreviewView({ krama }: { krama: KramaDetail }) {
       ? "Kartu Krama Tamiu"
       : "Kartu Tamiu";
   const kramaAktif = normalizeKramaStatus(krama.status_krama) === "aktif";
+  const desaForKartu = desaMedia ?? desaCore;
 
   return (
     <div className="space-y-3">
@@ -107,39 +129,65 @@ export function KramaPrintPreviewView({ krama }: { krama: KramaDetail }) {
           )}
         </div>
       </div>
-      {showIlikitaSheet && (
-        <div className="space-y-1">
-          <label className="flex items-center gap-2 text-sm text-copper-900 cursor-pointer">
-            <input
-              type="checkbox"
-              className="rounded border-copper-300"
-              checked={tampilkanTtdBandesa}
-              onChange={(e) => setTampilkanTtdBandesa(e.target.checked)}
-              disabled={!hasTtdImage}
-            />
-            Tampilkan tanda tangan Bandesa
-          </label>
-          {!hasTtdImage && (
-            <p className="text-[11px] text-copper-600">
-              Unggah gambar TTD Bandesa di Master Data → Profil Desa Adat.
-            </p>
-          )}
-        </div>
-      )}
-      {isPipil && (
-        <>
-          <PengarepWarningsPanel krama={krama} desa={desa} jenisMipil={jenisMipil} />
-          <IlikitaPdfInlinePreview
-            key={`pipil-${krama.id}`}
-            doc="pipil"
-            krama={krama}
-            desa={desa}
-            desaReady={desaReady}
-            tampilkanTtdBandesa={tampilkanTtdBandesa && hasTtdImage}
-          />
 
-          {krama.anggota_aktif.length > 0 && (
-            <section className="space-y-2">
+      {isPipil && <PengarepWarningsPanel krama={krama} desa={desaCore} jenisMipil={jenisMipil} />}
+
+      {showIlikitaSheet && (
+        <section className="space-y-2 rounded-lg border border-copper-200 bg-copper-50/40 px-3 py-3">
+          {!showPdfPreview ? (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm text-copper-900">
+                Pratinjau PDF {label} tidak dimuat otomatis agar halaman lebih cepat.
+              </p>
+              <Button type="button" variant="secondary" icon={Eye} onClick={openPdfPreview}>
+                Tampilkan pratinjau PDF
+              </Button>
+            </div>
+          ) : (
+            <>
+              <div className="space-y-1">
+                <label className="flex items-center gap-2 text-sm text-copper-900 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="rounded border-copper-300"
+                    checked={tampilkanTtdBandesa}
+                    onChange={(e) => setTampilkanTtdBandesa(e.target.checked)}
+                    disabled={!hasTtdImage}
+                  />
+                  Tampilkan tanda tangan Bandesa
+                </label>
+                {desaMediaReady && !hasTtdImage && (
+                  <p className="text-[11px] text-copper-600">
+                    Unggah gambar TTD Bandesa di Master Data → Profil Desa Adat.
+                  </p>
+                )}
+              </div>
+              <IlikitaPdfInlinePreview
+                key={`${isPipil ? "pipil" : "pemasih"}-${krama.id}`}
+                doc={isPipil ? "pipil" : "pemasih"}
+                krama={krama}
+                desa={desaMedia}
+                desaReady={desaMediaReady}
+                tampilkanTtdBandesa={tampilkanTtdBandesa && hasTtdImage}
+              />
+            </>
+          )}
+        </section>
+      )}
+
+      {isPipil && showKartu && (
+        <section className="space-y-2">
+          {!showKartuPreview ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-copper-200 px-3 py-3">
+              <p className="text-sm text-copper-900">
+                Pratinjau kartu anggota ({krama.anggota_aktif.length}) dimuat saat diminta.
+              </p>
+              <Button type="button" variant="secondary" icon={Eye} onClick={openKartuPreview}>
+                Tampilkan pratinjau kartu
+              </Button>
+            </div>
+          ) : (
+            <>
               <h3 className="text-sm font-semibold text-copper-900">
                 Kartu Krama Adat (8,5 × 5 cm) — {kartuA4GridHint(krama.anggota_aktif.length)}
               </h3>
@@ -152,7 +200,7 @@ export function KramaPrintPreviewView({ krama }: { krama: KramaDetail }) {
                   <KartuA4Grid>
                     {krama.anggota_aktif.map((a) => (
                       <div key={a.anggota_id} className="relative group kartu-pair-wrap">
-                        <KartuKramaAdatPair krama={krama} desa={desa} anggota={a} />
+                        <KartuKramaAdatPair krama={krama} desa={desaForKartu} anggota={a} />
                         <Link
                           to={`${cetakKartuPath}?anggota=${a.anggota_id}`}
                           className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity z-10"
@@ -170,24 +218,24 @@ export function KramaPrintPreviewView({ krama }: { krama: KramaDetail }) {
                   </KartuA4Grid>
                 </div>
               </div>
-            </section>
+            </>
           )}
-        </>
+        </section>
       )}
 
-      {isPemasihSheet && pemasihMeta && (
-        <>
-          <IlikitaPdfInlinePreview
-            key={`pemasih-${krama.id}`}
-            doc="pemasih"
-            krama={krama}
-            desa={desa}
-            desaReady={desaReady}
-            tampilkanTtdBandesa={tampilkanTtdBandesa && hasTtdImage}
-          />
-
-          {isKramaTamiu && showKartu && (
-            <section className="space-y-2">
+      {isPemasihSheet && pemasihMeta && isKramaTamiu && showKartu && (
+        <section className="space-y-2">
+          {!showKartuPreview ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-copper-200 px-3 py-3">
+              <p className="text-sm text-copper-900">
+                Pratinjau kartu anggota ({krama.anggota_aktif.length}) dimuat saat diminta.
+              </p>
+              <Button type="button" variant="secondary" icon={Eye} onClick={openKartuPreview}>
+                Tampilkan pratinjau kartu
+              </Button>
+            </div>
+          ) : (
+            <>
               <h3 className="text-sm font-semibold text-copper-900">
                 Kartu Krama Tamiu (8,5 × 5 cm) — {kartuA4GridHint(krama.anggota_aktif.length)}
               </h3>
@@ -200,7 +248,7 @@ export function KramaPrintPreviewView({ krama }: { krama: KramaDetail }) {
                   <KartuA4Grid>
                     {krama.anggota_aktif.map((a) => (
                       <div key={a.anggota_id} className="relative group kartu-pair-wrap">
-                        <KartuKramaTamiuPair krama={krama} desa={desa} anggota={a} />
+                        <KartuKramaTamiuPair krama={krama} desa={desaForKartu} anggota={a} />
                         <Link
                           to={`${cetakKartuPath}?anggota=${a.anggota_id}`}
                           className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity z-10"
@@ -218,11 +266,24 @@ export function KramaPrintPreviewView({ krama }: { krama: KramaDetail }) {
                   </KartuA4Grid>
                 </div>
               </div>
-            </section>
+            </>
           )}
+        </section>
+      )}
 
-          {isTamiu && showKartu && (
-            <section className="space-y-2">
+      {isPemasihSheet && pemasihMeta && isTamiu && showKartu && (
+        <section className="space-y-2">
+          {!showKartuPreview ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-copper-200 px-3 py-3">
+              <p className="text-sm text-copper-900">
+                Pratinjau kartu anggota ({krama.anggota_aktif.length}) dimuat saat diminta.
+              </p>
+              <Button type="button" variant="secondary" icon={Eye} onClick={openKartuPreview}>
+                Tampilkan pratinjau kartu
+              </Button>
+            </div>
+          ) : (
+            <>
               <h3 className="text-sm font-semibold text-copper-900">
                 Kartu Tamiu (8,5 × 5 cm) — {kartuA4GridHint(krama.anggota_aktif.length)}
               </h3>
@@ -235,7 +296,7 @@ export function KramaPrintPreviewView({ krama }: { krama: KramaDetail }) {
                   <KartuA4Grid>
                     {krama.anggota_aktif.map((a) => (
                       <div key={a.anggota_id} className="relative group kartu-pair-wrap">
-                        <KartuTamiuPair krama={krama} desa={desa} anggota={a} />
+                        <KartuTamiuPair krama={krama} desa={desaForKartu} anggota={a} />
                         <Link
                           to={`${cetakKartuPath}?anggota=${a.anggota_id}`}
                           className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity z-10"
@@ -253,10 +314,11 @@ export function KramaPrintPreviewView({ krama }: { krama: KramaDetail }) {
                   </KartuA4Grid>
                 </div>
               </div>
-            </section>
+            </>
           )}
-        </>
+        </section>
       )}
+
       <SuratKeteranganKramaDialog open={skkOpen} onClose={() => setSkkOpen(false)} krama={krama} />
       {isPipil && (
         <SuratKeteranganPindahDialog

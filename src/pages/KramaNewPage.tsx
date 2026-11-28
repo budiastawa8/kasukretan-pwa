@@ -1,5 +1,6 @@
-import { Navigate, useParams } from "react-router-dom";
+import { Navigate, useLocation, useParams } from "react-router-dom";
 import { KramaWizardForm } from "../components/krama/KramaWizardForm";
+import type { KramaNewLocationState } from "../lib/krama-routes";
 import type { KlasifikasiKode } from "../lib/types";
 
 const TITLES: Record<KlasifikasiKode, string> = {
@@ -9,7 +10,16 @@ const TITLES: Record<KlasifikasiKode, string> = {
 };
 
 export function KramaNewPage({ klasifikasi }: { klasifikasi: KlasifikasiKode }) {
-  return <KramaWizardForm klasifikasi={klasifikasi} title={TITLES[klasifikasi]} />;
+  const location = useLocation();
+  const state = location.state as KramaNewLocationState | null;
+  return (
+    <KramaWizardForm
+      key={state?.justSaved?.id ?? location.key}
+      klasifikasi={klasifikasi}
+      title={TITLES[klasifikasi]}
+      justSaved={state?.justSaved ?? null}
+    />
+  );
 }
 
 /** Route tunggal /krama-pemasih/baru — status KT/Tamiu dari agama pengajeg. */
